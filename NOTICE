@@ -1,0 +1,10 @@
+WiggleControl original source and documentation: MIT.
+
+src/vision.rs follows coordinate and model conventions from OpenCV Zoo's
+MediaPipe palm/hand adapters at commit 47534e27c9851bb1128ccc0102f1145e27f23f98.
+That module and downloaded model artifacts retain Apache-2.0 terms.
+Their licenses are retained in models/*-LICENSE; source references are in docs.
+
+ONNX Runtime 1.22.0 native CPU binaries retain Microsoft's MIT license,
+included in the downloaded distribution. ort wrapper is MIT OR Apache-2.0.
+Private Barehands/ProyectoRPi AGPL code has not been copied into this runtime.

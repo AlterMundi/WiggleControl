@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "linux")]
 pub mod input;
 
+#[cfg(feature = "native-vision")]
+pub mod vision;
+
+#[cfg(feature = "native-vision")]
+pub mod session;
+
 pub const SCHEMA_VERSION: u32 = 1;
 pub const MAX_MESSAGE_BYTES: usize = 16 * 1024;
 
@@ -34,6 +40,8 @@ pub struct Hand {
     pub engaged: bool,
     /// Producer must reject fists, ambiguous landmarks and occluded fingers.
     pub pinch_eligible: bool,
+    #[serde(default)]
+    pub scrolling: bool,
     pub cursor: Point,
     pub thumb_tip: Point,
     pub index_tip: Point,
@@ -71,6 +79,9 @@ pub enum Event {
     Button {
         down: bool,
     },
+    Scroll {
+        vertical: i32,
+    },
     Cancel {
         reason: String,
     },
@@ -84,6 +95,7 @@ pub struct Config {
     pub confirm_us: u64,
     pub stale_us: u64,
     pub smoothing_us: f64,
+    pub scroll_steps_per_unit: f64,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -94,6 +106,7 @@ impl Default for Config {
             confirm_us: 40_000,
             stale_us: 150_000,
             smoothing_us: 30_000.0,
+            scroll_steps_per_unit: 12.0,
         }
     }
 }
@@ -104,11 +117,14 @@ pub struct Engine {
     watermark: Option<u64>,
     last_now: Option<u64>,
     last_source: Option<u64>,
+    last_received: Option<u64>,
     hand_id: Option<u64>,
     cursor: Option<Point>,
     armed: bool,
     held: bool,
     candidate: Option<u64>,
+    scrolling: bool,
+    scroll_remainder: f64,
 }
 impl Engine {
     pub fn new(config: Config) -> Result<Self, &'static str> {
@@ -122,6 +138,8 @@ impl Engine {
             || config.stale_us <= config.confirm_us
             || !config.smoothing_us.is_finite()
             || config.smoothing_us < 0.0
+            || !config.scroll_steps_per_unit.is_finite()
+            || !(1.0..=20.0).contains(&config.scroll_steps_per_unit)
         {
             return Err("invalid gesture configuration");
         }
@@ -131,11 +149,14 @@ impl Engine {
             watermark: None,
             last_now: None,
             last_source: None,
+            last_received: None,
             hand_id: None,
             cursor: None,
             armed: false,
             held: false,
             candidate: None,
+            scrolling: false,
+            scroll_remainder: 0.0,
         })
     }
     pub fn start(&mut self) -> Vec<Event> {
@@ -156,7 +177,7 @@ impl Engine {
         }
         self.last_now = Some(now_us);
         if self
-            .last_source
+            .last_received
             .is_some_and(|last| now_us.saturating_sub(last) >= self.config.stale_us)
         {
             return self.cancel("stale_input");
@@ -179,6 +200,9 @@ impl Engine {
         self.hand_id = None;
         self.cursor = None;
         self.last_source = None;
+        self.last_received = None;
+        self.scrolling = false;
+        self.scroll_remainder = 0.0;
         events
     }
     pub fn observe(&mut self, now_us: u64, observation: Observation) -> Vec<Event> {
@@ -209,6 +233,17 @@ impl Engine {
             events.extend(self.cancel("hand_not_eligible"));
             return events;
         }
+        if self.scrolling != hand.scrolling {
+            if self.held {
+                events.push(Event::Button { down: false });
+            }
+            self.held = false;
+            self.armed = false;
+            self.candidate = None;
+            self.scrolling = hand.scrolling;
+            self.scroll_remainder = 0.0;
+            self.cursor = Some(hand.cursor);
+        }
         if self.hand_id != Some(hand.id) {
             events.extend(self.cancel("hand_changed"));
             self.hand_id = Some(hand.id);
@@ -225,12 +260,25 @@ impl Engine {
                 y: previous.y + alpha * (hand.cursor.y - previous.y),
             };
             let (dx, dy) = (next.x - previous.x, next.y - previous.y);
-            if dx != 0.0 || dy != 0.0 {
+            if hand.scrolling {
+                self.scroll_remainder -= dy * self.config.scroll_steps_per_unit;
+                let steps = (self.scroll_remainder.trunc() as i32).clamp(-10, 10);
+                self.scroll_remainder -= f64::from(steps);
+                if steps != 0 {
+                    events.push(Event::Scroll { vertical: steps });
+                }
+            } else if dx != 0.0 || dy != 0.0 {
                 events.push(Event::Move { dx, dy });
             }
             self.cursor = Some(next);
         }
         self.last_source = Some(observation.source_us);
+        self.last_received = Some(now_us);
+        if hand.scrolling {
+            self.armed = false;
+            self.candidate = None;
+            return events;
+        }
         let ratio = hand.thumb_tip.distance(hand.index_tip) / hand.palm_width;
         if ratio >= self.config.open_ratio {
             if self.held {

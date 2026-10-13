@@ -3,6 +3,48 @@ use wigglecontrol::{replay, Config, Engine, ReplayCommand, MAX_MESSAGE_BYTES};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(feature = "native-vision")]
+    match args.first().map(String::as_str) {
+        Some("image-check") if args.len() == 3 || args.len() == 4 => {
+            let config =
+                wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
+            ort::init_from(&config.runtime).commit()?;
+            let image = image::open(&args[1])?.to_rgb8();
+            // Optional 0..9 tile selection for the upstream 5x2 reference grid.
+            let image = if let Some(tile) = args.get(3) {
+                let tile: u32 = tile.parse()?;
+                if tile >= 10 {
+                    return Err("reference tile must be 0..9".into());
+                }
+                image::imageops::crop_imm(
+                    &image,
+                    tile % 5 * (image.width() / 5),
+                    tile / 5 * (image.height() / 2),
+                    image.width() / 5,
+                    image.height() / 2,
+                )
+                .to_image()
+            } else {
+                image
+            };
+            let mut model =
+                wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
+            let detected = model.infer(&image)?;
+            println!(
+                "{}",
+                serde_json::json!({"detected":detected.is_some(),"confidence":detected.as_ref().map(|h|h.confidence),"landmarks":detected.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),"handedness":detected.as_ref().map(|h|h.handedness),"width":image.width(),"height":image.height(),"palm_score":model.palm_score,"hand_score":model.hand_score,"side_score":model.side_score,"roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side,"angle":r.angle}))})
+            );
+            return Ok(());
+        }
+        Some("camera-check") | Some("run") if args.len() == 3 => {
+            return wigglecontrol::session::run(
+                std::path::Path::new(&args[2]),
+                args[1].parse()?,
+                args[0] == "run",
+            );
+        }
+        _ => (),
+    }
     #[cfg(target_os = "linux")]
     match args.first().map(String::as_str) {
         Some("device-check") if args.len() == 2 => {

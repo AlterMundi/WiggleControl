@@ -8,6 +8,7 @@ fn frame(t: u64, id: u64, ratio: f64, x: f64) -> Observation {
             confidence: 0.99,
             engaged: true,
             pinch_eligible: true,
+            scrolling: false,
             cursor: Point { x, y: 0.5 },
             thumb_tip: Point { x: 0.4, y: 0.5 },
             index_tip: Point {
@@ -156,4 +157,43 @@ fn stopped_engine_ignores_observations_and_invalid_config_is_rejected() {
         ..Config::default()
     })
     .is_err());
+}
+
+#[test]
+fn fresh_delayed_frames_preserve_drag_but_stale_frames_do_not() {
+    let mut e = engine();
+    e.observe(80_001, frame(1, 1, 0.6, 0.5));
+    e.observe(100_001, frame(20_001, 1, 0.1, 0.5));
+    assert!(e
+        .observe(140_001, frame(60_001, 1, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    let fresh = e.observe(240_001, frame(160_001, 1, 0.1, 0.7));
+    assert!(!fresh.contains(&Event::Button { down: false }));
+    assert!(e
+        .observe(400_001, frame(200_001, 1, 0.1, 0.7))
+        .contains(&Event::Button { down: false }));
+}
+
+#[test]
+fn scroll_releases_drag_freezes_pointer_and_resets_baseline() {
+    let mut e = engine();
+    press(&mut e);
+    let mut first = frame(80_001, 1, 0.6, 0.5);
+    first.hand.as_mut().unwrap().scrolling = true;
+    assert!(e
+        .observe(80_001, first)
+        .contains(&Event::Button { down: false }));
+    let mut next = frame(180_001, 1, 0.6, 0.5);
+    let hand = next.hand.as_mut().unwrap();
+    hand.scrolling = true;
+    hand.cursor.y = 0.2;
+    let events = e.observe(180_001, next);
+    assert!(events
+        .iter()
+        .any(|e| matches!(e,Event::Scroll{vertical} if *vertical>0)));
+    assert!(!events.iter().any(|e| matches!(e, Event::Move { .. })));
+    let exited = e.observe(200_001, frame(200_001, 1, 0.6, 0.5));
+    assert!(!exited
+        .iter()
+        .any(|e| matches!(e, Event::Move { .. } | Event::Scroll { .. })));
 }

@@ -12,12 +12,16 @@ integer microseconds from a shared monotonic epoch; never Unix wall clock or
 assumed FPS. Native producers must translate their clock to that consumer epoch.
 `source_us` must increase, be no later than consumer `now_us` and be younger than
 150 ms. `tick` is the explicit watchdog clock; production integration must call
-it even when a producer stalls. The replay executable alone is not that live
+it even when a producer stalls. Frame age is validated separately from the
+150 ms interval since the last accepted delivery, so a steady stream of fresh
+frames with real processing latency does not reset a drag on every update. The replay executable alone is not that live
 watchdog and cannot measure real camera latency.
 
 Hand fields: stable `id`, finite `confidence` in [0,1], explicit `engaged`,
 `pinch_eligible`, `cursor`, `thumb_tip`, `index_tip` and positive `palm_width`.
-Points have normalized x/y in [0,1], x increasing toward screen right and y down.
+Cursor points use normalized display-workspace x/y in [0,1], x increasing toward
+screen right and y down. Fingertips use a separate square-padded camera metric,
+normalized by the larger sensor dimension; palm width uses that same metric.
 The producer transforms camera mirroring into this display-oriented coordinate
 space exactly once. Palm width and fingertip separation use the same coordinate
 metric; compensate camera aspect ratio before normalizing if needed. The initial
@@ -49,3 +53,11 @@ and release its state on producer/process failure.
 
 Try `cargo run --locked -- replay < tests/fixtures/click-drag.jsonl`.
 All fixture inputs are fictional; no actual camera content is committed.
+
+
+The optional v1 `scrolling` hand field defaults false for earlier fixtures.
+The native producer selects it while thumb/middle are pinched and thumb/index
+remain open. In this mode palm vertical movement emits wheel intent (12 steps
+per workspace unit, fractional accumulation); upward motion scrolls upward.
+Pointer motion is parked, held clicks release, and exit resets the pointer
+baseline without a jump. This initial mapping requires human qualification.

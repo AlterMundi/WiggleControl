@@ -4,3 +4,6 @@
 /private/
 
 /models/*.onnx
+
+/runtime/
+/models/*.download

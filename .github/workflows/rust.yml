@@ -11,3 +11,14 @@ jobs:
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings
+
+  native-vision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.1
+        with:
+          components: clippy
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - run: cargo test --locked --features native-vision
+      - run: cargo clippy --locked --all-targets --features native-vision -- -D warnings

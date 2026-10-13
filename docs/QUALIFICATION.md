@@ -48,3 +48,55 @@ performance estimate. The palm model failed at Resize__235: expected output
 this pinned tract candidate does not yet qualify the full two-model pipeline.
 Preserve this concrete incompatibility and evaluate a different supported
 backend/version before choosing production inference. No camera used.
+
+
+ONNX Runtime 1.22.0 with ort 2.0.0-rc.10 runs both pinned models and produces
+finite expected output shapes on VPS and receiving ARM64 Rust 1.85.1. On the
+Pi's explicit silent profile (1.5 GHz cap, fan off, ongoing one-core encoder,
+SoC about 83–85 C and firmware thermal limiting), 20 synthetic model-only runs
+measured palm p50/p95 80.5/87.3 ms and hand 49.8/54.6 ms, using one inference
+thread. This is not an accuracy, full-pipeline or thermally neutral benchmark.
+Public runtime artifacts and their observed hashes are in runtime-manifest.json;
+upstream assets did not supply a digest. Rust wrapper plus native CPU library is
+selected for the next perception experiment after the exact tract palm failure.
+
+Native perception geometry/anchor/fist-eligibility tests pass with replay and
+Linux mapping tests (19 total). Generated 2016-anchor ordering was compared to
+the pinned upstream literal table (maximum coordinate error 3.34e-8). The
+current rotated ROI sampling uses bilinear interpolation and direct square crops,
+not a claim of byte-identical OpenCV INTER_AREA preprocessing; source-linked
+real-input comparison and hand accuracy remain pending. The producer uses
+mirrored palm-center cursor and square fingertip metric; these are initial
+calibration choices, not final human acceptance.
+
+
+The first real 20-second camera-only session captured 293 frames, processed 184
+(latest-frame drops 108), detected no accepted hands and injected nothing. Driver
+timestamps were monotonic start-of-exposure; timestamp-to-intent p50/p95 about
+119/150 ms while no hand was tracked. Camera closed afterward; microphone stayed
+inactive. Absence of accepted hands does not establish that no hand was visible.
+
+A cropped gesture-grid reference was rejected by both this pipeline and original
+OpenCV, so it was not a positive test. The first frame of the pinned upstream
+palm demonstration animation gave OpenCV confidence 0.9904 and Rust/ORT 0.9878.
+Corresponding 21-point deviation: median 0.45 pixels, maximum 2.50 pixels on a
+600x450 image. This is one source-backed positive preprocessing comparison, not
+physical accuracy acceptance. Palm threshold now matches upstream's 0.5; hand
+acceptance stays 0.8. Native vision plus replay/input tests now total 20.
+
+
+The relative device delivered trusted pointer, click, drag and wheel events to
+Chromium native Wayland at 1080p. A producer stall released a held button in
+the application. Forced writer death was separately tested with a keepalive
+preventing watchdog expiry: the application observed release and the virtual
+device was absent afterward. These are real uinput/libinput/application effects,
+not JavaScript/CDP-dispatched input. CDP was used only for state/geometry reads
+and preparing this task-owned qualification window.
+
+Installed manually enabled receiving artifacts with model/native-library hash
+verification and rollback snapshot; a named-operator uinput rule persists the
+required access without root perception. No startup camera/model service exists.
+Integrators `input 20` entered visible preparation, then observed input activity
+and camera-open with microphone inactive; its existing Stop ended the owned
+process group and actual camera usage. Application/gesture human accuracy, VLC
+/XWayland acceptance and direct multitouch remain pending.

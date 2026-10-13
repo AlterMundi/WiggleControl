@@ -40,3 +40,21 @@ Multitouch is a later distinct contract, not a promise of zoom in every app.
 Owning implementation tracker: [WiggleControl #1](https://github.com/AlterMundi/WiggleControl/issues/1).
 Historical discussion/parent: [daimon-integrators #3](https://github.com/AlterMundi/daimon-integrators/issues/3). Keep owning issues and this
 context aligned as implementation progresses; research is not implementation.
+
+
+## Native session integration checkpoint
+
+The selected experiment uses ort rc.10 / ONNX Runtime 1.22 CPU, not the failing
+tract palm candidate. Both models run on Pi 5; native geometry matches one
+positive upstream frame within median 0.45/max 2.50 pixels against OpenCV.
+Perception/model confidence is not human gesture accuracy. Latest-frame 640x480
+MJPEG, monotonic driver timestamps, finite stop and no recordings are implemented.
+
+The installed relative virtual mouse reaches Chromium through actual Linux
+input, including drag/scroll/watchdog/process-death release. Integrators owns
+manual `input SECONDS` preparation/start/Stop; input differs from recording.
+A private task-owned browser page is available for hand qualification; one real
+camera-only session accepted no hands. Do not infer human absence from that.
+Source/account/private bindings remain in Shared Resources. No models at boot.
+Next: direct touch replay/typing, additional application acceptance and a
+human-present gesture session with real accuracy/comfort measurements.

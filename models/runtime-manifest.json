@@ -1,0 +1,24 @@
+{
+  "runtimes": [
+    {
+      "version": "1.22.0",
+      "arch": "x64",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz",
+      "bytes": 7798730,
+      "sha256": "8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3",
+      "license": "MIT",
+      "upstream_digest": "GitHub release asset did not publish a digest; hash records downloaded public artifact",
+      "library_sha256": "3da6146e14e7b8aaec625dde11d6114c7457c87a5f93d744897da8781e35c673"
+    },
+    {
+      "version": "1.22.0",
+      "arch": "aarch64",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-aarch64-1.22.0.tgz",
+      "bytes": 6849865,
+      "sha256": "bb76395092d150b52c7092dc6b8f2fe4d80f0f3bf0416d2f269193e347e24702",
+      "license": "MIT",
+      "upstream_digest": "GitHub release asset did not publish a digest; hash records downloaded public artifact",
+      "library_sha256": "0afd69a0ae38c5099fd0e8604dda398ac43dee67cd9c6394b5142b19e82528de"
+    }
+  ]
+}

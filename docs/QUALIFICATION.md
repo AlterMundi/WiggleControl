@@ -499,3 +499,17 @@ the browser anchors the countdown at request start rather than header receipt;
 a camera-free regression proves cached frames cannot extend the deadline. This
 addresses a concrete timing discrepancy without claiming the sole observed
 cause; receiving terminal presentation still needs its next live check.
+
+### Wider-tolerance preview trial
+
+With a fresh ready acknowledgment, the receiving development binary ran the
+30-second diagnostic close/open 0.35/0.5 profile, requesting five counted pinches.
+The engine reported ten press intents; exact human gesture count is pending.
+Do not equate more intents with improved accuracy: duplicate/extra activations
+remain a possibility until the actual attempts are confirmed. Read-only live
+inspection observed TESTING, 00:20 and Open fingers first. Summary: 425 captured,
+270 processed, 245 detected, 244 tracked, 153 dropped, 28 stale; fresh FPS 7.98,
+timestamp-to-intent p50/p95 119.00/163.94 ms, one-core CPU 56.96%, runtime RSS
+52624 KiB, child RSS zero. No input writer or recording; production config
+retained its original profile. Comfort, counted recognition and relaxed-hand
+false activation remain separate human acceptance questions.

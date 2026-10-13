@@ -5,13 +5,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
-        Some("image-check-touch") if args.len() == 3 || (args.len() == 4 && args[3] == "pair") => {
+        Some("image-check-touch")
+            if args.len() == 3 || ((args.len() == 4 || args.len() == 5) && args[3] == "pair") =>
+        {
             let config =
                 wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
             ort::init_from(&config.runtime).commit()?;
             let image = image::open(&args[1])?.to_rgb8();
             // Deterministic two-hand reference fixture in memory, not a camera image.
-            let image = if args.len() == 4 {
+            let image = if args.len() >= 4 {
                 let mut pair = image::RgbImage::new(image.width() * 2, image.height());
                 image::imageops::replace(&mut pair, &image, 0, 0);
                 image::imageops::replace(
@@ -26,11 +28,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let mut model =
                 wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
-            for _ in 0..3 {
+            let iterations: usize = args.get(4).map(|s| s.parse()).transpose()?.unwrap_or(3);
+            if !(1..=60).contains(&iterations) {
+                return Err("reference iterations must be 1..60".into());
+            }
+            for _ in 0..iterations {
+                let start = std::time::Instant::now();
                 let result = model.infer_many(&image)?;
                 println!(
                     "{}",
-                    serde_json::json!({"ambiguous":result.ambiguous,"hands":result.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})).collect::<Vec<_>>() })
+                    serde_json::json!({"inference_ms":start.elapsed().as_secs_f64()*1000.0,"ambiguous":result.ambiguous,"hands":result.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})).collect::<Vec<_>>() })
                 );
             }
             return Ok(());

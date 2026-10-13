@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WiggleControl · Camera-free baseline</title>
+<style>:root{color-scheme:dark;background:#090e17;color:#f5f0e6;font:24px system-ui}body{margin:36px;max-width:1000px}header{border-left:24px solid #dcb3c3;border-top:12px solid #f4c283;border-radius:48px 0 0 0;padding:24px;background:#111925}h1{font-size:36px}button{font:inherit;background:#f4c283;color:#090e17;border:0;padding:20px 28px;margin:24px 0;border-radius:28px 0 0 28px}pre{white-space:pre-wrap;color:#a8dac6;border-left:12px solid #87d7ee;padding:22px}canvas{max-width:100%;border:2px solid #87d7ee}</style>
+<header><h1>WIGGLECONTROL // BASELINE</h1><p>Developer comparison on a permitted static reference. No camera, microphone or system input.</p><p>MediaPipe Tasks Vision 0.10.14 · GPU · two hands · VIDEO</p></header>
+<button id="run">Run 30 reference frames</button><p id="state">Idle. Runtime/model load only after manual start.</p><canvas id="fixture"></canvas><pre id="result"></pre>
+<script type="module">
+const state=document.querySelector('#state'),output=document.querySelector('#result'),canvas=document.querySelector('#fixture');
+window.baselineResult=null;let running=false;
+const percentile=(a,p)=>[...a].sort((a,b)=>a-b)[Math.max(0,Math.ceil(a.length*p)-1)];
+window.runBaseline=async function({imageUrl='reference.png',pair=true,iterations=30,delegate='GPU'}={}){
+ if(running)throw Error('Baseline already running');
+ if(!Number.isInteger(iterations)||iterations<1||iterations>60||!['GPU','CPU'].includes(delegate))throw Error('Bounded frames/delegate required');
+ running=true;window.baselineResult={status:'running'};state.textContent='Loading explicit reference/runtime…';let model;
+ try{
+  const image=new Image();image.src=imageUrl;await image.decode();
+  if(image.width>1920||image.height>1080)throw Error('Reference exceeds bounded dimensions');
+  canvas.width=image.width*(pair?2:1);canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+  if(pair){ctx.save();ctx.translate(canvas.width,0);ctx.scale(-1,1);ctx.drawImage(image,0,0);ctx.restore();}
+  window.baselineResult.phase='runtime_import';
+  const {HandLandmarker,FilesetResolver}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');
+  const loadStart=performance.now();
+  window.baselineResult.phase='wasm_resolver';
+  const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  window.baselineResult.phase='model_initialization';
+  model=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate},numHands:2,runningMode:'VIDEO'});
+  const loadMs=performance.now()-loadStart,samples=[];let first,last;state.textContent='Running finite reference frames…';
+  for(let i=0;i<iterations;i++){
+   window.baselineResult.phase='reference_inference';window.baselineResult.frame=i;
+   const start=performance.now(),result=model.detectForVideo(canvas,1000+i*100),ms=performance.now()-start;
+   const frame={ms,hands:result.landmarks.length,landmarks:result.landmarks.map(hand=>hand.map(p=>[p.x*canvas.width,p.y*canvas.height])),handedness:result.handedness};
+   first??=frame;last=frame;samples.push(ms);await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  const gl=document.createElement('canvas').getContext('webgl2'),debug=gl?.getExtension('WEBGL_debug_renderer_info');
+  window.baselineResult={status:'completed',version:'0.10.14',delegate,pair,iterations,width:canvas.width,height:canvas.height,loadMs,first,last,tracked_p50_ms:iterations>1?percentile(samples.slice(1),.5):null,tracked_p95_ms:iterations>1?percentile(samples.slice(1),.95):null,renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null};
+  output.textContent=JSON.stringify(window.baselineResult,null,2);state.textContent='Finished. No capture or input device opened.';return window.baselineResult;
+ }catch(error){window.baselineResult={status:'failed',error:String(error)};output.textContent=JSON.stringify(window.baselineResult);state.textContent='Failed; no silent delegate fallback.';throw error;}
+ finally{model?.close();running=false;}
+};
+document.querySelector('#run').onclick=()=>window.runBaseline().catch(()=>{});
+</script></html>

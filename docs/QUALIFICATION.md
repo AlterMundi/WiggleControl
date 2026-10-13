@@ -233,3 +233,27 @@ absent afterward, with camera/microphone inactive. Screenshots and receiving
 bindings remain private. This qualifies VLC/XWayland pointer/button/drag/wheel and
 fullscreen delivery, complementing Chromium native Wayland's trusted-event proof.
 It does not establish camera-driven VLC accuracy or native VLC touch gestures.
+
+## Matched static-reference comparison preparation — 2026-10-13
+
+A camera-free browser tool independently selects the public MediaPipe Tasks
+Vision 0.10.14 / float16 hand-landmarker task version 1, GPU delegate, two hands
+and VIDEO mode used by the inspected existing prototype. It imports runtime/model
+only on manual start and processes a bounded 1–60 frames, with no camera,
+microphone, board integration or system input. No private prototype source is
+copied or relicensed. The API is grounded in the official Hand Landmarker web
+guide; this is SDK comparison, not full prototype/rendering performance.
+
+The native paired reference now supports a bounded repeated diagnostic with
+per-frame inference timing. Thirty frames on Pi accepted/tracked two hands:
+initial call 173.38 ms, subsequent p50/p95 96.56/96.96 ms. The input is the same
+paired/mirrored public reference used by the earlier positive comparison, not
+a camera scene. This includes model preprocessing/inference/tracking but excludes
+model load and application delivery. No physical gesture accuracy follows.
+
+The first corrected browser invocation timed out after 90 seconds without a
+result; its task-owned page closed and the finite local reference server expired.
+The timeout does not diagnose model, GPU, network or delegate failure. Phase
+markers are now available for the next controlled attempt. Browser/native
+comparison and browser asset-byte provenance remain unfinished; no relative
+speed advantage or fallback choice is established by this attempt.

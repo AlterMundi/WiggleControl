@@ -211,3 +211,25 @@ or connection delay must not leave the browser on an error page while the camera
 continues preparation. On a failed bounded readiness probe, stop only the owned
 preview, verify camera closure, restore the local page and obtain fresh human
 readiness for another physical attempt. No probe or page navigation starts capture.
+
+## Qualification page with a hand cursor, without video
+
+`wigglecontrol run-feedback SECONDS CONFIG PORT` uses the existing native mouse
+writer and local feedback server. Navigate to the receiving loopback
+`/qualification` after confirming HTTP readiness. Only `/state` metadata is
+requested; the page does not fetch camera images. The camera remains active
+for native inference. No recordings or extra perception stack are introduced.
+
+The skeleton is mirrored and translated around the actual trusted pointer
+position received by this page, with a palm anchor ring and pinch coloring.
+It neither intercepts pointer events nor dispatches synthetic application clicks.
+Move the hand to establish pointer location after page load. This is feedback
+inside the qualification page; a desktop-wide layer-shell cursor and workspace
+calibration remain separate future work. The current mapping is still relative.
+
+Input is suppressed during preparation. Once the rendered view acknowledges
+readiness, the finite test starts and the existing gesture writer drives normal
+Linux mouse input. The writer independently expires within the combined
+preparation/test bound and releases on EOF or its freshness watchdog. The page's
+STOP INPUT stops this direct owned session; the floating panel observes device
+use but does not own this direct invocation. Production binary/config are unchanged.

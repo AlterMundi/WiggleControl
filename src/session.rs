@@ -272,6 +272,9 @@ pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn 
 pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
     run_mode(path, seconds, false, false, Some(port))
 }
+pub fn feedback(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
+    run_mode(path, seconds, true, false, Some(port))
+}
 fn write_contacts(
     output: &mut Option<std::process::ChildStdin>,
     contacts: Vec<crate::touch::Contact>,
@@ -315,15 +318,20 @@ fn run_mode(
     let start = Instant::now();
     let mut preview_clock = preview.as_ref().map(|_| PreviewClock::new(start, seconds));
     let mut preview_press_baseline = 0;
+    let writer_seconds = if preview.is_some() {
+        seconds + 30
+    } else {
+        seconds
+    };
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
                 .args(if touch {
-                    vec!["touch-stream".into(), seconds.to_string()]
+                    vec!["touch-stream".into(), writer_seconds.to_string()]
                 } else {
                     vec![
                         "device-stream".into(),
-                        seconds.to_string(),
+                        writer_seconds.to_string(),
                         config.gain.to_string(),
                     ]
                 })
@@ -367,7 +375,13 @@ fn run_mode(
             }
             if let Some(writer) = writer.as_mut() {
                 if let Some(status) = writer.try_wait()? {
-                    if status.success() && start.elapsed() >= Duration::from_secs(seconds) {
+                    if status.success()
+                        && Instant::now()
+                            >= preview_clock
+                                .as_ref()
+                                .map(PreviewClock::deadline)
+                                .unwrap_or(start + Duration::from_secs(seconds))
+                    {
                         break;
                     }
                     return Err("device writer exited".into());
@@ -472,8 +486,14 @@ fn run_mode(
                     });
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
-                summary.button_down_intents +=
-                    write_events(&mut output, engine.observe(now, observation), true)?;
+                let events = engine.observe(now, observation);
+                let output_enabled = preview_clock.as_ref().is_none_or(|c| c.started.is_some());
+                summary.button_down_intents += if output_enabled {
+                    write_events(&mut output, events, true)?
+                } else {
+                    write_events(&mut output, Vec::new(), true)?;
+                    write_events(&mut None, events, false)?
+                };
                 if let Some(preview) = &preview {
                     let ratio = interpreted
                         .as_ref()
@@ -527,7 +547,11 @@ fn run_mode(
         .is_ok_and(|status| status.is_some_and(|status| status.success()));
     // Its finite deadline can expire while the final inference is completing.
     // Successful device teardown is already neutral; a crashed/early writer is not.
-    let release = if start.elapsed() >= Duration::from_secs(seconds)
+    let release = if Instant::now()
+        >= preview_clock
+            .as_ref()
+            .map(PreviewClock::deadline)
+            .unwrap_or(start + Duration::from_secs(seconds))
         && writer_ok
         && release
             .as_ref()

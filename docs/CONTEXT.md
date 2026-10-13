@@ -195,3 +195,11 @@ responsiveness of 0.35/0.45. Keep the improved preview/timing/block explanations
 The human prioritizes advancing calibration/system interaction over prolonged
 pinch tuning; one further baseline diagnostic trial is requested, readiness
 still required. No wider-tolerance candidate was adopted in production.
+
+The human selected the four-zone qualification page as the interaction surface
+with an overlaid hand skeleton/cursor and no camera video. The new receiving
+development mode run-feedback reuses native gesture/mouse output plus metadata
+feedback, gating output until the page is ready. The rendered skeleton follows
+the page's trusted system-pointer position. Calibration and a desktop-wide
+overlay are not implied; the camera view remains available for diagnosis.
+No new acquisition starts until the next explicit human ready reply.

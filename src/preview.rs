@@ -161,6 +161,34 @@ fn serve(
             include_bytes!("../tools/preview.html"),
             "",
         ),
+        "GET /qualification HTTP/1.1" => respond(
+            stream,
+            "200 OK",
+            "text/html; charset=utf-8",
+            include_bytes!("../tools/qualification.html"),
+            "",
+        ),
+        "GET /hand_overlay.js HTTP/1.1" => respond(
+            stream,
+            "200 OK",
+            "text/javascript; charset=utf-8",
+            include_bytes!("../tools/hand_overlay.js"),
+            "",
+        ),
+        "GET /state HTTP/1.1" => {
+            let frame = slot.lock().unwrap().clone();
+            if let Some(frame) = frame {
+                respond(
+                    stream,
+                    "200 OK",
+                    "application/json",
+                    frame.metadata_at(Instant::now())?.as_bytes(),
+                    "",
+                )
+            } else {
+                respond(stream, "204 No Content", "text/plain", b"", "")
+            }
+        }
         "GET /frame HTTP/1.1" => {
             let frame = slot.lock().unwrap().clone();
             if let Some(frame) = frame.as_ref() {
@@ -252,6 +280,9 @@ mod tests {
         let response = request(preview.port, "GET /frame", false);
         assert!(String::from_utf8_lossy(&response).contains("X-Wiggle-State: {\"sequence\":8}"));
         assert!(response.ends_with(&[4, 5, 6]));
+        let state = request(preview.port, "GET /state", false);
+        assert!(String::from_utf8_lossy(&state).contains("Content-Type: application/json"));
+        assert!(state.ends_with(b"{\"sequence\":8}"));
         assert!(!preview.view_ready());
         assert!(
             String::from_utf8_lossy(&request(preview.port, "POST /ready", false))

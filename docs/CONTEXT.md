@@ -29,7 +29,8 @@ Pinch confirmation, hysteresis, loss/stale/stop release and neutral reacquisitio
 are tested. Filtering is a timestamp-based exponential baseline, not yet a
 human-qualified smoothing choice. Scroll mapping remains pending. CI targets Rust
 1.85.1; its first run passed compilation/tests but failed an older-Clippy format
-collection lint; the test was corrected. The evdev virtual mouse adapter now
+collection lint; the test was corrected. Corrected CI run 38387111298 passed on Rust 1.85.1.
+The evdev virtual mouse adapter now
 creates an ID_INPUT_MOUSE=1 device on cuevanico and removes it after finite expiry.
 The temporary receiving uinput ACL applies only to the existing operator; original
 ACL retained for reversal, no persistent grant installed. No camera or input

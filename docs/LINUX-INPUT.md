@@ -49,6 +49,7 @@ udev rule was installed. Reboot removes this temporary setup; reversal restores
 the retained ACL using the receiving administrator route.
 
 A five-second device-check created the device; udev classified ID_INPUT=1 and
-ID_INPUT_MOUSE=1. The virtual device was absent after expiry. No movement/button/
+ID_INPUT_MOUSE=1. libinput separately reported the pointer capability and acceleration profiles.
+The virtual device was absent after expiry. No movement/button/
 wheel events, camera or microphone were activated. Application delivery, actual
 watchdog release and SIGKILL removal are separate remaining tests.

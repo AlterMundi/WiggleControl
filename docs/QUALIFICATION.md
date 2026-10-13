@@ -390,3 +390,23 @@ inactive afterward. Current mouse motion is relative, with no camera rectangle
 corresponding to screen edges; direct-touch workspace calibration does not change
 that behavior. Next qualification must make cursor/workspace behavior clear and
 resolve tracked-hand timing and intended pinch reliability.
+
+### Human-present camera-only baseline
+
+A subsequent explicitly requested 15-second camera-only trial asked the human
+to hold one open palm still. No input writer was created, microphone remained
+inactive and no frames were saved. Summary: 203 captured, 132 processed, 41
+detected, 37 tracked, zero button-down intents, 70 dropped, 36 stale; fresh FPS
+6.28 and timestamp-to-intent p50/p95 128.81/183.72 ms. One-core-normalized CPU
+63.73%, runtime peak RSS 52672 KiB, no child RSS. Silent profile remained selected;
+observed temperature 69.95 C before, 72.15 C immediately after. The human then reported not attending this trial. It is invalid as a
+human-controlled hand baseline; retain only its runtime evidence, not a hand
+recognition acceptance claim.
+
+The explicitly repeated 15-second camera-only trial returned 208 captured,
+135 processed, 130 detected, 129 tracked, zero button-down intents, 71 dropped
+and one stale observation. Fresh FPS 8.72; timestamp-to-intent p50/p95
+108.28/140.15 ms. One-core-normalized CPU 48.48%, runtime peak RSS 51200 KiB,
+no child RSS. This supports substantially more continuous detection in this
+requested open-palm scene; it is not yet intended pinch/click or movement
+acceptance. No input writer, recording or microphone activation occurred.

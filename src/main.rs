@@ -5,6 +5,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("image-check-touch") if args.len() == 3 || (args.len() == 4 && args[3] == "pair") => {
+            let config =
+                wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
+            ort::init_from(&config.runtime).commit()?;
+            let image = image::open(&args[1])?.to_rgb8();
+            // Deterministic two-hand reference fixture in memory, not a camera image.
+            let image = if args.len() == 4 {
+                let mut pair = image::RgbImage::new(image.width() * 2, image.height());
+                image::imageops::replace(&mut pair, &image, 0, 0);
+                image::imageops::replace(
+                    &mut pair,
+                    &image::imageops::flip_horizontal(&image),
+                    i64::from(image.width()),
+                    0,
+                );
+                pair
+            } else {
+                image
+            };
+            let mut model =
+                wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
+            for _ in 0..3 {
+                let result = model.infer_many(&image)?;
+                println!(
+                    "{}",
+                    serde_json::json!({"ambiguous":result.ambiguous,"hands":result.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})).collect::<Vec<_>>() })
+                );
+            }
+            return Ok(());
+        }
         Some("image-check") if args.len() == 3 || args.len() == 4 => {
             let config =
                 wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
@@ -35,6 +65,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::json!({"detected":detected.is_some(),"confidence":detected.as_ref().map(|h|h.confidence),"landmarks":detected.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),"handedness":detected.as_ref().map(|h|h.handedness),"width":image.width(),"height":image.height(),"palm_score":model.palm_score,"hand_score":model.hand_score,"side_score":model.side_score,"roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side,"angle":r.angle}))})
             );
             return Ok(());
+        }
+        Some("camera-check-touch") | Some("run-touch") if args.len() == 3 => {
+            return wigglecontrol::session::run_touch(
+                std::path::Path::new(&args[2]),
+                args[1].parse()?,
+                args[0] == "run-touch",
+            );
         }
         Some("camera-check") | Some("run") if args.len() == 3 => {
             return wigglecontrol::session::run(

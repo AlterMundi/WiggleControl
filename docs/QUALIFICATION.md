@@ -132,3 +132,31 @@ and explicit absolute workspace mapping. Two CLI tests verify the fictional
 two-hand replay, final EOF release and malformed-input failure with neutral output.
 This is camera-free semantic evidence. It does not qualify native recognition of
 two hands or whether the producer correctly notices a real crossing/occlusion.
+
+## Native two-hand pipeline checkpoint — 2026-10-13
+
+Native perception now uses score/NMS palm selection and two independent temporal
+ROIs. Thirty source tests pass, including suppression and conservative ambiguous
+identity geometry; those thresholds still require physical qualification.
+A deterministic paired/mirrored version of the same permitted upstream positive
+frame produced two accepted hands on both VPS and Pi 5. IDs 1/2 remained stable
+through three repeated model frames; confidence ranged 0.9866–0.9916. This tests
+native model/ROI plumbing on synthetic source-backed input, not real crossing,
+occlusion, seated comfort or gesture accuracy.
+
+The first finite supervised touch attempt captured 123 frames, processed 85,
+accepted no hands and ended with BrokenPipe. Its actual log showed a final
+inference/cleanup extending past the independent writer's finite deadline. The
+session now avoids sending final inferred intent after expiry and accepts neutral
+successful writer teardown at that deadline; early failure remains an error.
+Receiving retest, rather than the code change alone, qualifies this correction.
+
+Actual receiving five-second retests passed for both touch and mouse: panel phase
+completed without error, camera opened then closed, matching virtual device was
+created then removed, and microphone stayed inactive. Touch captured 70 frames,
+processed 40, dropped 28, accepted zero hands; timestamp-to-intent p50/p95
+106.95/138.17 ms. Mouse captured 69, processed 40, dropped 27, accepted zero hands;
+p50/p95 111.86/143.16 ms. Neither run emitted a press. These no-accepted-hand
+measurements do not estimate two-hand tracked latency or physical accuracy.
+The receiving finite expiry correction is verified; camera-driven selection,
+two-hand touch manipulation and real crossing/occlusion acceptance remain pending.

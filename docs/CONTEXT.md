@@ -72,3 +72,11 @@ separate contact ownership, open-before-press and freshness. It has a bounded
 camera-free touch-replay seam and fictional fixture. Producer-declared identity
 ambiguity neutralizes contacts; actual native ambiguity detection/association
 and camera-to-touch integration are still next work, not implied by these tests.
+
+Native `run-touch` now joins score/NMS-selected palms, independently tracked hand
+ROIs and the touch gesture/device path. `camera-check-touch` has no device output.
+Paired public-reference inference detected/tracked two stable IDs on VPS and Pi;
+actual physical crossing/occlusion, hand accuracy and comfort remain unqualified.
+The panel offers finite `input SECONDS touch`, with mouse as the default. The
+first expiry trial exposed a BrokenPipe deadline race; actual retest evidence
+belongs in QUALIFICATION.md before claiming receiving completion.

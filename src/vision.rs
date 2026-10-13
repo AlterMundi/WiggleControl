@@ -145,16 +145,50 @@ pub struct DetectedHand {
     pub handedness: f64,
     pub tracked: bool,
 }
+#[derive(Clone)]
+struct TrackedHand {
+    roi: Roi,
+    hand: DetectedHand,
+}
+pub struct MultiHands {
+    pub hands: Vec<DetectedHand>,
+    pub ambiguous: bool,
+}
 pub struct Perception {
     palm: Session,
     hand: Session,
     anchors: Vec<XY>,
     roi: Option<Roi>,
     id: u64,
+    tracks: Vec<TrackedHand>,
+    search_frames: u32,
     pub palm_score: Option<f64>,
     pub hand_score: Option<f64>,
     pub side_score: Option<f64>,
     pub last_roi: Option<Roi>,
+}
+fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
+    let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
+    let h = (a[1] + a[3]).min(b[1] + b[3]) - a[1].max(b[1]);
+    let intersection = w.max(0.0) * h.max(0.0);
+    intersection / (a[2] * a[3] + b[2] * b[3] - intersection).max(f64::EPSILON)
+}
+fn center(hand: &DetectedHand) -> XY {
+    XY {
+        x: (hand.landmarks[5].x + hand.landmarks[17].x) / 2.0,
+        y: (hand.landmarks[5].y + hand.landmarks[17].y) / 2.0,
+    }
+}
+fn pair_uncertain(a: &DetectedHand, b: &DetectedHand) -> bool {
+    let width = a.landmarks[5]
+        .distance(a.landmarks[17])
+        .max(b.landmarks[5].distance(b.landmarks[17]));
+    center(a).distance(center(b)) < 0.8 * width
+}
+fn identity_uncertain(a: &DetectedHand, b: &DetectedHand, side: f64) -> bool {
+    center(a).distance(center(b)) > 0.5 * side
+        || (a.handedness < 0.2 && b.handedness > 0.8)
+        || (a.handedness > 0.8 && b.handedness < 0.2)
 }
 fn session(path: &Path) -> Result<Session, Box<dyn Error>> {
     Ok(Session::builder()?
@@ -170,13 +204,15 @@ impl Perception {
             anchors: anchors(),
             roi: None,
             id: 0,
+            tracks: Vec::new(),
+            search_frames: 0,
             palm_score: None,
             hand_score: None,
             side_score: None,
             last_roi: None,
         })
     }
-    fn detect_palm(&mut self, image: &RgbImage) -> Result<Option<Roi>, Box<dyn Error>> {
+    fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<Roi>, Box<dyn Error>> {
         let side = image.width().max(image.height()) as f64;
         let square = Roi {
             center: XY {
@@ -193,42 +229,85 @@ impl Perception {
         if shape.as_ref() != [1, 2016, 18] || scores_shape.as_ref() != [1, 2016, 1] {
             return Err("unexpected palm model output contract".into());
         }
-        let best = scores
+        let mut candidates: Vec<_> = scores
             .iter()
             .enumerate()
-            .filter(|(_, score)| score.is_finite())
-            .map(|(i, s)| (i, 1.0 / (1.0 + (-(*s as f64)).exp())))
-            .max_by(|a, b| a.1.total_cmp(&b.1));
-        self.palm_score = best.map(|(_, score)| score);
-        let best = best.filter(|(_, score)| *score >= 0.5);
-        let Some((index, _)) = best else {
-            return Ok(None);
-        };
-        let raw = &boxes[index * 18..(index + 1) * 18];
-        if raw.iter().any(|p| !p.is_finite()) {
-            return Ok(None);
+            .filter_map(|(i, s)| {
+                let score = 1.0 / (1.0 + (-f64::from(*s)).exp());
+                let raw = &boxes[i * 18..(i + 1) * 18];
+                if !score.is_finite()
+                    || score < 0.5
+                    || raw.iter().any(|p| !p.is_finite())
+                    || raw[2] <= 0.0
+                    || raw[3] <= 0.0
+                {
+                    return None;
+                }
+                let anchor = self.anchors[i];
+                let center = square.source(
+                    anchor.x + f64::from(raw[0]) / 192.0,
+                    anchor.y + f64::from(raw[1]) / 192.0,
+                );
+                let rect = [
+                    center.x - f64::from(raw[2]) * side / 384.0,
+                    center.y - f64::from(raw[3]) * side / 384.0,
+                    f64::from(raw[2]) * side / 192.0,
+                    f64::from(raw[3]) * side / 192.0,
+                ];
+                Some((i, score, rect))
+            })
+            .collect();
+        candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
+        self.palm_score = candidates.first().map(|c| c.1);
+        let mut selected: Vec<[f64; 4]> = Vec::new();
+        let mut rois = Vec::new();
+        for (index, _, rect) in candidates {
+            if selected.iter().any(|r| iou(*r, rect) > 0.3) {
+                continue;
+            }
+            let raw = &boxes[index * 18..(index + 1) * 18];
+            let anchor = self.anchors[index];
+            let mut points = [XY::default(); 7];
+            for i in 0..7 {
+                points[i] = square.source(
+                    anchor.x + f64::from(raw[4 + i * 2]) / 192.0,
+                    anchor.y + f64::from(raw[5 + i * 2]) / 192.0,
+                );
+            }
+            if let Some(roi) = roi_from(&points, points[0], points[2], 3.0, -0.4) {
+                selected.push(rect);
+                rois.push(roi);
+            }
+            if rois.len() == 2 {
+                break;
+            }
         }
-        let anchor = self.anchors[index];
-        let mut points = [XY::default(); 7];
-        for i in 0..7 {
-            points[i] = square.source(
-                anchor.x + raw[4 + i * 2] as f64 / 192.0,
-                anchor.y + raw[5 + i * 2] as f64 / 192.0,
-            );
-        }
-        Ok(roi_from(&points, points[0], points[2], 3.0, -0.4))
+        Ok(rois)
     }
     pub fn infer(&mut self, image: &RgbImage) -> Result<Option<DetectedHand>, Box<dyn Error>> {
         let tracked = self.roi.is_some();
         let roi = if let Some(roi) = self.roi {
             roi
         } else {
-            let Some(roi) = self.detect_palm(image)? else {
+            let Some(roi) = self.detect_palms(image)?.into_iter().next() else {
                 return Ok(None);
             };
             self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;
             roi
         };
+        let detected = self.infer_roi(image, roi, self.id, tracked)?;
+        self.roi = detected
+            .as_ref()
+            .and_then(|h| roi_from(&h.landmarks, h.landmarks[0], h.landmarks[9], 1.65, -0.1));
+        Ok(detected)
+    }
+    fn infer_roi(
+        &mut self,
+        image: &RgbImage,
+        roi: Roi,
+        id: u64,
+        tracked: bool,
+    ) -> Result<Option<DetectedHand>, Box<dyn Error>> {
         self.last_roi = Some(roi);
         let input = Tensor::from_array(([1usize, 224, 224, 3], crop(image, roi, 224)))?;
         let outputs = self.hand.run(ort::inputs![input])?;
@@ -238,14 +317,14 @@ impl Perception {
         self.hand_score = confidence.first().map(|n| f64::from(*n));
         self.side_score = handedness.first().map(|n| f64::from(*n));
         if landmarks.len() != 63 || confidence.len() != 1 || handedness.len() != 1 {
-            self.roi = None;
             return Err("unexpected hand model output contract".into());
         }
-        if !confidence[0].is_finite()
+        if !handedness[0].is_finite()
+            || !(0.0..=1.0).contains(&handedness[0])
+            || !confidence[0].is_finite()
             || confidence[0] < 0.8
             || landmarks.iter().any(|p| !p.is_finite())
         {
-            self.roi = None;
             return Ok(None);
         }
         let mut points = [XY::default(); 21];
@@ -255,14 +334,75 @@ impl Perception {
                 landmarks[i * 3 + 1] as f64 / 224.0,
             );
         }
-        self.roi = roi_from(&points, points[0], points[9], 1.65, -0.1);
         Ok(Some(DetectedHand {
-            id: self.id,
+            id,
             landmarks: points,
             confidence: confidence[0] as f64,
             handedness: handedness[0] as f64,
             tracked,
         }))
+    }
+    pub fn infer_many(&mut self, image: &RgbImage) -> Result<MultiHands, Box<dyn Error>> {
+        let previous = std::mem::take(&mut self.tracks);
+        let mut next = Vec::new();
+        for track in previous {
+            if let Some(hand) = self.infer_roi(image, track.roi, track.hand.id, true)? {
+                if identity_uncertain(&track.hand, &hand, track.roi.side) {
+                    return Ok(MultiHands {
+                        hands: Vec::new(),
+                        ambiguous: true,
+                    });
+                }
+                if let Some(roi) = roi_from(
+                    &hand.landmarks,
+                    hand.landmarks[0],
+                    hand.landmarks[9],
+                    1.65,
+                    -0.1,
+                ) {
+                    next.push(TrackedHand { roi, hand });
+                }
+            }
+        }
+        self.search_frames = self.search_frames.wrapping_add(1);
+        // Find a missing/new hand periodically; existing ROI identities do not follow detector order.
+        if next.len() < 2 && (next.is_empty() || self.search_frames % 5 == 0) {
+            for roi in self.detect_palms(image)? {
+                if next
+                    .iter()
+                    .any(|t| t.roi.center.distance(roi.center) < 0.4 * t.roi.side.max(roi.side))
+                {
+                    continue;
+                }
+                self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;
+                if let Some(hand) = self.infer_roi(image, roi, self.id, false)? {
+                    if let Some(roi) = roi_from(
+                        &hand.landmarks,
+                        hand.landmarks[0],
+                        hand.landmarks[9],
+                        1.65,
+                        -0.1,
+                    ) {
+                        next.push(TrackedHand { roi, hand });
+                    }
+                }
+                if next.len() == 2 {
+                    break;
+                }
+            }
+        }
+        if next.len() == 2 && pair_uncertain(&next[0].hand, &next[1].hand) {
+            return Ok(MultiHands {
+                hands: Vec::new(),
+                ambiguous: true,
+            });
+        }
+        let hands = next.iter().map(|t| t.hand.clone()).collect();
+        self.tracks = next;
+        Ok(MultiHands {
+            hands,
+            ambiguous: false,
+        })
     }
 }
 impl DetectedHand {
@@ -312,6 +452,32 @@ impl DetectedHand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn suppression_and_ambiguous_identity_geometry() {
+        assert!((iou([0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 10.0, 10.0]) - 1.0).abs() < 1e-8);
+        assert_eq!(iou([0.0, 0.0, 10.0, 10.0], [20.0, 0.0, 10.0, 10.0]), 0.0);
+        let mut a = DetectedHand {
+            id: 1,
+            landmarks: [XY { x: 100.0, y: 100.0 }; 21],
+            confidence: 0.99,
+            handedness: 0.9,
+            tracked: true,
+        };
+        a.landmarks[5].x = 80.0;
+        a.landmarks[17].x = 120.0;
+        let mut b = a.clone();
+        b.id = 2;
+        assert!(pair_uncertain(&a, &b));
+        for p in &mut b.landmarks {
+            p.x += 100.0;
+        }
+        assert!(!pair_uncertain(&a, &b));
+        assert!(!identity_uncertain(&a, &b, 300.0));
+        assert!(identity_uncertain(&a, &b, 100.0));
+        b = a.clone();
+        b.handedness = 0.1;
+        assert!(identity_uncertain(&a, &b, 300.0));
+    }
     #[test]
     fn anchor_count_and_order_match_model() {
         let a = anchors();

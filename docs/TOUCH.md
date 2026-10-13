@@ -46,9 +46,29 @@ emits no parallel mouse stream. Smoothed palm cursor coordinates map through an
 explicit normalized workspace rectangle, defaulting to the entire camera view.
 The rectangle is not a qualified seated-comfort calibration.
 
-The current camera session still controls a **mouse**. Native two-hand association,
-producer ambiguity detection during crossing/occlusion and joining this replay
-engine to camera-driven touch remain implementation/qualification work. The
-producer must actually establish identity rather than claiming certainty from
-detector order. A touch-aware application decides how to interpret zoom/rotation;
-ordinary applications may emulate a single mouse.
+## Native camera sessions
+
+`run-touch SECONDS CONFIG` joins native two-hand perception, the gesture engine
+and the direct device. `camera-check-touch` exercises perception without device
+creation. Both are finite/manual, use no microphone and store no camera frames.
+The existing integrators panel can supervise `input SECONDS touch`; default
+`input SECONDS` remains mouse. Stop and preparation use the same local lifecycle.
+
+Palm candidates use score 0.5 and box NMS IoU 0.3, following the pinned upstream
+model conventions. At most two accepted hands get independently tracked ROIs.
+Each new ROI episode has a new hand ID; detector ordering never renames a live
+track. While one hand is present, missing-hand detection runs every five processed
+frames. With two tracked hands, temporal crops avoid repeating palm detection.
+
+Close palm centers (less than 0.8 of the larger palm width), a tracked-center jump
+over half its crop side, or a confident opposite handedness result cancel the
+episode as ambiguous. These are explicit conservative initial heuristics, not
+proof that every real crossing/occlusion is detected. Identity ambiguity ends
+contacts; reacquisition requires an open pinch before touching again. Physical
+accuracy and crossing tests remain required.
+
+Session FPS configuration is now 10–20: 5 FPS would exceed the existing 150 ms
+gesture freshness budget even before inference. Slow inference may still drop
+frames and release contacts rather than retaining stale input. The independent
+writer has its own 250 ms watchdog. A touch-aware application decides how to
+interpret zoom/rotation; ordinary applications may emulate a single mouse.

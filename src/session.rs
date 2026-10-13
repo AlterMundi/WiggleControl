@@ -37,11 +37,11 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
-        if !(5..=20).contains(&config.fps)
+        if !(10..=20).contains(&config.fps)
             || !config.gain.is_finite()
             || !(1.0..=10000.0).contains(&config.gain)
         {
-            return Err("fps 5..20; gain 1..10000".into());
+            return Err("fps 10..20 (150 ms freshness budget); gain 1..10000".into());
         }
         for p in [&config.camera, &config.models, &config.runtime] {
             if !Path::new(p).is_absolute() {
@@ -151,6 +151,9 @@ struct Summary {
     timestamp_to_intent_p50_ms: Option<f64>,
     timestamp_to_intent_p95_ms: Option<f64>,
     injected: bool,
+    touch_mode: bool,
+    ambiguous_frames: u64,
+    max_hands: usize,
 }
 fn percentile(values: &mut [f64], percent: usize) -> Option<f64> {
     if values.is_empty() {
@@ -198,6 +201,26 @@ fn write_events(
     Ok(presses)
 }
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
+    run_mode(path, seconds, inject, false)
+}
+pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
+    run_mode(path, seconds, inject, true)
+}
+fn write_contacts(
+    output: &mut Option<std::process::ChildStdin>,
+    contacts: Vec<crate::touch::Contact>,
+) -> io::Result<()> {
+    if let Some(output) = output {
+        serde_json::to_writer(
+            &mut *output,
+            &serde_json::json!({"type":"frame","contacts":contacts}),
+        )?;
+        writeln!(output)?;
+        output.flush()?;
+    }
+    Ok(())
+}
+fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), Box<dyn Error>> {
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
@@ -207,14 +230,20 @@ pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+    // Start the session deadline before spawning its independently finite writer.
+    let start = Instant::now();
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
-                .args([
-                    "device-stream",
-                    &seconds.to_string(),
-                    &config.gain.to_string(),
-                ])
+                .args(if touch {
+                    vec!["touch-stream".into(), seconds.to_string()]
+                } else {
+                    vec![
+                        "device-stream".into(),
+                        seconds.to_string(),
+                        config.gain.to_string(),
+                    ]
+                })
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .spawn()?,
@@ -225,24 +254,36 @@ pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>
     let mut output = writer.as_mut().and_then(|w| w.stdin.take());
     let mailbox = Arc::new(Mutex::new(Mailbox::default()));
     let camera = camera(&config, stop.clone(), mailbox.clone());
-    let start = Instant::now();
     let period = Duration::from_secs_f64(1.0 / config.fps as f64);
     let mut due = Instant::now();
     let mut engine = Engine::new(Config::default())?;
     engine.start();
+    let mut touches = crate::touch_gestures::Gestures::new(
+        Config::default(),
+        crate::touch_gestures::Workspace::default(),
+    )?;
+    touches.start();
     let mut summary = Summary {
         injected: inject,
+        touch_mode: touch,
         ..Default::default()
     };
     let mut latency = Vec::with_capacity(2400);
     let result = (|| -> Result<(), Box<dyn Error>> {
         while start.elapsed() < Duration::from_secs(seconds) && !stop.load(Ordering::Relaxed) {
             if let Some(writer) = writer.as_mut() {
-                if writer.try_wait()?.is_some() {
+                if let Some(status) = writer.try_wait()? {
+                    if status.success() && start.elapsed() >= Duration::from_secs(seconds) {
+                        break;
+                    }
                     return Err("device writer exited".into());
                 }
             }
-            write_events(&mut output, engine.tick(monotonic_us()?), false)?;
+            if touch {
+                write_contacts(&mut output, touches.tick(monotonic_us()?))?;
+            } else {
+                write_events(&mut output, engine.tick(monotonic_us()?), false)?;
+            }
             let error = mailbox.lock().unwrap().error.clone();
             if let Some(error) = error {
                 return Err(error.into());
@@ -268,28 +309,65 @@ pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>
             if image.width() != 640 || image.height() != 480 {
                 return Err("decoded camera dimensions changed".into());
             }
-            let hand = perception.infer(&image)?;
-            summary.processed += 1;
-            if let Some(hand) = &hand {
-                summary.detected += 1;
-                if hand.tracked {
-                    summary.tracked += 1;
+            let now;
+            if touch {
+                let detected = perception.infer_many(&image)?;
+                if start.elapsed() >= Duration::from_secs(seconds) {
+                    break;
                 }
+                now = monotonic_us()?;
+                summary.processed += 1;
+                summary.detected += detected.hands.len() as u64;
+                summary.max_hands = summary.max_hands.max(detected.hands.len());
+                summary.tracked += detected.hands.iter().filter(|h| h.tracked).count() as u64;
+                summary.ambiguous_frames += u64::from(detected.ambiguous);
+                let hands = detected
+                    .hands
+                    .into_iter()
+                    .filter_map(|h| {
+                        h.observation(image.width(), image.height(), frame.source_us)
+                            .hand
+                    })
+                    .collect();
+                write_contacts(
+                    &mut output,
+                    touches.observe(
+                        now,
+                        crate::touch_gestures::Frame {
+                            version: 1,
+                            source_us: frame.source_us,
+                            ambiguous: detected.ambiguous,
+                            hands,
+                        },
+                    ),
+                )?;
+            } else {
+                let hand = perception.infer(&image)?;
+                if start.elapsed() >= Duration::from_secs(seconds) {
+                    break;
+                }
+                summary.processed += 1;
+                if let Some(hand) = &hand {
+                    summary.detected += 1;
+                    if hand.tracked {
+                        summary.tracked += 1;
+                    }
+                }
+                let observation = hand
+                    .map(|h| h.observation(image.width(), image.height(), frame.source_us))
+                    .unwrap_or(Observation {
+                        version: 1,
+                        source_us: frame.source_us,
+                        hand: None,
+                    });
+                now = monotonic_us()?;
+                summary.button_down_intents +=
+                    write_events(&mut output, engine.observe(now, observation), true)?;
             }
-            let observation = hand
-                .map(|h| h.observation(image.width(), image.height(), frame.source_us))
-                .unwrap_or(Observation {
-                    version: 1,
-                    source_us: frame.source_us,
-                    hand: None,
-                });
-            let now = monotonic_us()?;
             let age = now.saturating_sub(frame.source_us);
             if age >= 150_000 {
                 summary.stale += 1;
             }
-            summary.button_down_intents +=
-                write_events(&mut output, engine.observe(now, observation), true)?;
             if latency.len() < 2400 {
                 latency.push(age as f64 / 1000.0);
             }
@@ -297,11 +375,25 @@ pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>
         Ok(())
     })();
     stop.store(true, Ordering::Relaxed);
-    let release = write_events(&mut output, engine.stop(), false);
+    let release = if touch {
+        write_contacts(&mut output, touches.stop())
+    } else {
+        write_events(&mut output, engine.stop(), false).map(|_| ())
+    };
     drop(output);
-    if let Some(mut writer) = writer {
-        let _ = writer.wait();
-    }
+    let writer_status = writer.map(|mut writer| writer.wait()).transpose()?;
+    // Its finite deadline can expire while the final inference is completing.
+    // Successful device teardown is already neutral; a crashed/early writer is not.
+    let release = if start.elapsed() >= Duration::from_secs(seconds)
+        && writer_status.is_some_and(|status| status.success())
+        && release
+            .as_ref()
+            .is_err_and(|error| error.kind() == io::ErrorKind::BrokenPipe)
+    {
+        Ok(())
+    } else {
+        release
+    };
     let _ = camera.join();
     let slot = mailbox.lock().unwrap();
     summary.captured = slot.frames;

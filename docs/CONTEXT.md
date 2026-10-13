@@ -99,3 +99,12 @@ time-bar drag, volume wheel and fullscreen/windowed double-click. It complements
 Chromium Wayland, using read-only observations and no application-dispatched input.
 Owned test process/device removed afterward; no sensor opened. Physical hand
 accuracy, comparative tracker scenes and comfort remain separate pending gates.
+
+
+Palm-stage localization: native and original OpenCV with the same ONNX/image
+both return one palm. Original left-region score 0.1628 is below threshold 0.5;
+native has one proposed ROI and no extra skip/rejection. Browser pipeline accepts
+two, but this is a model/input coverage difference reproduced upstream, not a
+proved Rust-port rejection bug. No thresholds/production perception were changed.
+The image diagnostic now exposes bounded last-palm/current-skip ROIs. Actual
+human camera accuracy, model/input coverage assessment and comfort remain pending.

@@ -283,3 +283,21 @@ The diagnostic now includes last hand score/ROI to support the next investigatio
 All inputs were permitted static images; no camera, microphone or device opened.
 Owned browser targets closed and bounded local servers expired. Native timing
 remains a receiving development diagnostic, not an installed production upgrade.
+
+## Palm-stage coverage localization — 2026-10-13
+
+Native traces now expose the last detector's proposed ROIs and current skipped
+ROIs in the camera-free image diagnostic only. On the original reference there
+is one proposed right-hand ROI, zero skips and accepted confidence 0.9878; the
+missing hand never reaches the hand regressor. The trace vectors are bounded by
+the two-proposal detector and remain in memory, not camera-session summaries.
+
+The pinned original OpenCV implementation, with the same ONNX artifacts and
+permitted image, also returns one palm and one hand (confidence 0.9904). Its raw
+maximum palm score in the left image region is 0.1628, below its 0.5 threshold;
+the right region reaches 0.8763. Thus the single-hand result is reproduced upstream
+and is not evidence of an extra native ROI/hand rejection. It does not prove every
+preprocessing detail identical or identify why the browser's different pipeline
+accepts both. Model/input coverage comparison remains explicit; thresholds and
+production behavior were not changed to force a pass. Thirty-one source tests
+and Clippy passed after adding the diagnostic seam.

@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let result = model.infer_many(&image)?;
                 println!(
                     "{}",
-                    serde_json::json!({"inference_ms":start.elapsed().as_secs_f64()*1000.0,"last_hand_score":model.hand_score,"last_roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side})),"ambiguous":result.ambiguous,"hands":result.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})).collect::<Vec<_>>() })
+                    serde_json::json!({"inference_ms":start.elapsed().as_secs_f64()*1000.0,"palm_rois":model.palm_rois.iter().map(|r|[r.center.x,r.center.y,r.side]).collect::<Vec<_>>(),"skipped_rois":model.skipped_rois.iter().map(|r|[r.center.x,r.center.y,r.side]).collect::<Vec<_>>(),"last_hand_score":model.hand_score,"last_roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side})),"ambiguous":result.ambiguous,"hands":result.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})).collect::<Vec<_>>() })
                 );
             }
             return Ok(());

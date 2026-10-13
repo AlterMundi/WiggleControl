@@ -166,6 +166,8 @@ pub struct Perception {
     pub hand_score: Option<f64>,
     pub side_score: Option<f64>,
     pub last_roi: Option<Roi>,
+    pub palm_rois: Vec<Roi>,
+    pub skipped_rois: Vec<Roi>,
 }
 fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
     let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
@@ -210,6 +212,8 @@ impl Perception {
             hand_score: None,
             side_score: None,
             last_roi: None,
+            palm_rois: Vec::new(),
+            skipped_rois: Vec::new(),
         })
     }
     fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<Roi>, Box<dyn Error>> {
@@ -282,6 +286,7 @@ impl Perception {
                 break;
             }
         }
+        self.palm_rois = rois.clone();
         Ok(rois)
     }
     pub fn infer(&mut self, image: &RgbImage) -> Result<Option<DetectedHand>, Box<dyn Error>> {
@@ -343,6 +348,7 @@ impl Perception {
         }))
     }
     pub fn infer_many(&mut self, image: &RgbImage) -> Result<MultiHands, Box<dyn Error>> {
+        self.skipped_rois.clear();
         let previous = std::mem::take(&mut self.tracks);
         let mut next = Vec::new();
         for track in previous {
@@ -372,6 +378,7 @@ impl Perception {
                     .iter()
                     .any(|t| t.roi.center.distance(roi.center) < 0.4 * t.roi.side.max(roi.side))
                 {
+                    self.skipped_rois.push(roi);
                     continue;
                 }
                 self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;

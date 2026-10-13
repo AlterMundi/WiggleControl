@@ -139,6 +139,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some("device-check") if args.len() == 2 => {
             return Ok(wigglecontrol::input::check(args[1].parse()?)?)
         }
+        Some("absolute-stream") if args.len() == 2 => {
+            return wigglecontrol::input::absolute_stream(args[1].parse()?).map_err(Into::into);
+        }
         Some("device-stream") if args.len() == 3 => {
             return Ok(wigglecontrol::input::stream(
                 args[1].parse()?,
@@ -215,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
     #[cfg(target_os = "linux")]
-    println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nDevice commands open virtual devices; stream commands inject system input.");
+    println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol absolute-stream SECONDS\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol image-check IMAGE CONFIG [TILE]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
     println!(

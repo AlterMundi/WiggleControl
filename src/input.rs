@@ -1,6 +1,7 @@
 //! Linux mouse output. No camera, compositor control or privileged inference.
 use evdev::{
-    uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode, RelativeAxisCode,
+    uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode,
+    PropType, RelativeAxisCode, UinputAbsSetup,
 };
 use serde::Deserialize;
 use std::{
@@ -13,6 +14,7 @@ use std::{
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MouseIntent {
     Move { dx: f64, dy: f64 },
+    Absolute { x: f64, y: f64 },
     Button { down: bool },
     Scroll { vertical: i32, horizontal: i32 },
     Heartbeat,
@@ -51,6 +53,25 @@ impl MouseState {
                     if integer != 0 {
                         events.push(InputEvent::new(EventType::RELATIVE.0, code.0, integer));
                     }
+                }
+            }
+            MouseIntent::Absolute { x, y } => {
+                if !x.is_finite()
+                    || !y.is_finite()
+                    || !(0.0..=1.0).contains(&x)
+                    || !(0.0..=1.0).contains(&y)
+                {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid absolute pointer position",
+                    ));
+                }
+                for (value, code) in [(x, AbsoluteAxisCode::ABS_X), (y, AbsoluteAxisCode::ABS_Y)] {
+                    events.push(InputEvent::new(
+                        EventType::ABSOLUTE.0,
+                        code.0,
+                        (value * 65535.0).round() as i32,
+                    ));
                 }
             }
             MouseIntent::Button { down } => {
@@ -96,17 +117,42 @@ impl MouseState {
         }
     }
 }
-fn create() -> io::Result<VirtualDevice> {
-    VirtualDevice::builder()?
-        .name("WiggleControl Mouse")
-        .with_keys(&AttributeSet::from_iter([KeyCode::BTN_LEFT]))?
-        .with_relative_axes(&AttributeSet::from_iter([
-            RelativeAxisCode::REL_X,
-            RelativeAxisCode::REL_Y,
-            RelativeAxisCode::REL_WHEEL,
-            RelativeAxisCode::REL_HWHEEL,
-        ]))?
-        .build()
+fn create(absolute: bool) -> io::Result<VirtualDevice> {
+    let builder = VirtualDevice::builder()?;
+    if absolute {
+        builder
+            .name("WiggleControl Absolute Mouse")
+            .with_keys(&AttributeSet::from_iter([
+                KeyCode::BTN_LEFT,
+                KeyCode::BTN_RIGHT,
+                KeyCode::BTN_MIDDLE,
+            ]))?
+            .with_properties(&AttributeSet::from_iter([PropType::POINTER]))?
+            .with_absolute_axis(&UinputAbsSetup::new(
+                AbsoluteAxisCode::ABS_X,
+                AbsInfo::new(0, 0, 65535, 0, 0, 0),
+            ))?
+            .with_absolute_axis(&UinputAbsSetup::new(
+                AbsoluteAxisCode::ABS_Y,
+                AbsInfo::new(0, 0, 65535, 0, 0, 0),
+            ))?
+            .with_relative_axes(&AttributeSet::from_iter([
+                RelativeAxisCode::REL_WHEEL,
+                RelativeAxisCode::REL_HWHEEL,
+            ]))?
+            .build()
+    } else {
+        builder
+            .name("WiggleControl Mouse")
+            .with_keys(&AttributeSet::from_iter([KeyCode::BTN_LEFT]))?
+            .with_relative_axes(&AttributeSet::from_iter([
+                RelativeAxisCode::REL_X,
+                RelativeAxisCode::REL_Y,
+                RelativeAxisCode::REL_WHEEL,
+                RelativeAxisCode::REL_HWHEEL,
+            ]))?
+            .build()
+    }
 }
 fn duration(seconds: u64) -> io::Result<Duration> {
     if !(1..=120).contains(&seconds) {
@@ -119,7 +165,7 @@ fn duration(seconds: u64) -> io::Result<Duration> {
 }
 pub fn check(seconds: u64) -> io::Result<()> {
     let duration = duration(seconds)?;
-    let mut device = create()?;
+    let mut device = create(false)?;
     for path in device.enumerate_dev_nodes_blocking()? {
         eprintln!("Created WiggleControl mouse: {}", path?.display());
     }
@@ -129,6 +175,12 @@ pub fn check(seconds: u64) -> io::Result<()> {
     Ok(())
 }
 pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
+    stream_mode(seconds, gain, false)
+}
+pub fn absolute_stream(seconds: u64) -> io::Result<()> {
+    stream_mode(seconds, 1.0, true)
+}
+fn stream_mode(seconds: u64, gain: f64, absolute: bool) -> io::Result<()> {
     let limit = duration(seconds)?;
     if !gain.is_finite() || !(1.0..=10_000.0).contains(&gain) {
         return Err(io::Error::new(
@@ -136,7 +188,7 @@ pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
             "gain must be 1..10000",
         ));
     }
-    let mut device = create()?;
+    let mut device = create(absolute)?;
     let rx = crate::intent::reader::<MouseIntent>();
     let start = Instant::now();
     let mut fresh = Instant::now();
@@ -147,6 +199,14 @@ pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
                 .recv_timeout(Duration::from_millis(20).min(limit.saturating_sub(start.elapsed())))
             {
                 Ok(Ok(intent)) => {
+                    if matches!(intent, MouseIntent::Absolute { .. }) && !absolute
+                        || matches!(intent, MouseIntent::Move { .. }) && absolute
+                    {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "pointer intent does not match device mode",
+                        ));
+                    }
                     let stop = matches!(intent, MouseIntent::Stop);
                     device.emit(&state.apply(intent, gain)?)?;
                     fresh = Instant::now();

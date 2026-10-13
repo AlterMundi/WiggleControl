@@ -1,6 +1,6 @@
 //! Two independently engaged hands become direct contacts, never mouse events.
 use crate::{touch::Contact, Config, Engine, Event, Hand, Observation, Point};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     io::{self, Write},
@@ -24,7 +24,7 @@ pub enum Command {
     Frame { now_us: u64, observation: Frame },
 }
 /// The camera workspace rectangle mapped onto the configured output.
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Workspace {
     pub min: Point,
@@ -52,7 +52,7 @@ impl Workspace {
         Ok(())
     }
 
-    fn map(self, p: Point) -> Point {
+    pub fn map(self, p: Point) -> Point {
         Point {
             x: ((p.x - self.min.x) / (self.max.x - self.min.x)).clamp(0.0, 1.0),
             y: ((p.y - self.min.y) / (self.max.y - self.min.y)).clamp(0.0, 1.0),

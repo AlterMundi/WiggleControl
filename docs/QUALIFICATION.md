@@ -629,3 +629,29 @@ known; the strict visual freshness cutoff is a hypothesis for flicker alongside
 first. Issue #2 owns the shared mapping/manual calibration and later prayer entry.
 The earlier goal was cleared; no additional acquisition or replacement goal
 followed this request.
+
+## Absolute mouse output precondition — 2026-10-13
+
+A separate finite `absolute-stream` adapter uses Linux evdev/uinput ABS_X/Y,
+normal mouse buttons and wheel axes. Relative mode stays separate; writers
+reject position intents from the other mode. Both reuse bounded JSONL input,
+finite expiry, held-button teardown and the 150 ms producer watchdog.
+
+On the receiving Pi/Wayland fullscreen 1920x1080 Chromium, read-only trusted
+application events observed six requested normalized positions: (0.25,0.35),
+(0.5,0.5), (0.75,0.75), (0.01,0.01), (0.99,0.99), (0.25,0.4). All were within
+0.03 pixels of normalized-coordinate times output dimensions. A real target
+click arrived; a held button released after a producer stall; focus remained
+in Chromium. The writer exited successfully and its virtual device was absent
+afterward. Camera/microphone stayed inactive; no inference ran. This qualifies
+an absolute mouse route on this single-output compositor, not a human hand
+profile, multi-output routing or completed calibration/overlay integration.
+
+The source calibration core now reuses the validated normalized workspace map.
+Manual stages sample left/right/top/bottom bounds with up to 24 fresh points,
+at least ten points across 750 ms, central stability checks and median selection.
+Tests reject stale/duplicate/future data, narrow/reversed bounds, cancelled/short
+calibration and invalid profile version/output; one extreme outlier is tolerated.
+Review/candidate generation alone does not adopt a profile. Native controls,
+corner verification, profile persistence/rollback, perception/output/overlay
+wiring, visual continuity and prayer activation remain unfinished.

@@ -71,3 +71,33 @@ fn rejects_nonfinite_large_move_and_wheel() {
         )
         .is_err());
 }
+
+#[test]
+fn absolute_pointer_frames_are_bounded_and_share_button_release() {
+    let mut state = MouseState::default();
+    let xy = state
+        .apply(MouseIntent::Absolute { x: 0.25, y: 0.75 }, 1.0)
+        .unwrap();
+    assert_eq!(
+        xy.iter()
+            .map(|e| (e.event_type(), e.code(), e.value()))
+            .collect::<Vec<_>>(),
+        vec![
+            (EventType::ABSOLUTE, evdev::AbsoluteAxisCode::ABS_X.0, 16384),
+            (EventType::ABSOLUTE, evdev::AbsoluteAxisCode::ABS_Y.0, 49151),
+        ]
+    );
+    for (x, y) in [
+        (f64::NAN, 0.0),
+        (0.0, f64::INFINITY),
+        (-0.01, 0.0),
+        (1.01, 0.0),
+    ] {
+        assert!(state.apply(MouseIntent::Absolute { x, y }, 1.0).is_err());
+    }
+    state
+        .apply(MouseIntent::Button { down: true }, 1.0)
+        .unwrap();
+    assert_eq!(state.release()[0].value(), 0);
+    assert!(state.release().is_empty());
+}

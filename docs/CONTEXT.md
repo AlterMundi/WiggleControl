@@ -221,3 +221,12 @@ comfortable bounds/corner verification, local profile adoption/rollback and visu
 continuity independent of input freshness. Prayer-pose entry follows the manual
 workflow. Pinch thresholds remain 0.25/0.4. No calibration is implemented yet.
 The human cleared the earlier end-to-end goal; no replacement has been created.
+
+Calibration implementation checkpoint: an independent absolute virtual mouse
+now reached six exact normalized screen positions in real Chromium/labwc, plus
+click and watchdog release without camera. `absolute-stream` is separate from
+relative mode. The core manual sampling/profile logic reuses Workspace mapping
+and has bounded fresh median/stability tests. It is not wired to native controls
+or perception yet; full calibration, matching overlay anchor, persistent rollback,
+visual continuity and prayer entry remain active goal work. Production services
+and device permissions were not changed.

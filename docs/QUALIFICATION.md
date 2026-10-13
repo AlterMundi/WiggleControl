@@ -564,3 +564,20 @@ and 0.4 release/open; 0.5 was a later candidate, not the original default.
 The receiving diagnostic profile was restored to 0.25/0.4 and validated without
 acquisition; production config was already unchanged. No new trial is started
 until a fresh human ready acknowledgment.
+
+### Invalid baseline attempt: preview navigation unavailable
+
+The next explicitly acknowledged original-profile attempt failed to show the
+image. Chromium Page.navigate returned net::ERR_CONNECTION_REFUSED; the native
+summary confirms preview_test_started=false, null test counter/elapsed and
+30.33 seconds preparation expiry. The human reported camera activation while
+seeing the previous ended state, then a blank connection-error page. This is
+invalid as a gesture trial, not a negative recognition result. Camera/microphone
+closure and listener removal were verified afterward. The owned browser was
+restored to the local qualification page without acquisition.
+
+The operator route had opened the live URL without receiving HTTP readiness.
+A receiving-local probe now requires HTTP 200 from the existing preview root
+within twelve seconds before live navigation. A failed probe must abort that
+owned attempt and restore the local page, not retry acquisition without another
+human readiness acknowledgment. No raw frames are retained.

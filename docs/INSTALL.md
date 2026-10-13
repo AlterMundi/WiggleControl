@@ -204,3 +204,10 @@ scroll-mode blocking. Confirmation time is shown separately; matching landmark
 positions alone do not assert that the gesture engine accepted the frame.
 A candidate 0.35/0.45 profile reduces release/rearm separation while retaining
 hysteresis. It remains a diagnostic candidate until human acceptance.
+
+When controlling the receiving browser remotely, await HTTP 200 from the preview
+root on that receiving host before navigating to its loopback URL. A model-load
+or connection delay must not leave the browser on an error page while the camera
+continues preparation. On a failed bounded readiness probe, stop only the owned
+preview, verify camera closure, restore the local page and obtain fresh human
+readiness for another physical attempt. No probe or page navigation starts capture.

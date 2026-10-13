@@ -474,3 +474,15 @@ now adds a prominent red TESTING lamp/countdown tied to producer remaining
 milliseconds, an explicit end/disconnect state, a green upper-right pressed
 state and a co-located PINCH PRESSED label on the recognized thumb/index span.
 No new trial was activated for this correction.
+
+### Counted-pinch trial with conspicuous timer
+
+After a fresh ready acknowledgment, development source b8017a9 ran a 30-second
+preview with the prominent TESTING lamp/countdown and green/spatial pressed
+feedback. Read-only Chromium inspection observed TESTING and 00:18 during the
+run. Summary: 401 captured, 256 processed, 164 detected, 163 tracked, four press
+intents, 144 dropped and 88 stale; fresh FPS 5.54, timestamp-to-intent p50/p95
+132.70/207.09 ms, one-core CPU 67.49%, runtime RSS 51632 KiB, child RSS zero.
+This trial had substantially more stale observations than the preceding run;
+its cause is unverified. No input writer or recording. Human attempt count and
+visibility of the new state feedback remain pending, so no success rate claimed.

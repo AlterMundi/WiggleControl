@@ -167,3 +167,9 @@ frames on disk. Existing gesture decisions/thresholds remain unchanged.
 The human corrected trial coordination: prepare and describe one test, then
 wait for an explicit ready reply before starting each acquisition. Earlier
 foreground presence never substitutes for the new readiness acknowledgment.
+
+The first explicitly acknowledged live preview received human confirmation
+that the skeleton aligned perfectly over the hand. The initial camera-on /
+blank-preview interval remains a presentation issue with unmeasured duration
+and cause. Pinch intent acceptance remains pending; do not reinterpret aggregate
+press counts as confirmed deliberate gestures.

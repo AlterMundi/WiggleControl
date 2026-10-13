@@ -438,3 +438,12 @@ proof of an input writer. Instructions requested slow open-hand movement;
 whether pinches were deliberate requires human feedback before interpreting
 those intents. Spatial alignment and perceived visual fluency remain pending
 human confirmation. The installed production binary remains unchanged.
+
+Human feedback on the first aligned preview: the camera initially activated
+while the preview showed no image; the image then appeared and the skeleton
+aligned perfectly with the hand. This confirms perceived spatial alignment
+for this scene, not startup presentation quality, pinch reliability or general
+accuracy. Initial blank duration and its cause were not measured. The three
+press intents remain unclassified pending whether the human deliberately
+pinched. Improve startup presentation/coordination before treating capture
+activation as a visible, ready preview.

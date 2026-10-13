@@ -59,6 +59,20 @@ to an older binary. The receiving config is preserved by installation/rollback.
 
 ## Manual use
 
+Before starting a capture, validate a configuration edit without opening any
+sensor/device or loading a model/runtime:
+
+```sh
+wigglecontrol config-check /etc/wigglecontrol/config.json
+wigglecontrol --help
+```
+
+`config-check` validates the schema, bounded settings and absolute path syntax;
+it does not check whether those resources exist or are accessible. Its JSON
+report omits resource paths. Help lists commands available in the actual build
+and distinguishes camera-only checks from input injection. These commands are
+source additions after the initial receiving deployment, not yet installed there.
+
 ```sh
 daimon-integrators input 30 mouse
 daimon-integrators input 30 touch

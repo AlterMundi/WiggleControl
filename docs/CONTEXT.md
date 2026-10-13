@@ -141,3 +141,11 @@ Expected SIGINT/SIGTERM writer exit requires a matching parent interruption;
 SIGKILL and nonzero exit remain failures. Tests cover these terminal outcomes
 without opening sensors or input devices. Deployment and physical acceptance of
 these changes are deferred until the room is available.
+
+The camera-free `config-check CONFIG` command now permits validation before a
+session, without opening paths referenced by the config or initializing inference.
+It reports bounded settings, not access routes. Native CLI help now lists the
+available image/camera/run commands and their effects. A CLI regression uses
+nonexistent camera/model/runtime paths to verify schema validation is independent
+of acquisition; invalid workspace bounds return failure without a success report.
+This source-only increment also remains undeployed while the room is unavailable.

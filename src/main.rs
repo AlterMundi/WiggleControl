@@ -3,8 +3,26 @@ use wigglecontrol::{replay, Config, Engine, ReplayCommand, MAX_MESSAGE_BYTES};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args == ["--help"] || args == ["-h"] {
+        print_help();
+        return Ok(());
+    }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("config-check") if args.len() == 2 => {
+            let config =
+                wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[1]))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "valid": true, "fps": config.fps, "gain": config.gain,
+                    "touch_workspace": {
+                        "min": config.touch_workspace.min, "max": config.touch_workspace.max
+                    }
+                })
+            );
+            return Ok(());
+        }
         Some("image-check-touch")
             if args.len() == 3
                 || ((args.len() == 4 || args.len() == 5)
@@ -114,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => (),
     }
     if args != ["replay"] {
-        eprintln!("Usage: wigglecontrol replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nReplay opens no camera/device. Device-stream and touch-stream inject system input.");
+        print_help();
         std::process::exit(2);
     }
     let mut engine = Engine::new(Config::default())?;
@@ -176,4 +194,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     output.flush()?;
     Ok(())
+}
+
+fn print_help() {
+    println!("Usage: wigglecontrol replay < observations.jsonl");
+    #[cfg(target_os = "linux")]
+    println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nDevice commands open virtual devices; stream commands inject system input.");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol config-check CONFIG\n       wigglecontrol image-check IMAGE CONFIG [TILE]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nConfig-check validates JSON/settings only; it does not test resource availability.");
+    println!(
+        "Replay and help open no camera/device or models. Sessions are finite (1..120 seconds)."
+    );
 }

@@ -80,3 +80,10 @@ actual physical crossing/occlusion, hand accuracy and comfort remain unqualified
 The panel offers finite `input SECONDS touch`, with mouse as the default. The
 first expiry trial exposed a BrokenPipe deadline race; actual retest evidence
 belongs in QUALIFICATION.md before claiming receiving completion.
+
+Actual finite mouse/touch expiry retests passed; installation/permission reversal
+and reinstallation now also passed on Pi. The maintained INSTALL.md explains the
+selected original uinput baseline: the initial install snapshot included the
+temporary test grant and cannot by itself establish full pre-test permission
+reversal. Real restoration matched the retained original ACL, preserved access
+and the independent panel, and reinstallation opened no sensor/model session.

@@ -160,3 +160,23 @@ p50/p95 111.86/143.16 ms. Neither run emitted a press. These no-accepted-hand
 measurements do not estimate two-hand tracked latency or physical accuracy.
 The receiving finite expiry correction is verified; camera-driven selection,
 two-hand touch manipulation and real crossing/occlusion acceptance remain pending.
+
+## Installation and original-permission reversal — 2026-10-13
+
+The installation-time uinput snapshot included a temporary operator test grant.
+An explicit original-ACL input now selects the retained pre-test baseline, while
+preserving the installation-time ACL separately. It validates the single-device
+baseline instead of guessing which earlier grants to remove.
+
+The disposable network/mount namespace fixture passed injected snapshot failure,
+retry, original content/mode restoration and selected ACL restoration on a fake
+regular-file device. It loaded no model, started no service and touched no host
+input device. Fictional artifacts exercise hash/package validation, not real ONNX.
+
+Actual Pi receiving installation selected the retained original baseline. Rollback
+removed installed WiggleControl artifacts and its udev rule; independent SSH
+readback matched the original uinput ACL exactly. The independent panel remained
+active. Fresh administrator access worked and SSH/sudo/access-file digests were
+unchanged. Reinstallation restored the manually enabled package/rule, without
+opening camera or microphone. Baseline custody and original snapshots remain
+private. This qualifies real reversal/reinstallation, not human gesture acceptance.

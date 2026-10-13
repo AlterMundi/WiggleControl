@@ -1,11 +1,21 @@
 #!/bin/sh
 # Root receiving install: explicit built artifacts, named operator, no startup capture.
 set -eu
-[ "$(id -u)" = 0 ] && [ "$#" = 4 ] || { echo 'Usage as root: install.sh BINARY MODELS_DIR RUNTIME_DIR OPERATOR' >&2; exit 1; }
+[ "$(id -u)" = 0 ] && { [ "$#" = 4 ] || [ "$#" = 5 ]; } || { echo 'Usage as root: install.sh BINARY MODELS_DIR RUNTIME_DIR OPERATOR [ORIGINAL_UINPUT_ACL]' >&2; exit 1; }
 binary=$1
 models=$2
 runtime=$3
 operator=$4
+baseline_acl=${5:-}
+if [ -n "$baseline_acl" ]; then
+ python3 - "$baseline_acl" <<'PY'
+import sys
+from pathlib import Path
+lines=Path(sys.argv[1]).read_text().splitlines()
+assert [line for line in lines if line.startswith('# file: ')]==['# file: /dev/uinput'], 'Baseline must describe only /dev/uinput'
+PY
+ setfacl --test --restore="$baseline_acl" >/dev/null
+fi
 case "$operator" in *[!a-zA-Z0-9_-]*|'') exit 1;; esac
 getent passwd "$operator" >/dev/null
 [ -f "$binary" ] && [ -f "$models/manifest.json" ] && [ -f "$runtime/lib/libonnxruntime.so.1.22.0" ]
@@ -39,6 +49,13 @@ if [ ! -e "$backup/manifest" ]; then
  getfacl -p /dev/uinput > "$stage/uinput.acl"
  mv "$stage" "$backup"
  trap - EXIT HUP INT TERM
+fi
+# Explicit earlier baseline can include temporary permission changes preceding install.
+# Preserve the initial installation ACL too; never infer which prior grant was ours.
+if [ -n "$baseline_acl" ]; then
+ if [ ! -f "$backup/uinput.installation.acl" ]; then cp -a "$backup/uinput.acl" "$backup/uinput.installation.acl"; fi
+ install -m 600 "$baseline_acl" "$backup/uinput.acl.new"
+ mv "$backup/uinput.acl.new" "$backup/uinput.acl"
 fi
 install -d /usr/local/share/wigglecontrol/models /usr/local/lib/wigglecontrol /etc/wigglecontrol /etc/udev/rules.d
 install -m 755 "$binary" /usr/local/bin/wigglecontrol.new

@@ -267,3 +267,20 @@ shared-target anchor. Visual retention is independently bounded at 300 ms with
 strict 150 ms input/press eligibility. Receiving builds/layout qualification
 are separate from still-pending real calibration/pinch/drag/loss/Stop and prayer
 activation. No camera has opened during this implementation increment.
+
+Prayer-entry preparation while manual human acceptance is pending: a camera-free
+2-D candidate detector now requires two confident, opposite-handed, stable-ID
+upright hands, close palms/fingertips and one second of fresh continuous evidence.
+It latches one activation and requires 400 ms of observed separation to rearm;
+loss/ambiguity does not rearm it. Tests include disabled input, stale/future data,
+occlusion, low confidence, folded fingers, identity replacement, array reordering
+and uncertain/same-side estimates. Thresholds are an unqualified prototype, not
+physical accuracy or proof of palm contact. No existing pinch thresholds changed.
+
+This detector is not wired/enabled in receiving sessions. Manual calibration
+acceptance still precedes gesture activation. Existing infer_many marks centers
+closer than 0.8 palm widths ambiguous and suppresses nearby new ROIs; actual
+prayer-like occlusion/model coverage is an explicit receiving uncertainty.
+Do not weaken touch identity safeguards or silently accept an ambiguous pose.
+Human manual calibration/comfort/loss/Stop remains the current pending action;
+no additional camera/model session was started by this source preparation.

@@ -670,3 +670,18 @@ of each named control. The response explicitly acknowledges queueing, not
 producer execution/profile adoption. Twenty native-feature library tests and
 all-target Clippy passed. These components have not been wired to the receiving
 UI/session or qualified with physical hands; no acquisition took place.
+
+## Camera-free prayer-like candidate preparation
+
+Fictional pixel-space hand skeletons verify one activation after a one-second
+continuous fresh hold, stable identity under array reordering, no repeated
+activation while held or after occlusion, and rearming only after 400 ms of
+observed separation. Disabled, stale/future, low-confidence, ambiguous, incomplete,
+folded-finger and uncertain/same-handed observations do not activate. Tests and
+native-feature Clippy passed. These are algorithm/state tests, not model accuracy.
+
+The 2-D heuristic cannot establish physical palm contact. Native multi-hand
+ambiguity and nearby-ROI suppression can reject a real joined-palm pose; no real
+pose was acquired. Prototype thresholds, native integration, performance and
+human gesture acceptance remain unqualified. The detector is neither wired nor
+enabled in the receiving manual calibration release, and activates no sensors.

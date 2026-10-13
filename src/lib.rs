@@ -16,6 +16,8 @@ pub mod calibration;
 #[cfg(target_os = "linux")]
 pub mod calibration_runtime;
 
+pub mod prayer;
+
 #[cfg(target_os = "linux")]
 pub mod profile_store;
 

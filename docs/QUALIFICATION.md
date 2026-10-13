@@ -424,3 +424,17 @@ an input writer existed (injected=false). Hand absence/rejection and gesture
 failures cannot be localized from aggregate counters alone. No recording or
 microphone activation. Do not claim a measured five-attempt success rate until
 the human confirms participation.
+
+## First live aligned-preview trial
+
+After an explicit human ready acknowledgment, the receiving development binary
+ran a 30-second camera-preview. Its local Chromium view rendered detected-hand
+state and countdown at 1920x1080 with no page overflow. No input writer or frame
+recording was created. Summary: 413 captured, 271 processed, 256 detected,
+249 tracked, three press intents, 141 dropped and 16 stale observations; fresh
+FPS 8.41, timestamp-to-intent p50/p95 111.71/152.17 ms. One-core-normalized
+CPU 52.34%, runtime peak RSS 55216 KiB; child-lifetime counter 12688 KiB is not
+proof of an input writer. Instructions requested slow open-hand movement;
+whether pinches were deliberate requires human feedback before interpreting
+those intents. Spatial alignment and perceived visual fluency remain pending
+human confirmation. The installed production binary remains unchanged.

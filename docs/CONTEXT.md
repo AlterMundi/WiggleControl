@@ -108,3 +108,10 @@ two, but this is a model/input coverage difference reproduced upstream, not a
 proved Rust-port rejection bug. No thresholds/production perception were changed.
 The image diagnostic now exposes bounded last-palm/current-skip ROIs. Actual
 human camera accuracy, model/input coverage assessment and comfort remain pending.
+
+Installed runtime completed inside an offline network namespace after dropping
+to normal operator identity/groups; the host network/access stayed unchanged.
+A missing-camera startup failed as expected and released its writer/device, with
+real camera/mic inactive afterward. These qualify offline local lifecycle and
+startup failure cleanup, not physical USB hotplug or human gesture acceptance.
+See exact observations and summary-field semantics in QUALIFICATION.md.

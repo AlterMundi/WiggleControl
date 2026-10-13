@@ -301,3 +301,27 @@ preprocessing detail identical or identify why the browser's different pipeline
 accepts both. Model/input coverage comparison remains explicit; thresholds and
 production behavior were not changed to force a pass. Thirty-one source tests
 and Clippy passed after adding the diagnostic seam.
+
+## Local offline runtime and camera-open failure — 2026-10-13
+
+The installed runtime ran a finite four-second direct-touch session inside a new
+network namespace, with only loopback present and down. Privileges were dropped
+to the existing operator with its normal supplementary groups before model/camera
+work. The host network, SSH and compositor namespace were unchanged. It completed
+successfully: 55 captured frames, 31 processed, zero accepted hands/press intents,
+and timestamp-to-intent p50/p95 113.01/139.63 ms. This proves local session operation
+without an external network path, not hand accuracy or application gesture delivery.
+The test used direct finite CLI ownership, not a panel-managed Stop scenario.
+
+A separate temporary configuration pointed the camera at a nonexistent test node;
+models/runtime/grants and the real maintained configuration were preserved. The
+finite mouse session failed with ENOENT, processed zero frames, closed its writer
+and left no virtual device. Independent panel status afterward showed camera and
+microphone inactive and silent mode preserved. Fresh SSH remained functional.
+Temporary test config was removed. Missing-path startup is not a physical USB
+disconnect/reconnect test; that acceptance remains separately pending.
+
+Historical summary field `injected` identifies requested writer mode; it does not
+prove an emitted press, device delivery or successful session. Actual exit status,
+event counters, independent device state and application observations remain the
+effect evidence, especially in a failing startup.

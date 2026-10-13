@@ -121,3 +121,14 @@ application. Explicit Stop exited successfully and removed only the virtual
 touch device. No camera/microphone was opened. Coordinates matched the single
 1080p output; multi-output mapping remains unqualified. Two-hand recognition,
 crossing/occlusion identity and camera-to-touch engagement are still pending.
+
+## Two-hand gesture semantics checkpoint — 2026-10-13
+
+Twenty-nine native-feature tests now pass. Five additional state tests qualify
+independent confirmed pinches, stable contact ownership after producer reordering,
+loss of one hand preserving the other, ambiguity release/open-before-repress with
+new contact IDs, malformed/future/duplicate/regressed input, stale/Stop neutrality
+and explicit absolute workspace mapping. Two CLI tests verify the fictional
+two-hand replay, final EOF release and malformed-input failure with neutral output.
+This is camera-free semantic evidence. It does not qualify native recognition of
+two hands or whether the producer correctly notices a real crossing/occlusion.

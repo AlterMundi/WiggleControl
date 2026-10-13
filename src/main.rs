@@ -47,6 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(target_os = "linux")]
     match args.first().map(String::as_str) {
+        Some("touch-replay") if args.len() == 1 => {
+            return Ok(wigglecontrol::touch_gestures::replay_stdin()?)
+        }
         Some("touch-check") if args.len() == 2 => {
             return Ok(wigglecontrol::touch::check(args[1].parse()?)?)
         }

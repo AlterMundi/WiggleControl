@@ -28,8 +28,27 @@ not send heartbeats indefinitely after perception fails. This writer accepts
 already-authorized contact intent, not raw hand detection; it does not decide
 engagement or fabricate a contact from two visible fingertips.
 
-The current camera session controls a **mouse**. Two-hand association, gesture
-engagement for touch, crossing/occlusion policy and camera-driven direct touch
-remain implementation/qualification work. Do not claim the contact writer itself
-provides those behaviors. A touch-aware application decides how to interpret
-zoom/rotation; ordinary applications may emulate a single mouse.
+## Two-hand gesture replay
+
+`wigglecontrol touch-replay < tests/fixtures/two-hand-touch.jsonl` opens no camera or
+device. It emits contact intent using the same bounded reader and pinch engine
+as pointer mode. The source frame is explicit: version 1, monotonic source_us,
+at most two valid distinct hand IDs, and an `ambiguous` flag. `start`, `stop`,
+`tick` and `frame` commands supply a deterministic consumer clock. EOF and malformed
+input emit a final neutral contact frame.
+
+Each hand must be eligible, first visibly open, then closed for the configured
+confirmation duration. Each confirmed pinch creates a new contact ID; reordering
+hands preserves ownership. Release/loss ends only that hand's contact. Staleness,
+identity ambiguity or invalid input neutralizes held state. A closed reacquired
+hand cannot press until it opens again. Scrolling is disabled in touch mode, which
+emits no parallel mouse stream. Smoothed palm cursor coordinates map through an
+explicit normalized workspace rectangle, defaulting to the entire camera view.
+The rectangle is not a qualified seated-comfort calibration.
+
+The current camera session still controls a **mouse**. Native two-hand association,
+producer ambiguity detection during crossing/occlusion and joining this replay
+engine to camera-driven touch remain implementation/qualification work. The
+producer must actually establish identity rather than claiming certainty from
+detector order. A touch-aware application decides how to interpret zoom/rotation;
+ordinary applications may emulate a single mouse.

@@ -8,6 +8,9 @@ pub mod input;
 pub mod touch;
 
 #[cfg(target_os = "linux")]
+pub mod touch_gestures;
+
+#[cfg(target_os = "linux")]
 mod intent;
 
 #[cfg(feature = "native-vision")]

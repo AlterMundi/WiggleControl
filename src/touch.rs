@@ -3,9 +3,9 @@ use evdev::{
     uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode as A, AttributeSet, EventType, InputEvent,
     KeyCode, PropType, UinputAbsSetup,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{io, time::Duration};
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Contact {
     pub id: u32,

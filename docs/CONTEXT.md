@@ -66,3 +66,9 @@ both contacts before device removal. This qualifies the writer, not camera-to-to
 or hand crossing. See TOUCH.md and QUALIFICATION.md for exact limits. The source
 panel integration was published at daimon-integrators 662ff69 with successful
 Actions run 38412337990; receiving start/Stop evidence is recorded independently.
+
+The two-hand gesture/contact layer now reuses the pointer pinch engine, preserving
+separate contact ownership, open-before-press and freshness. It has a bounded
+camera-free touch-replay seam and fictional fixture. Producer-declared identity
+ambiguity neutralizes contacts; actual native ambiguity detection/association
+and camera-to-touch integration are still next work, not implied by these tests.

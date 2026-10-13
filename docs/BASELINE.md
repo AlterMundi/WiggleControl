@@ -7,11 +7,14 @@ prototype code is incorporated. Runtime/model imports happen only on manual run.
 See the [official web API guide](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/web_js).
 
 Serve only the selected page and permitted reference from a task-owned local
-directory. The page expects `reference.png`; it forms the same image plus its
-horizontal mirror as the native paired diagnostic. Do not serve a repository's
+directory. Run in a visible task-owned tab; hidden-tab attempts did not progress
+past reference loading. The page expects `reference.png` and defaults to the
+original image. The current permitted reference already contains two hands;
+duplicating/mirroring it creates four and detectors may select different pairs.
+Do not serve a repository's
 private overlay or other user files. SDK/model network loading remains explicit;
-selected artifact-byte verification and successful browser qualification remain
-pending. The prototype's full graphics/interaction layers are excluded.
+the model is loaded from the same byte buffer whose SHA-256 is recorded in the
+result. The prototype's full graphics/interaction layers are excluded.
 
 The manual button runs 30 frames; `runBaseline` permits 1–60 and explicit GPU/CPU
 selection, without silently changing delegate. Result state includes current
@@ -22,7 +25,7 @@ permission is requested and no browser events are injected into applications.
 Native comparison:
 
 ```sh
-wigglecontrol image-check-touch PERMITTED_IMAGE RECEIVING_CONFIG pair 30
+wigglecontrol image-check-touch PERMITTED_IMAGE RECEIVING_CONFIG single 30
 ```
 
 This requires the native-vision build and reports per-frame inference time,

@@ -257,3 +257,29 @@ The timeout does not diagnose model, GPU, network or delegate failure. Phase
 markers are now available for the next controlled attempt. Browser/native
 comparison and browser asset-byte provenance remain unfinished; no relative
 speed advantage or fallback choice is established by this attempt.
+
+## Browser baseline execution and coverage discrepancy — 2026-10-13
+
+Phase probes showed hidden-tab attempts stayed before runtime import. The visible
+task-owned tab completed thirty frames; the comparison tool now requires visibility.
+The first mirrored fixture contains four hands, since the original already has
+two. Native and browser selected different pairs, so those paired results cannot
+establish coordinate equivalence or equal-work performance.
+
+On the original 600x450 reference, Tasks Vision 0.10.14 requested GPU and reported
+ANGLE/Broadcom V3D 7.1.7.0 OpenGL ES 3.1. The task was loaded from a byte buffer
+with observed SHA-256 fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1.
+It accepted two hands initially and finally: model initialization about 499 ms,
+first inference 537.1 ms, subsequent p50/p95 69.7/74.0 ms in this warm-browser run.
+
+The native original-reference run accepted one hand throughout: first call
+124.12 ms, subsequent p50/p95 48.17/122.62 ms. These perform different accepted-hand
+work and do not establish a relative speed advantage. Coverage discrepancy is
+unfinished correctness work; its cause is not established. A trial increasing
+palm proposals from two to eight did not change accepted-hand count and was
+discarded, without lowering confidence thresholds or altering production code.
+The diagnostic now includes last hand score/ROI to support the next investigation.
+
+All inputs were permitted static images; no camera, microphone or device opened.
+Owned browser targets closed and bounded local servers expired. Native timing
+remains a receiving development diagnostic, not an installed production upgrade.

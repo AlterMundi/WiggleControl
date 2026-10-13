@@ -42,3 +42,8 @@ status visible without whole-page scrolling, and space for the top-right compact
 status panel. Preserve the chosen Star Trek/LCARS style. Check real viewport
 bounds including dynamically inserted controls before asking for a physical trial.
 Scrollable content inside the explicit scroll exercise is intentional.
+
+For each live human gesture trial, describe one finite test and wait for the
+human's explicit ready acknowledgment before acquisition. Presence in a prior
+message and a delivered instruction do not establish that the human read it or
+is attending the new test. Separate preparation/build/layout work from capture.

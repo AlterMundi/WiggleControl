@@ -158,3 +158,12 @@ fit, and a compositor screenshot confirms the mini panel remains visible. Only
 the explicit scroll exercise scrolls internally. AGENTS.md records TV-first
 layout, viewing-distance readability and dynamic viewport checks for future work.
 No sensor or input session was opened for this layout correction.
+
+Human feedback requires live spatial feedback: the native preview now displays
+the mirrored frame with correctly co-located hand skeleton, thumb/index pinch
+and palm anchor, plus upper-right engine state/confidence/ratio and timings.
+It reuses the finite camera-only path, creates no input writer and retains no
+frames on disk. Existing gesture decisions/thresholds remain unchanged.
+The human corrected trial coordination: prepare and describe one test, then
+wait for an explicit ready reply before starting each acquisition. Earlier
+foreground presence never substitutes for the new readiness acknowledgment.

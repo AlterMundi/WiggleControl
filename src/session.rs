@@ -207,10 +207,13 @@ fn write_events(
     Ok(presses)
 }
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, false)
+    run_mode(path, seconds, inject, false, None)
 }
 pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, true)
+    run_mode(path, seconds, inject, true, None)
+}
+pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
+    run_mode(path, seconds, false, false, Some(port))
 }
 fn write_contacts(
     output: &mut Option<std::process::ChildStdin>,
@@ -226,7 +229,13 @@ fn write_contacts(
     }
     Ok(())
 }
-fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), Box<dyn Error>> {
+fn run_mode(
+    path: &Path,
+    seconds: u64,
+    inject: bool,
+    touch: bool,
+    preview_port: Option<u16>,
+) -> Result<(), Box<dyn Error>> {
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
@@ -237,6 +246,9 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+    let preview = preview_port
+        .map(|port| crate::preview::Preview::start(port, stop.clone()))
+        .transpose()?;
     // Start the session deadline before spawning its independently finite writer.
     let start = Instant::now();
     let mut writer = if inject {
@@ -303,8 +315,9 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
             };
             let _sequence = frame.sequence;
             due = Instant::now() + period;
+            let decode_started = Instant::now();
             let mut reader =
-                image::ImageReader::new(Cursor::new(frame.bytes)).with_guessed_format()?;
+                image::ImageReader::new(Cursor::new(&frame.bytes)).with_guessed_format()?;
             let mut limits = image::Limits::default();
             limits.max_image_width = Some(640);
             limits.max_image_height = Some(480);
@@ -314,6 +327,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
             if image.width() != 640 || image.height() != 480 {
                 return Err("decoded camera dimensions changed".into());
             }
+            let decode_ms = decode_started.elapsed().as_secs_f64() * 1000.0;
             let now;
             if touch {
                 let detected = perception.infer_many(&image)?;
@@ -347,7 +361,9 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
                     ),
                 )?;
             } else {
+                let inference_started = Instant::now();
                 let hand = perception.infer(&image)?;
+                let inference_ms = inference_started.elapsed().as_secs_f64() * 1000.0;
                 if start.elapsed() >= Duration::from_secs(seconds) {
                     break;
                 }
@@ -360,6 +376,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
                     }
                 }
                 let observation = hand
+                    .as_ref()
                     .map(|h| h.observation(image.width(), image.height(), frame.source_us))
                     .unwrap_or(Observation {
                         version: 1,
@@ -367,8 +384,28 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
                         hand: None,
                     });
                 now = monotonic_us()?;
+                let interpreted = observation.hand.clone();
                 summary.button_down_intents +=
                     write_events(&mut output, engine.observe(now, observation), true)?;
+                if let Some(preview) = &preview {
+                    let ratio = interpreted
+                        .as_ref()
+                        .map(|h| h.thumb_tip.distance(h.index_tip) / h.palm_width);
+                    let data = serde_json::json!({
+                        "sequence": frame.sequence, "width":image.width(), "height":image.height(),
+                        "landmarks":hand.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),
+                        "confidence":hand.as_ref().map(|h|h.confidence),
+                        "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
+                        "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
+                        "pinch_state":engine.pinch_state(), "close_ratio":Config::default().close_ratio,
+                        "open_ratio":Config::default().open_ratio,
+                        "fresh":now.saturating_sub(frame.source_us)<150_000,
+                        "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
+                        "decode_ms":decode_ms,"inference_ms":inference_ms,
+                        "presses":summary.button_down_intents, "remaining_seconds":seconds.saturating_sub(start.elapsed().as_secs())
+                    });
+                    preview.publish(frame.bytes, data)?;
+                }
             }
             let age = now.saturating_sub(frame.source_us);
             if age >= 150_000 {

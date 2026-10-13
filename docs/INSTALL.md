@@ -140,3 +140,32 @@ The isolated fixture checks interrupted snapshot/retry, original contents/modes
 and explicit ACL restoration on a fake device with no network or host service
 effects. Actual receiving rollback/reinstallation has its separate evidence in
 QUALIFICATION.md; a mocked fixture alone does not prove real permission removal.
+
+## Local live hand feedback
+
+`wigglecontrol camera-preview SECONDS CONFIG PORT` runs the same single-hand
+native model and gesture engine without an input writer. SECONDS is 1–120; the
+HTTP listener binds only IPv4 loopback. On the receiving desktop, open
+`http://127.0.0.1:PORT/` while the explicitly started session is running. Opening
+the page never starts acquisition. Confirm human readiness separately for each
+physical trial before invoking the command.
+
+The mirrored image, 21 landmarks, thumb/index pinch segment and raw palm cursor
+anchor share one frame. Upper-right data reports model confidence/eligibility,
+pinch state and normalized ratio, press intents, frame age and separate decode/
+inference time. These are estimates; no calibrated screen rectangle is implied.
+Stale observations remain subject to the existing gesture freshness rule. The
+view distinguishes producer-rejected frames from waiting on an older displayed
+frame. Preview adds image transport/rendering overhead; it is diagnostic feedback,
+not a production gesture throughput benchmark.
+
+The page's **STOP PREVIEW** controls this session through a same-origin request;
+expiry/SIGINT/SIGTERM also end it. The integrators panel observes camera use but
+its managed-input Stop does not own a directly invoked preview. Confirm observed
+camera closure. The server keeps only the latest in-memory snapshot plus an
+in-flight response, sends no-store responses and clears memory on shutdown. No
+video/frame file, microphone, network upload or startup service is created.
+
+Initial receiving adoption uses the ordinary development binary, preserving the
+installed production binary and operator permissions. Source publication and
+physical alignment/pinch acceptance remain separate checks.

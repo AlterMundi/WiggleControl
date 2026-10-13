@@ -26,12 +26,15 @@ fn engine() -> Engine {
 }
 fn press(e: &mut Engine) {
     e.observe(1, frame(1, 1, 0.6, 0.5));
+    assert_eq!(e.pinch_state(), "open");
     assert!(!e
         .observe(20_001, frame(20_001, 1, 0.1, 0.5))
         .contains(&Event::Button { down: true }));
+    assert_eq!(e.pinch_state(), "closing");
     assert!(e
         .observe(60_001, frame(60_001, 1, 0.1, 0.5))
         .contains(&Event::Button { down: true }));
+    assert_eq!(e.pinch_state(), "pressed");
 }
 #[test]
 fn click_drag_hysteresis_release() {
@@ -46,6 +49,7 @@ fn click_drag_hysteresis_release() {
         .observe(100_001, frame(100_001, 1, 0.6, 0.8))
         .contains(&Event::Button { down: false }));
     assert!(!e.stop().contains(&Event::Button { down: false }));
+    assert_eq!(e.pinch_state(), "stopped");
 }
 #[test]
 fn closed_reacquisition_does_not_click() {

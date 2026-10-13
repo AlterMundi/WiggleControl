@@ -22,6 +22,9 @@ pub mod vision;
 #[cfg(feature = "native-vision")]
 pub mod session;
 
+#[cfg(feature = "native-vision")]
+pub mod preview;
+
 pub const SCHEMA_VERSION: u32 = 1;
 pub const MAX_MESSAGE_BYTES: usize = 16 * 1024;
 
@@ -179,6 +182,24 @@ impl Engine {
     pub fn stop(&mut self) -> Vec<Event> {
         self.running = false;
         self.cancel("stop")
+    }
+    /// Read-only diagnostic state; does not modify gesture decisions.
+    pub fn pinch_state(&self) -> &'static str {
+        if !self.running {
+            "stopped"
+        } else if self.hand_id.is_none() {
+            "not_eligible"
+        } else if self.scrolling {
+            "scrolling"
+        } else if self.held {
+            "pressed"
+        } else if self.candidate.is_some() {
+            "closing"
+        } else if self.armed {
+            "open"
+        } else {
+            "open_first"
+        }
     }
     pub fn reject(&mut self) -> Vec<Event> {
         self.cancel("malformed_input")

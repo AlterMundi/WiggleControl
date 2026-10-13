@@ -553,3 +553,14 @@ detected, 264 tracked, 170 dropped and 33 stale; fresh FPS 8.05, timestamp-to-
 intent p50/p95 120.54/159.78 ms, one-core CPU 57.52%, runtime RSS 55200 KiB,
 child RSS zero. These whole-session counters must not be relabeled as
 test-only recognition accuracy.
+
+Human feedback on the 0.35/0.45 visible-window trial: movement/skeleton remained
+fluid but pinch felt less responsive than the initial settings. The right-side
+block explanations were not noticed. The human requests restoration of the
+original parameters while retaining the improved test view, one further
+diagnostic trial, and deferral of extensive pinch tuning to later iterations
+while advancing overall development. Original source defaults are 0.25 close
+and 0.4 release/open; 0.5 was a later candidate, not the original default.
+The receiving diagnostic profile was restored to 0.25/0.4 and validated without
+acquisition; production config was already unchanged. No new trial is started
+until a fresh human ready acknowledgment.

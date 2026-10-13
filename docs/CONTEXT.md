@@ -189,3 +189,9 @@ failure. The next local candidate relaxes release/rearm to 0.45, keeping close
 0.35; no production default adoption or new capture is implied.
 
 Proposed prayer-pose calibration is tracked in [WiggleControl #2](https://github.com/AlterMundi/WiggleControl/issues/2): deliberate palms-together activation during an already human-enabled session, guided horizontal/vertical comfortable bounds, corner verification and receiving-local profile adoption/retry/cancel. Reuse native perception/overlay; relative-pointer recentering and absolute-touch mapping require distinct qualification. No prayer detector or calibration ceremony is implemented by recording this proposal.
+
+Current test profile restored to original 0.25/0.4 after human-reported lower
+responsiveness of 0.35/0.45. Keep the improved preview/timing/block explanations.
+The human prioritizes advancing calibration/system interaction over prolonged
+pinch tuning; one further baseline diagnostic trial is requested, readiness
+still required. No wider-tolerance candidate was adopted in production.

@@ -31,6 +31,7 @@ pub struct Preview {
     slot: Arc<Mutex<Option<Arc<Snapshot>>>>,
     stop: Arc<AtomicBool>,
     worker: Option<thread::JoinHandle<()>>,
+    ready: Arc<AtomicBool>,
     pub port: u16,
 }
 impl Preview {
@@ -41,11 +42,13 @@ impl Preview {
         let slot = Arc::new(Mutex::new(None));
         let shared = slot.clone();
         let stopped = stop.clone();
+        let ready = Arc::new(AtomicBool::new(false));
+        let acknowledged = ready.clone();
         let worker = thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        let _ = serve(&mut stream, &shared, &stopped, port);
+                        let _ = serve(&mut stream, &shared, &stopped, &acknowledged, port);
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(10))
@@ -60,7 +63,11 @@ impl Preview {
             stop,
             worker: Some(worker),
             port,
+            ready,
         })
+    }
+    pub fn view_ready(&self) -> bool {
+        self.ready.load(Ordering::Relaxed)
     }
     pub fn publish(&self, jpeg: Vec<u8>, data: Value) -> io::Result<()> {
         if jpeg.len() > 2 * 1024 * 1024 {
@@ -105,6 +112,7 @@ fn serve(
     stream: &mut TcpStream,
     slot: &Mutex<Option<Arc<Snapshot>>>,
     stop: &AtomicBool,
+    ready: &AtomicBool,
     port: u16,
 ) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -167,7 +175,7 @@ fn serve(
                 respond(stream, "204 No Content", "text/plain", b"", "")
             }
         }
-        "POST /stop HTTP/1.1" => {
+        "POST /stop HTTP/1.1" | "POST /ready HTTP/1.1" => {
             let origin = format!("http://{host}");
             if !headers
                 .iter()
@@ -181,8 +189,13 @@ fn serve(
                     "",
                 );
             }
-            stop.store(true, Ordering::Relaxed);
-            respond(stream, "200 OK", "text/plain", b"Stopping", "")
+            if first == "POST /ready HTTP/1.1" {
+                ready.store(true, Ordering::Relaxed);
+                respond(stream, "200 OK", "text/plain", b"View ready", "")
+            } else {
+                stop.store(true, Ordering::Relaxed);
+                respond(stream, "200 OK", "text/plain", b"Stopping", "")
+            }
         }
         _ => respond(stream, "404 Not Found", "text/plain", b"Not found", ""),
     }
@@ -239,6 +252,18 @@ mod tests {
         let response = request(preview.port, "GET /frame", false);
         assert!(String::from_utf8_lossy(&response).contains("X-Wiggle-State: {\"sequence\":8}"));
         assert!(response.ends_with(&[4, 5, 6]));
+        assert!(!preview.view_ready());
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /ready", false))
+                .starts_with("HTTP/1.1 403")
+        );
+        assert!(!preview.view_ready());
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /ready", true))
+                .starts_with("HTTP/1.1 200")
+        );
+        assert!(preview.view_ready());
+        assert!(!stop.load(Ordering::Relaxed));
         assert!(
             String::from_utf8_lossy(&request(preview.port, "POST /stop", false))
                 .starts_with("HTTP/1.1 403")

@@ -231,3 +231,40 @@ fn wider_pinch_tolerance_keeps_confirmation_hysteresis_and_open_before_press() {
         .contains(&Event::Button { down: false }));
     assert_eq!(e.pinch_state(), "open");
 }
+
+#[test]
+fn diagnostics_distinguish_open_first_confirmation_and_stale_frame() {
+    let mut e = engine();
+    e.observe(1, frame(1, 1, 0.1, 0.5));
+    assert_eq!(e.pinch_block_reason(), Some("open_before_press"));
+    e.observe(10_001, frame(10_001, 1, 0.6, 0.5));
+    e.observe(20_001, frame(20_001, 1, 0.1, 0.5));
+    assert_eq!(e.pinch_block_reason(), Some("confirming"));
+    assert_eq!(e.confirmation_elapsed_us(), 0);
+    e.observe(40_001, frame(40_001, 1, 0.1, 0.5));
+    assert_eq!(e.confirmation_elapsed_us(), 20_000);
+    e.observe(60_001, frame(60_001, 1, 0.1, 0.5));
+    assert_eq!(e.pinch_block_reason(), None);
+    e.observe(250_001, frame(60_001, 1, 0.1, 0.5));
+    assert_eq!(e.pinch_block_reason(), Some("stale_frame"));
+}
+
+#[test]
+fn relaxed_release_uses_finger_separation_without_full_hand_reopening() {
+    let mut e = Engine::new(Config {
+        close_ratio: 0.35,
+        open_ratio: 0.45,
+        ..Config::default()
+    })
+    .unwrap();
+    e.start();
+    e.observe(1, frame(1, 1, 0.6, 0.5));
+    e.observe(20_001, frame(20_001, 1, 0.3, 0.5));
+    assert!(e
+        .observe(60_001, frame(60_001, 1, 0.3, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(80_001, frame(80_001, 1, 0.46, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert_eq!(e.pinch_state(), "open");
+}

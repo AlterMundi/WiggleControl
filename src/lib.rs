@@ -140,6 +140,7 @@ pub struct Engine {
     candidate: Option<u64>,
     scrolling: bool,
     scroll_remainder: f64,
+    last_rejection: Option<&'static str>,
 }
 impl Engine {
     pub fn new(config: Config) -> Result<Self, &'static str> {
@@ -172,6 +173,7 @@ impl Engine {
             candidate: None,
             scrolling: false,
             scroll_remainder: 0.0,
+            last_rejection: None,
         })
     }
     pub fn start(&mut self) -> Vec<Event> {
@@ -201,6 +203,22 @@ impl Engine {
             "open_first"
         }
     }
+    pub fn pinch_block_reason(&self) -> Option<&'static str> {
+        match self.pinch_state() {
+            "pressed" => None,
+            "closing" => Some("confirming"),
+            "open_first" => Some("open_before_press"),
+            "open" => Some("close_threshold"),
+            "scrolling" => Some("scroll_gesture"),
+            _ => self.last_rejection,
+        }
+    }
+    pub fn confirmation_elapsed_us(&self) -> u64 {
+        self.last_source
+            .zip(self.candidate)
+            .map(|(last, first)| last.saturating_sub(first))
+            .unwrap_or(0)
+    }
     pub fn reject(&mut self) -> Vec<Event> {
         self.cancel("malformed_input")
     }
@@ -217,7 +235,8 @@ impl Engine {
         }
         Vec::new()
     }
-    fn cancel(&mut self, reason: &str) -> Vec<Event> {
+    fn cancel(&mut self, reason: &'static str) -> Vec<Event> {
+        self.last_rejection = Some(reason);
         let mut events = Vec::new();
         if self.held {
             events.push(Event::Button { down: false });
@@ -255,6 +274,20 @@ impl Engine {
             || observation.hand.as_ref().is_some_and(|h| !h.valid())
         {
             events.extend(self.cancel("invalid_observation"));
+            self.last_rejection = Some(if observation.version != SCHEMA_VERSION {
+                "unsupported_version"
+            } else if observation.source_us > now_us {
+                "future_frame"
+            } else if now_us.saturating_sub(observation.source_us) >= self.config.stale_us {
+                "stale_frame"
+            } else if self
+                .watermark
+                .is_some_and(|last| observation.source_us <= last)
+            {
+                "old_frame"
+            } else {
+                "invalid_hand"
+            });
             return events;
         }
         self.watermark = Some(observation.source_us);
@@ -264,6 +297,13 @@ impl Engine {
         };
         if !hand.engaged || hand.confidence < self.config.min_confidence || !hand.pinch_eligible {
             events.extend(self.cancel("hand_not_eligible"));
+            self.last_rejection = Some(if !hand.engaged {
+                "hand_not_engaged"
+            } else if hand.confidence < self.config.min_confidence {
+                "low_confidence"
+            } else {
+                "pinch_not_eligible"
+            });
             return events;
         }
         if self.scrolling != hand.scrolling {
@@ -307,6 +347,7 @@ impl Engine {
         }
         self.last_source = Some(observation.source_us);
         self.last_received = Some(now_us);
+        self.last_rejection = None;
         if hand.scrolling {
             self.armed = false;
             self.candidate = None;

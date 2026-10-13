@@ -75,6 +75,39 @@ impl SessionConfig {
         Ok(config)
     }
 }
+// Preview preparation and measured trial share a hard 120-second capture bound.
+struct PreviewClock {
+    opened: Instant,
+    duration: Duration,
+    started: Option<Instant>,
+}
+impl PreviewClock {
+    fn new(opened: Instant, seconds: u64) -> Self {
+        Self {
+            opened,
+            duration: Duration::from_secs(seconds),
+            started: None,
+        }
+    }
+    fn deadline(&self) -> Instant {
+        self.started
+            .map(|started| started + self.duration)
+            .unwrap_or(self.opened + Duration::from_secs(30))
+            .min(self.opened + Duration::from_secs(120))
+    }
+    fn update(&mut self, ready: bool, now: Instant) -> bool {
+        if self.started.is_none() && ready && now < self.deadline() {
+            self.started = Some(now);
+            true
+        } else {
+            false
+        }
+    }
+    fn remaining_ms(&self, now: Instant) -> Option<u64> {
+        self.started
+            .map(|_| self.deadline().saturating_duration_since(now).as_millis() as u64)
+    }
+}
 struct Frame {
     bytes: Vec<u8>,
     source_us: u64,
@@ -181,6 +214,9 @@ struct Summary {
     fresh_processed: u64,
     fresh_processed_fps: f64,
     resources: Option<crate::metrics::Resources>,
+    preview_test_started: bool,
+    preview_test_press_intents: Option<u64>,
+    preview_test_elapsed_seconds: Option<f64>,
 }
 fn percentile(values: &mut [f64], percent: usize) -> Option<f64> {
     if values.is_empty() {
@@ -260,6 +296,11 @@ fn run_mode(
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
+    if preview_port.is_some() && seconds > 90 {
+        return Err(
+            "preview test duration must be 1..90 seconds (up to 30 seconds preparation)".into(),
+        );
+    }
     let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
     ort::init_from(&config.runtime).commit()?;
@@ -272,6 +313,8 @@ fn run_mode(
         .transpose()?;
     // Start the session deadline before spawning its independently finite writer.
     let start = Instant::now();
+    let mut preview_clock = preview.as_ref().map(|_| PreviewClock::new(start, seconds));
+    let mut preview_press_baseline = 0;
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
@@ -308,7 +351,20 @@ fn run_mode(
     };
     let mut latency = Vec::with_capacity(2400);
     let result = (|| -> Result<(), Box<dyn Error>> {
-        while start.elapsed() < Duration::from_secs(seconds) && !stop.load(Ordering::Relaxed) {
+        while Instant::now()
+            < preview_clock
+                .as_ref()
+                .map(PreviewClock::deadline)
+                .unwrap_or(start + Duration::from_secs(seconds))
+            && !stop.load(Ordering::Relaxed)
+        {
+            if let (Some(preview), Some(clock)) = (&preview, &mut preview_clock) {
+                if clock.update(preview.view_ready(), Instant::now()) {
+                    engine.stop();
+                    engine.start();
+                    preview_press_baseline = summary.button_down_intents;
+                }
+            }
             if let Some(writer) = writer.as_mut() {
                 if let Some(status) = writer.try_wait()? {
                     if status.success() && start.elapsed() >= Duration::from_secs(seconds) {
@@ -352,7 +408,12 @@ fn run_mode(
             let now;
             if touch {
                 let detected = perception.infer_many(&image)?;
-                if start.elapsed() >= Duration::from_secs(seconds) {
+                if Instant::now()
+                    >= preview_clock
+                        .as_ref()
+                        .map(PreviewClock::deadline)
+                        .unwrap_or(start + Duration::from_secs(seconds))
+                {
                     break;
                 }
                 now = monotonic_us()?;
@@ -385,7 +446,12 @@ fn run_mode(
                 let inference_started = Instant::now();
                 let hand = perception.infer(&image)?;
                 let inference_ms = inference_started.elapsed().as_secs_f64() * 1000.0;
-                if start.elapsed() >= Duration::from_secs(seconds) {
+                if Instant::now()
+                    >= preview_clock
+                        .as_ref()
+                        .map(PreviewClock::deadline)
+                        .unwrap_or(start + Duration::from_secs(seconds))
+                {
                     break;
                 }
                 summary.processed += 1;
@@ -419,12 +485,17 @@ fn run_mode(
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
                         "pinch_state":engine.pinch_state(), "close_ratio":config.pinch_close_ratio,
+                        "blocked_reason":engine.pinch_block_reason(),
+                        "confirmation_elapsed_ms":engine.confirmation_elapsed_us()/1000,
+                        "confirmation_required_ms":config.gestures().confirm_us/1000,
                         "open_ratio":config.pinch_open_ratio,
                         "fresh":now.saturating_sub(frame.source_us)<150_000,
                         "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                         "decode_ms":decode_ms,"inference_ms":inference_ms,
-                        "presses":summary.button_down_intents, "remaining_seconds":seconds.saturating_sub(start.elapsed().as_secs()),
-                        "remaining_ms":Duration::from_secs(seconds).saturating_sub(start.elapsed()).as_millis() as u64
+                        "presses":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {summary.button_down_intents.saturating_sub(preview_press_baseline)} else {0},
+                        "test_phase":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {"testing"} else {"preparing"},
+                        "test_duration_seconds":seconds,
+                        "remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))
                     });
                     preview.publish(frame.bytes, data)?;
                 }
@@ -473,6 +544,16 @@ fn run_mode(
     summary.source_kind = slot.source_kind.map(String::from);
     summary.elapsed_seconds = start.elapsed().as_secs_f64();
     summary.fresh_processed_fps = summary.fresh_processed as f64 / summary.elapsed_seconds;
+    if let Some(clock) = &preview_clock {
+        summary.preview_test_started = clock.started.is_some();
+        summary.preview_test_press_intents = clock.started.map(|_| {
+            summary
+                .button_down_intents
+                .saturating_sub(preview_press_baseline)
+        });
+        summary.preview_test_elapsed_seconds =
+            clock.started.map(|began| began.elapsed().as_secs_f64());
+    }
     summary.resources = Some(meter.finish());
     summary.timestamp_to_intent_p50_ms = percentile(&mut latency, 50);
     summary.timestamp_to_intent_p95_ms = percentile(&mut latency, 95);
@@ -507,6 +588,29 @@ mod tests {
     use super::*;
     use std::os::unix::process::ExitStatusExt;
 
+    #[test]
+    fn preview_clock_starts_on_visible_frame_and_has_a_finite_preparation_bound() {
+        let now = Instant::now();
+        let mut clock = PreviewClock::new(now, 30);
+        assert_eq!(clock.remaining_ms(now + Duration::from_secs(10)), None);
+        assert!(clock.update(true, now + Duration::from_secs(10)));
+        assert_eq!(
+            clock.remaining_ms(now + Duration::from_secs(10)),
+            Some(30_000)
+        );
+        assert_eq!(
+            clock.remaining_ms(now + Duration::from_secs(20)),
+            Some(20_000)
+        );
+        assert!(!clock.update(true, now + Duration::from_secs(25)));
+        assert_eq!(clock.remaining_ms(now + Duration::from_secs(40)), Some(0));
+        let mut absent = PreviewClock::new(now, 30);
+        assert_eq!(absent.deadline(), now + Duration::from_secs(30));
+        assert!(!absent.update(true, now + Duration::from_secs(31)));
+        let mut longest = PreviewClock::new(now, 90);
+        assert!(longest.update(true, now + Duration::from_secs(29)));
+        assert!(longest.deadline() <= now + Duration::from_secs(120));
+    }
     #[test]
     fn writer_failure_at_teardown_is_not_success_or_operator_stop() {
         assert!(check_writer_exit(None, false).is_ok());

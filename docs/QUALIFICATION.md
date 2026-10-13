@@ -513,3 +513,26 @@ timestamp-to-intent p50/p95 119.00/163.94 ms, one-core CPU 56.96%, runtime RSS
 52624 KiB, child RSS zero. No input writer or recording; production config
 retained its original profile. Comfort, counted recognition and relaxed-hand
 false activation remain separate human acceptance questions.
+
+Human feedback on the wider-tolerance trial: more than five pinches were
+deliberate, including fast attempts, so the ten intents are not evidence of
+duplicates. Perceived skeleton/movement fluency improved. Some estimated closed
+poses appeared without PINCH PRESSED; their rejection cause remains unverified.
+The human observed that the image became visible with about twenty of thirty
+seconds remaining, making the prior trial window unsuitable as thirty seconds
+of visible interaction.
+
+Preview timing now distinguishes preparation from testing. After the page draws
+and paints the first frame it acknowledges readiness; only then does the finite
+test countdown begin. Preparation is limited to thirty seconds; preview test
+duration is 1–90 seconds, keeping total acquisition at or below 120 seconds.
+Preparation press intents are excluded from the displayed/test counter, and
+aggregate summaries separately report test start, press count and elapsed time.
+No page navigation starts camera acquisition. The owning CLI still requires
+human readiness before starting any finite preparation/capture.
+
+Pinch diagnostics now report concrete blocked conditions and elapsed confirmation
+time without weakening gesture rules. The human requests less separation to
+release/rearm; a receiving-only 0.35/0.45 diagnostic candidate is prepared for
+a later acknowledged trial, preserving production defaults. Actual comfort,
+intended count, relaxed-hand behavior and new timing adoption need live evidence.

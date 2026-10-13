@@ -144,7 +144,9 @@ QUALIFICATION.md; a mocked fixture alone does not prove real permission removal.
 ## Local live hand feedback
 
 `wigglecontrol camera-preview SECONDS CONFIG PORT` runs the same single-hand
-native model and gesture engine without an input writer. SECONDS is 1–120; the
+native model and gesture engine without an input writer. SECONDS is a 1–90
+second measured test after the first painted frame; preparation is separately
+bounded to thirty seconds. The
 HTTP listener binds only IPv4 loopback. On the receiving desktop, open
 `http://127.0.0.1:PORT/` while the explicitly started session is running. Opening
 the page never starts acquisition. Confirm human readiness separately for each
@@ -187,3 +189,18 @@ open-before-press remain unchanged. The preview displays the selected thresholds
 Use an explicitly selected diagnostic config first and qualify intended pinches
 and relaxed-hand false activations before adopting a new profile. Older binaries
 reject these fields; this does not change the installed production defaults.
+
+Preview timing revision: the page acknowledges its first painted camera frame
+with a same-origin readiness request. This starts the measured TESTING window,
+not camera acquisition. PREPARING has a thirty-second timeout; preview test
+durations are 1–90 seconds, with a hard 120-second acquisition ceiling. Displayed
+press counts exclude preparation. JSON summaries include preview_test_started,
+preview_test_press_intents and preview_test_elapsed_seconds; the original
+aggregate counts/resources still cover preparation plus testing.
+
+The upper-right explanation now identifies open-before-press, close threshold,
+confirmation, stale input, tracking loss, rejected posture, low confidence or
+scroll-mode blocking. Confirmation time is shown separately; matching landmark
+positions alone do not assert that the gesture engine accepted the frame.
+A candidate 0.35/0.45 profile reduces release/rearm separation while retaining
+hysteresis. It remains a diagnostic candidate until human acceptance.

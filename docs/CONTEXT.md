@@ -178,3 +178,14 @@ Pinch comfort feedback led to optional validated close/open ratio config;
 0.35/0.5 is a diagnostic candidate, with default 0.25/0.4 preserved. Physical
 intended/relaxed-hand acceptance remains pending. Preview timer metadata now
 accounts for the age of its cached snapshot to avoid extending countdown expiry.
+
+Live-trial correction: the human saw the initial image only with ~20 seconds
+remaining. The preview now waits for a first-painted-frame acknowledgment to
+start its measured test, with finite preparation and total capture bounds.
+The reported ten intents included deliberate extra/fast pinches and are not
+a counted five-attempt result. Human-perceived skeleton fluency improved.
+Skipped close poses need engine-block diagnostics rather than an assumed tracking
+failure. The next local candidate relaxes release/rearm to 0.45, keeping close
+0.35; no production default adoption or new capture is implied.
+
+Proposed prayer-pose calibration is tracked in [WiggleControl #2](https://github.com/AlterMundi/WiggleControl/issues/2): deliberate palms-together activation during an already human-enabled session, guided horizontal/vertical comfortable bounds, corner verification and receiving-local profile adoption/retry/cancel. Reuse native perception/overlay; relative-pointer recentering and absolute-touch mapping require distinct qualification. No prayer detector or calibration ceremony is implemented by recording this proposal.

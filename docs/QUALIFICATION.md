@@ -410,3 +410,17 @@ and one stale observation. Fresh FPS 8.72; timestamp-to-intent p50/p95
 no child RSS. This supports substantially more continuous detection in this
 requested open-palm scene; it is not yet intended pinch/click or movement
 acceptance. No input writer, recording or microphone activation occurred.
+
+The human reports approximately 1 m from the TV with the camera mounted above
+the display. A subsequent 20-second camera-only trial requested five deliberate
+thumb/index pinches (one second closed, one second open, other fingers extended).
+Actual completion of the five gestures still requires human confirmation.
+The engine emitted two button-down intents without any input writer/injection.
+Summary: 281 captured, 179 processed, 138 detected, 134 tracked, 100 dropped,
+10 stale, fresh FPS 8.30; timestamp-to-intent p50/p95 116.25/152.97 ms;
+one-core-normalized CPU 53.98%, runtime peak RSS 52176 KiB, reported reaped-child
+peak 12512 KiB. The latter counter is process lifetime accounting, not proof that
+an input writer existed (injected=false). Hand absence/rejection and gesture
+failures cannot be localized from aggregate counters alone. No recording or
+microphone activation. Do not claim a measured five-attempt success rate until
+the human confirms participation.

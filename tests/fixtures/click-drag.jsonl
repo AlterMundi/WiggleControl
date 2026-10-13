@@ -1,0 +1,7 @@
+{"type": "start"}
+{"type": "frame", "now_us": 1, "observation": {"version": 1, "source_us": 1, "hand": {"id": 1, "confidence": 0.99, "engaged": true, "pinch_eligible": true, "cursor": {"x": 0.5, "y": 0.5}, "thumb_tip": {"x": 0.4, "y": 0.5}, "index_tip": {"x": 0.52, "y": 0.5}, "palm_width": 0.2}}}
+{"type": "frame", "now_us": 20001, "observation": {"version": 1, "source_us": 20001, "hand": {"id": 1, "confidence": 0.99, "engaged": true, "pinch_eligible": true, "cursor": {"x": 0.5, "y": 0.5}, "thumb_tip": {"x": 0.4, "y": 0.5}, "index_tip": {"x": 0.42000000000000004, "y": 0.5}, "palm_width": 0.2}}}
+{"type": "frame", "now_us": 60001, "observation": {"version": 1, "source_us": 60001, "hand": {"id": 1, "confidence": 0.99, "engaged": true, "pinch_eligible": true, "cursor": {"x": 0.5, "y": 0.5}, "thumb_tip": {"x": 0.4, "y": 0.5}, "index_tip": {"x": 0.42000000000000004, "y": 0.5}, "palm_width": 0.2}}}
+{"type": "frame", "now_us": 80001, "observation": {"version": 1, "source_us": 80001, "hand": {"id": 1, "confidence": 0.99, "engaged": true, "pinch_eligible": true, "cursor": {"x": 0.7, "y": 0.5}, "thumb_tip": {"x": 0.4, "y": 0.5}, "index_tip": {"x": 0.42000000000000004, "y": 0.5}, "palm_width": 0.2}}}
+{"type": "frame", "now_us": 100001, "observation": {"version": 1, "source_us": 100001, "hand": {"id": 1, "confidence": 0.99, "engaged": true, "pinch_eligible": true, "cursor": {"x": 0.7, "y": 0.5}, "thumb_tip": {"x": 0.4, "y": 0.5}, "index_tip": {"x": 0.52, "y": 0.5}, "palm_width": 0.2}}}
+{"type": "stop"}

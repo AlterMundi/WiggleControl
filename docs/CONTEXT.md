@@ -23,9 +23,13 @@ and a root-only uinput node; live virtual device creation is not qualified.
 Current inference library heads have compiler requirements newer than the
 panel's Rust 1.85 baseline; choose compatible pins or justify a separate toolchain.
 
-No Rust runtime, event schema, device grant, new camera session or input injection
-has been implemented in this project. Next step: milestone 1, replayable gesture
-contract/state; then milestone 2, actual Linux mouse adapter and recognition.
+Milestone 1 now has a Rust replay/gesture engine, observation contract v1, bounded
+JSONL CLI, fictional fixtures and 11 passing behavioral/CLI tests on VPS Rust 1.95.0.
+Pinch confirmation, hysteresis, loss/stale/stop release and neutral reacquisition
+are tested. Filtering is a timestamp-based exponential baseline, not yet a
+human-qualified smoothing choice. Scroll mapping remains pending. CI targets Rust
+1.85.1; receiving compiler adoption must be checked separately. No camera or input
+injection occurred. Next: Linux mouse adapter and receiving classification.
 Multitouch is a later distinct contract, not a promise of zoom in every app.
 
 Owning implementation tracker: [WiggleControl #1](https://github.com/AlterMundi/WiggleControl/issues/1).

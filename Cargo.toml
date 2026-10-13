@@ -1,0 +1,11 @@
+[package]
+name = "wigglecontrol"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+description = "Camera gesture state and virtual system input"
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"

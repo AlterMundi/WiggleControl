@@ -4,13 +4,14 @@ WiggleControl turns camera-observed hand gestures into operating-system input.
 Existing applications receive mouse events and, later, direct multitouch contacts;
 they do not need a WiggleControl integration.
 
-**Status: development plan and source-backed research; no runtime implemented.**
+**Status: Rust replay/gesture engine implemented; camera and OS device integration pending.**
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need
 a specific technical justification; low resource use must be measured.
 
 Start here:
 
+- [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native
   Rust inference choices and Linux input semantics.

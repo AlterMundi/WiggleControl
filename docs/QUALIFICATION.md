@@ -447,3 +447,10 @@ accuracy. Initial blank duration and its cause were not measured. The three
 press intents remain unclassified pending whether the human deliberately
 pinched. Improve startup presentation/coordination before treating capture
 activation as a visible, ready preview.
+
+The human subsequently confirmed deliberate pinching during the first aligned
+preview. Its three press intents therefore occurred in a trial containing
+intentional pinches; this is not an all-open-hand false-positive test. The number
+and timing of attempted gestures were not counted, so do not claim three-of-three
+recognition or a measured success rate. Next: five counted attempts with visible
+feedback, following a fresh explicit readiness acknowledgment.

@@ -362,3 +362,31 @@ interpretation evidence; human camera-to-touch manipulation remains pending.
 
 ACCEPTANCE.md now maps every DEVELOPMENT.md milestone to current evidence and
 remaining physical acceptance. No full goal achievement follows from this demo.
+
+## First human-present mouse trial — 2026-10-13
+
+The human reported approximate hand following, movement less fluent than the
+previous browser experiment, unclear workspace boundaries/calibration and an
+unsuccessful pinch click. Do not mark camera-to-mouse acceptance passed. The
+trusted scratch client displayed two button-target clicks and 171 pointer moves,
+but these do not establish successful intended gestures or override the report.
+
+The finite installed-runtime mouse session finished after 60.29 seconds:
+855 captured, 535 processed, 232 detected, 202 tracked, three button-down intents,
+318 mailbox drops and 139 stale processed observations. Fresh processing was
+6.57 FPS; timestamp-to-intent p50/p95 127.52/191.71 ms; one-core-normalized
+process-tree CPU 65.57%, runtime peak RSS 53744 KiB, reaped-child peak 36848 KiB.
+The selected silent profile remained 1.5 GHz/fan-off; observed temperature during
+the trial rose from 71.05 to 75.45 C, without a throttling sample. The microphone
+remained inactive and no frames were recorded. Stale observations are a concrete
+fluency concern, not proof of the entire cause or a reason to weaken release rules.
+
+The panel process and status endpoint were running but its surface was absent
+from the compositor screenshot, even after requesting expanded view. Once the
+camera session ended, restarting only the panel restored its expanded surface;
+returning to compact view retained visible top-right status/Stop above Chromium
+fullscreen. Cause and recurrence remain unverified. Camera and microphone were
+inactive afterward. Current mouse motion is relative, with no camera rectangle
+corresponding to screen edges; direct-touch workspace calibration does not change
+that behavior. Next qualification must make cursor/workspace behavior clear and
+resolve tracked-hand timing and intended pinch reliability.

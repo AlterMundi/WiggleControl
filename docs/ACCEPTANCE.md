@@ -1,0 +1,48 @@
+# End-to-end acceptance checkpoint
+
+The goal remains the complete six-milestone DEVELOPMENT.md plan. The installed
+prototype is not yet an accepted camera-driven mouse/touchscreen replacement.
+QUALIFICATION.md holds dated observations; INSTALL.md and TOUCH.md hold supported
+commands/contracts. This checkpoint distinguishes implemented behavior from the
+real hand evidence needed to finish, without reducing the original scope.
+
+| Plan requirement | Current evidence | Remaining acceptance |
+| --- | --- | --- |
+| Versioned observations, bounded replay, pinch/drag/scroll, neutral loss/stale/Stop/reacquisition | Rust contracts/fixtures, 31 native-feature tests; fictional jitter, malformed time/input and hand replacement covered | Real noise/lag tradeoff and comfort of the selected smoothing/cursor/scroll mapping |
+| Linux relative mouse, libinput recognition, narrow grant, reversible setup | Real Chromium Wayland and VLC XWayland click/drag/wheel/fullscreen; writer stall/death release; original ACL reversal/reinstall | Human workspace/recentering, physical fallback while using camera input |
+| Native backend/model/compiler/license pins and comparison | ort/CPU runtime qualified on ARM64; exact tract failure retained; OpenCV positive coordinate comparison; static initial/tracked cost and local session CPU/RSS/FPS | Same physical scene comparison with browser baseline; tracked-hand resources/jitter/thermal context and model coverage decision |
+| Camera-to-mouse, existing visible panel, local operation, failure/recovery | Finite mouse/touch sessions and panel Start/Stop; offline network namespace; ENOENT cleanup and actual UVC loss/rebind; no startup capture | Intentional live clicks/drags in desktop/Chromium/VLC, relaxed false actions, seated comfort, actual hand loss/reacquisition and held release |
+| Direct touch, stable type-B slots, explicit single-output mapping, independent mode | Trusted one/two contacts in touch-aware Chromium; scale/rotation interpretation; producer-array/identity ambiguity replay; finite watchdog removal | Camera-driven one/two contact manipulation; real crossing/occlusion/loss identity; mouse-only fallback behavior with real hand input |
+| Packaging, bounded resources/retention, rollback, permissions, shared maintenance | Local pinned artifacts/licenses; 20 owned input summaries; actual original-grant/file rollback/reinstall; maintained Shared Resources | Qualified final calibration/configuration, hardware/human limits and portable shared skill after acceptance |
+
+## Receiving human trial
+
+Coordinate the camera/desktop before starting. The current finite control is
+`daimon-integrators input SECONDS [mouse|touch]`, maximum 120 seconds, with scoped
+Stop on the floating panel. Keep the physical mouse available. No session is
+started solely because this checkpoint is read.
+
+1. Confirm visible preparation, camera-active indication and microphone idle.
+   Use the local qualification page; establish comfortable seated hand range.
+2. At the intended distance (record actual distance, initially about 1 m and
+   later the existing 2 m target), attempt twenty intended clicks and ten drags.
+   Record successes, misses, unintended actions and jitter separately. The proposed
+   click criterion is at least 18/20; it is not an achieved result.
+3. Keep relaxed hands visible for sixty seconds; count unintended actions.
+   While deliberately holding a drag, remove/occlude the hand and use Stop;
+   verify neutral input, then open-before-repress on reacquisition.
+4. Operate actual desktop items, Chromium and VLC, including fullscreen and
+   simultaneous video playback. Compare the same scene/settings to the existing
+   browser tracker; resource timing does not substitute for success counts.
+5. In touch mode, manipulate the known touch-aware target with one and two
+   contacts; cross/occlude hands and observe ownership/release. Check a mouse-only
+   client and record its real fallback rather than assuming native zoom support.
+6. Record five minutes of seated comfort across explicitly started finite sessions,
+   and whole-pipeline latency/FPS/CPU/RSS/temperature/throttling during accepted-hand
+   tracking. Confirm the final chosen calibration and limits with the human.
+
+Physical electrical cable hotplug remains a separately unobserved hardware case;
+driver-visible camera loss/recovery is already qualified. Browser static-reference
+coverage differs from the chosen ONNX pipeline, whose single-palm result is also
+reproduced in original OpenCV. Neither case proves live user accuracy. Final shared
+guidance/release must preserve these limits and the actual acceptance results.

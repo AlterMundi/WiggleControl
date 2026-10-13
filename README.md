@@ -15,6 +15,7 @@ Start here:
 - [Direct-touch intent](docs/TOUCH.md), separate from camera hand engagement.
 - [Installation, manual use and rollback](docs/INSTALL.md).
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
+- [End-to-end acceptance checkpoint](docs/ACCEPTANCE.md): evidence and remaining human trial.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native
   Rust inference choices and Linux input semantics.
 - [Implementation tracking](https://github.com/AlterMundi/WiggleControl/issues/1).

@@ -349,3 +349,16 @@ It does not claim a physical cable/electrical hotplug test, nor held-hand accura
 this trial had no accepted hands or held click. Held-button release already has
 distinct replay/application writer-stall/death evidence. No continuous recording
 or automatic capture restart was installed.
+
+## Visible touch-aware manipulation — 2026-10-13
+
+The scratch receiving client now visibly scales/rotates a target rather than
+displaying only numeric interpretation. Actual trusted two-contact uinput events
+produced scale 1.709 and rotation 5.88 degrees; read-only computed style returned
+matrix(1.70003,0.175009,-0.175009,1.70003,0,0), and a receiving screenshot confirmed
+the enlarged/rotated target in the LCARS test page. Producer stall ended contacts
+and Stop removed the device. No camera opened. This is application/native-touch
+interpretation evidence; human camera-to-touch manipulation remains pending.
+
+ACCEPTANCE.md now maps every DEVELOPMENT.md milestone to current evidence and
+remaining physical acceptance. No full goal achievement follows from this demo.

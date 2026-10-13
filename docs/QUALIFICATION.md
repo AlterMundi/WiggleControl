@@ -180,3 +180,31 @@ active. Fresh administrator access worked and SSH/sudo/access-file digests were
 unchanged. Reinstallation restored the manually enabled package/rule, without
 opening camera or microphone. Baseline custody and original snapshots remain
 private. This qualifies real reversal/reinstallation, not human gesture acceptance.
+
+## Whole-session resource measurements — 2026-10-13
+
+Session summaries now include CPU accounting over model load, camera/gesture work,
+the reaped device writer and cleanup, plus separate process/child lifetime RSS
+peaks. CPU uses one-core normalization; peaks are neither summed nor described
+as simultaneous process-tree memory. Thirty-one source tests pass, including
+counter regression/unknown values and multicore CPU normalization.
+
+Actual eight-second supervised trials on Pi 5, silent profile (1.5 GHz, 0 RPM):
+
+| Mode | Fresh processed FPS | CPU, one-core % | Runtime peak KiB | Child peak KiB | Timestamp-to-intent p50/p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Mouse | 8.30 | 63.91 | 45552 | 36848 | 107.06 / 141.22 |
+| Touch | 8.15 | 64.29 | 46032 | 37328 | 110.87 / 142.03 |
+
+Each captured 114 frames, processed 69/68, dropped 44 and counted zero stale
+processed frames. Both accepted zero hands, so these measure repeated palm search,
+not tracked-hand latency, jitter, accuracy or two-hand manipulation. Neither
+emitted a press. Runtime peak is about 44.5/45.0 MiB; child peaks may include the
+fork/exec transient, not steady-state writer usage. CPU accounting wall intervals
+were 8.38/8.41 seconds; model load is included there, distinct from camera duration.
+
+Temperatures progressed 71.6 → 73.8 → 75.45 C after compilation; firmware throttling
+was not separately sampled in this trial. Panel status confirmed silent/0 RPM and
+camera/microphone inactive afterward; the virtual devices were absent. These
+dated no-accepted-hand trials do not qualify sustained thermal equilibrium or
+the proposed browser-baseline comparison.

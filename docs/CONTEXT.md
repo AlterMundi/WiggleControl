@@ -87,3 +87,9 @@ selected original uinput baseline: the initial install snapshot included the
 temporary test grant and cannot by itself establish full pre-test permission
 reversal. Real restoration matched the retained original ACL, preserved access
 and the independent panel, and reinstallation opened no sensor/model session.
+
+Whole-session CPU and separate runtime/child RSS peaks now accompany fresh FPS
+in bounded summaries. Actual receiving mouse/touch trials completed, about 64%
+of one CPU core and 45 MiB main-process peak under the silent cap. No hands were
+accepted, so tracked-hand cost and accuracy remain pending. Source-qualified
+counter semantics and exact context are in QUALIFICATION.md, not a speed claim.

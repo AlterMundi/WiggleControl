@@ -57,6 +57,16 @@ Replay opens neither sensor nor device. Normal sessions retain aggregate summari
 not frames; supervised logs are owner-only in the login runtime directory.
 No VPS, model wakeup, Matrix attention or network upload is required at runtime.
 
+Session JSON summaries also report fresh processed FPS and Linux resource
+accounting over model load, camera work, gesture handling, device writer and
+cleanup. CPU is normalized to one core (100% = one core); it can exceed 100%,
+unlike the panel's all-core percentage. Runtime and reaped-child RSS peaks are
+separate lifetime peaks in KiB, not simultaneous total memory; don't add them
+and call the result an observed process-tree peak. Child peaks can include a
+fork/exec transient and are not steady writer memory. Latency is driver timestamp
+to intent construction, not optical exposure-to-application latency. No-accepted-
+hand trials do not predict tracked-hand cost, jitter or gesture accuracy.
+
 ## Permissions and original baseline
 
 Installation adds a named-operator uinput ACL plus a dedicated udev rule. It does

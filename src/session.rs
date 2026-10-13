@@ -154,6 +154,9 @@ struct Summary {
     touch_mode: bool,
     ambiguous_frames: u64,
     max_hands: usize,
+    fresh_processed: u64,
+    fresh_processed_fps: f64,
+    resources: Option<crate::metrics::Resources>,
 }
 fn percentile(values: &mut [f64], percent: usize) -> Option<f64> {
     if values.is_empty() {
@@ -224,6 +227,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
+    let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
     ort::init_from(&config.runtime).commit()?;
     let mut perception = Perception::new(Path::new(&config.models))?;
@@ -349,6 +353,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
                 summary.processed += 1;
                 if let Some(hand) = &hand {
                     summary.detected += 1;
+                    summary.max_hands = 1;
                     if hand.tracked {
                         summary.tracked += 1;
                     }
@@ -367,6 +372,8 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
             let age = now.saturating_sub(frame.source_us);
             if age >= 150_000 {
                 summary.stale += 1;
+            } else if frame.source_us <= now {
+                summary.fresh_processed += 1;
             }
             if latency.len() < 2400 {
                 latency.push(age as f64 / 1000.0);
@@ -400,6 +407,8 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     summary.dropped = slot.dropped;
     summary.source_kind = slot.source_kind.map(String::from);
     summary.elapsed_seconds = start.elapsed().as_secs_f64();
+    summary.fresh_processed_fps = summary.fresh_processed as f64 / summary.elapsed_seconds;
+    summary.resources = Some(meter.finish());
     summary.timestamp_to_intent_p50_ms = percentile(&mut latency, 50);
     summary.timestamp_to_intent_p95_ms = percentile(&mut latency, 95);
     println!("{}", serde_json::to_string(&summary)?);

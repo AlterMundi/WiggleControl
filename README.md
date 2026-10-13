@@ -14,6 +14,7 @@ Start here:
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native
   Rust inference choices and Linux input semantics.
+- [Implementation tracking](https://github.com/AlterMundi/WiggleControl/issues/1).
 - [Project context](docs/CONTEXT.md): decisions and current limits.
 - [Agent instructions](AGENTS.md): contribution and device-test workflow.
 

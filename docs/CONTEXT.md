@@ -28,5 +28,6 @@ has been implemented in this project. Next step: milestone 1, replayable gesture
 contract/state; then milestone 2, actual Linux mouse adapter and recognition.
 Multitouch is a later distinct contract, not a promise of zoom in every app.
 
-Historical discussion/parent: daimon-integrators#3. Keep owning issues and this
+Owning implementation tracker: [WiggleControl #1](https://github.com/AlterMundi/WiggleControl/issues/1).
+Historical discussion/parent: [daimon-integrators #3](https://github.com/AlterMundi/daimon-integrators/issues/3). Keep owning issues and this
 context aligned as implementation progresses; research is not implementation.

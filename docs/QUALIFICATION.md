@@ -685,3 +685,19 @@ ambiguity and nearby-ROI suppression can reject a real joined-palm pose; no real
 pose was acquired. Prototype thresholds, native integration, performance and
 human gesture acceptance remain unqualified. The detector is neither wired nor
 enabled in the receiving manual calibration release, and activates no sensors.
+
+## Optional native prayer-entry wiring
+
+The source session can opt into the existing multi-hand perception path and
+convert native pixel landmarks, confidence, handedness and tracker IDs into the
+prayer candidate. Requests are gated by an active accepted profile, visible
+measured-window start and finite deadline, and release/rearm ordinary input
+before neutral calibration. Model detection, gesture candidate and adoption
+remain distinct. A gesture cannot accept a profile or replace active review.
+
+The existing camera-free lifecycle test now proves no-profile/modal rejection
+and accepted-profile prayer entry; CLI tests prove legacy opt-in defaults false
+and unsupported session mode rejection before fictional unavailable inference
+paths are opened. Full native-feature tests and Clippy passed. No live pose,
+model coverage, paired latency or human acceptance is established by these tests.
+The prepared receiving manual configuration has not enabled this option.

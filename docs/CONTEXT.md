@@ -284,3 +284,16 @@ prayer-like occlusion/model coverage is an explicit receiving uncertainty.
 Do not weaken touch identity safeguards or silently accept an ambiguous pose.
 Human manual calibration/comfort/loss/Stop remains the current pending action;
 no additional camera/model session was started by this source preparation.
+
+Prayer wiring checkpoint: explicit `prayer_enabled` (default false) now joins
+existing native multi-hand perception and the candidate detector in calibrated
+sessions. Non-calibrated modes reject opt-in before inference. A gesture can
+request neutral calibration only from an active accepted profile, after visible
+window acknowledgment and before expiry. It cannot adopt a profile or interrupt
+sampling/review. The detector latch remains observed across modal stages, so
+occlusion is not treated as rearming. Existing engine release/open-first rules
+protect pointer replacement and every calibration entry. Feedback reports its
+state. Source tests cover absent/active/modal profile gating and disabled legacy
+config/default/pre-inference rejection. Receiving manual configuration stays
+unchanged with prayer disabled; manual and prayer physical acceptance still wait
+for the human's next explicit ready acknowledgment in the required order.

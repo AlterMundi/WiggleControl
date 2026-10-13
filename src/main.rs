@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "{}",
                 serde_json::json!({
-                    "valid": true, "fps": config.fps, "gain": config.gain, "pointer_output":config.pointer_output,
+                    "valid": true, "fps": config.fps, "gain": config.gain, "pointer_output":config.pointer_output, "prayer_enabled":config.prayer_enabled,
                 "pinch_close_ratio":config.pinch_close_ratio,
                 "pinch_open_ratio":config.pinch_open_ratio,
                     "touch_workspace": {

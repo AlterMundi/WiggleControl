@@ -32,6 +32,8 @@ pub struct SessionConfig {
     #[serde(default)]
     pub pointer_output: Option<[u32; 2]>,
     #[serde(default)]
+    pub prayer_enabled: bool,
+    #[serde(default)]
     pub touch_workspace: crate::touch_gestures::Workspace,
     #[serde(default = "default_close_ratio")]
     pub pinch_close_ratio: f64,
@@ -349,6 +351,9 @@ fn run_mode(
             )
         })
         .transpose()?;
+    if config.prayer_enabled && calibration.is_none() {
+        return Err("prayer entry requires run-calibrated mode".into());
+    }
     ort::init_from(&config.runtime).commit()?;
     let mut perception = Perception::new(Path::new(&config.models))?;
     let stop = Arc::new(AtomicBool::new(false));
@@ -408,6 +413,8 @@ fn run_mode(
         ..Default::default()
     };
     let mut latency = Vec::with_capacity(2400);
+    let mut prayer = crate::prayer::Detector::default();
+    let mut primary_hand = None;
     let result = (|| -> Result<(), Box<dyn Error>> {
         while Instant::now()
             < preview_clock
@@ -515,7 +522,43 @@ fn run_mode(
                 )?;
             } else {
                 let inference_started = Instant::now();
-                let hand = perception.infer(&image)?;
+                let hand = if config.prayer_enabled {
+                    let pair = perception.infer_many(&image)?;
+                    summary.max_hands = summary.max_hands.max(pair.hands.len());
+                    summary.ambiguous_frames += u64::from(pair.ambiguous);
+                    let hands: Vec<_> = pair.hands.iter().map(crate::prayer::Hand::from).collect();
+                    let request = prayer.observe(
+                        true,
+                        pair.ambiguous,
+                        &hands,
+                        frame.source_us,
+                        monotonic_us()?,
+                    );
+                    if request
+                        && preview_clock.as_ref().is_some_and(|clock| {
+                            clock.started.is_some() && Instant::now() < clock.deadline()
+                        })
+                        && calibration
+                            .as_ref()
+                            .is_some_and(|c| c.gesture_entry_available())
+                    {
+                        write_events(&mut output, engine.stop(), false)?;
+                        engine.start();
+                        if let Some(calibration) = &mut calibration {
+                            calibration.prayer_requested().map_err(io::Error::other)?;
+                        }
+                    }
+                    let selected = primary_hand
+                        .and_then(|id| pair.hands.iter().find(|h| h.id == id))
+                        .or_else(|| pair.hands.first())
+                        .cloned();
+                    if let Some(hand) = &selected {
+                        primary_hand = Some(hand.id);
+                    }
+                    selected
+                } else {
+                    perception.infer(&image)?
+                };
                 let inference_ms = inference_started.elapsed().as_secs_f64() * 1000.0;
                 if Instant::now()
                     >= preview_clock
@@ -528,7 +571,7 @@ fn run_mode(
                 summary.processed += 1;
                 if let Some(hand) = &hand {
                     summary.detected += 1;
-                    summary.max_hands = 1;
+                    summary.max_hands = summary.max_hands.max(1);
                     if hand.tracked {
                         summary.tracked += 1;
                     }
@@ -576,6 +619,7 @@ fn run_mode(
                         .as_ref()
                         .map(|h| h.thumb_tip.distance(h.index_tip) / h.palm_width);
                     let data = serde_json::json!({
+                        "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
                         "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
                         "sequence": frame.sequence, "width":image.width(), "height":image.height(),

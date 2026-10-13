@@ -276,3 +276,26 @@ pretend to query a global Wayland cursor. Visual hand feedback may remain up to
 300 ms with delayed coloring, while input/green press eligibility keeps the
 strict 150 ms freshness rule. Live flicker/comfort still require human acceptance.
 Prayer entry and physical acceptance remain pending.
+
+### Prayer entry, opt-in after manual acceptance
+
+`prayer_enabled` is a receiving-local config boolean, false by default. It is
+valid operationally only for `run-calibrated`; other session modes reject it
+before loading inference/camera resources. Keep it false until the human accepts
+the manual workflow. Opt-in uses the existing native multi-hand tracker and
+feeds pixel-space landmark/confidence/handedness/IDs to the candidate detector.
+
+A fresh sustained candidate can request calibration only with an active accepted
+profile, after the overlay acknowledgment and inside the finite measured window.
+The runtime first releases/rearms its input engine, then enters neutral bound
+collection. It never adopts a profile from a prayer gesture. Existing sampling
+and corner review cannot be displaced by another gesture request. The detector
+continues observing authorized frames during those stages, preserving its latch:
+occlusion does not count as separation. No gesture activates an idle camera.
+
+Feedback reports prayer enabled/available and idle/holding/latched states.
+The selected pointer hand retains its tracker ID when present; replacement
+still passes through the existing neutral/open-first gesture rules. Ambiguous
+pairs release ordinary input and cannot request calibration. Prototype pose
+thresholds/model coverage, paired inference latency and physical activation
+remain unqualified; 2-D adjacency is not proof of physical palm contact.

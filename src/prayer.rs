@@ -61,7 +61,27 @@ fn pose(a: &Hand, b: &Hand) -> bool {
         && (ac[1] - bc[1]).abs() <= scale * 0.45
         && distance(a.points[12], b.points[12]) <= scale * 1.2
 }
+#[cfg(feature = "native-vision")]
+impl From<&crate::vision::DetectedHand> for Hand {
+    fn from(hand: &crate::vision::DetectedHand) -> Self {
+        Self {
+            id: hand.id,
+            confidence: hand.confidence,
+            handedness: hand.handedness,
+            points: hand.landmarks.map(|p| [p.x, p.y]),
+        }
+    }
+}
 impl Detector {
+    pub fn state(&self) -> &'static str {
+        if self.latched {
+            "latched"
+        } else if self.candidate_since.is_some() {
+            "holding"
+        } else {
+            "idle"
+        }
+    }
     /// A single activation requires 1 second of fresh, unambiguous, stable-ID
     /// candidate observations. Only explicit separation rearms a latched pose;
     /// dropout/occlusion never counts as separation.

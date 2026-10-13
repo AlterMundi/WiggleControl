@@ -48,6 +48,17 @@ impl Runtime {
             message: "Ready for manual calibration".into(),
         })
     }
+    pub fn gesture_entry_available(&self) -> bool {
+        self.profile.is_some() && self.sampling.is_none() && self.review.is_none()
+    }
+    pub fn prayer_requested(&mut self) -> Result<(), String> {
+        if !self.gesture_entry_available() {
+            return Err("Prayer entry requires an active accepted profile".into());
+        }
+        self.control(Control::Start)?;
+        self.message = "Prayer requested calibration; input neutral".into();
+        Ok(())
+    }
     /// Caller must release/rearm its gesture engine and writer for every command,
     /// including rejected commands, before processing new observations.
     pub fn control(&mut self, action: Control) -> Result<(), String> {
@@ -178,6 +189,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("wiggle-runtime-test-{}", std::process::id()));
         std::fs::create_dir(&dir).unwrap();
         let path = dir.join("profile.json");
+        let mut empty = Runtime::new(&path, [1920, 1080]).unwrap();
+        assert!(!empty.gesture_entry_available());
+        assert!(empty.prayer_requested().is_err());
+        assert_eq!(empty.state()["stage"], "uncalibrated");
         let old = Profile {
             version: 1,
             workspace: Default::default(),
@@ -185,7 +200,10 @@ mod tests {
         };
         profile_store::adopt(&path, old).unwrap();
         let mut runtime = Runtime::new(&path, [1920, 1080]).unwrap();
-        runtime.control(Control::Start).unwrap();
+        assert!(runtime.gesture_entry_available());
+        runtime.prayer_requested().unwrap();
+        assert!(!runtime.gesture_entry_available());
+        assert!(runtime.prayer_requested().is_err());
         assert!(runtime.control(Control::Accept).is_err());
         let mut at = 1_000_000;
         for p in [

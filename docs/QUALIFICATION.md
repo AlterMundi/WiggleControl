@@ -486,3 +486,16 @@ intents, 144 dropped and 88 stale; fresh FPS 5.54, timestamp-to-intent p50/p95
 This trial had substantially more stale observations than the preceding run;
 its cause is unverified. No input writer or recording. Human attempt count and
 visibility of the new state feedback remain pending, so no success rate claimed.
+
+The human reports that the pinch seems to need more positional tolerance.
+Configurable close/open ratios and a receiving diagnostic 0.35/0.5 profile are
+prepared for a subsequent acknowledged camera-only trial; they are not accepted
+calibration yet. Default 0.25/0.4 and all release/eligibility rules remain.
+
+The timer-visible trial's normal expiry was observed as PREVIEW DISCONNECTED
+in Chromium rather than TEST ENDED. Cached metadata carried publication-time
+remaining milliseconds. The server now ages this value at response time, and
+the browser anchors the countdown at request start rather than header receipt;
+a camera-free regression proves cached frames cannot extend the deadline. This
+addresses a concrete timing discrepancy without claiming the sole observed
+cause; receiving terminal presentation still needs its next live check.

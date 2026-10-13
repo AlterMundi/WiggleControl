@@ -30,6 +30,16 @@ fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     assert_eq!(report["valid"], true);
     assert_eq!(report["touch_workspace"]["max"]["x"], 1.0);
     assert!(report.get("camera").is_none());
+    assert_eq!(report["pinch_close_ratio"], 0.25);
+    assert_eq!(report["pinch_open_ratio"], 0.4);
+    config["pinch_close_ratio"] = serde_json::json!(0.35);
+    config["pinch_open_ratio"] = serde_json::json!(0.5);
+    fs::write(&path, config.to_string()).unwrap();
+    assert!(check().status.success());
+    config["pinch_open_ratio"] = serde_json::json!(0.3);
+    fs::write(&path, config.to_string()).unwrap();
+    assert!(!check().status.success());
+    config["pinch_open_ratio"] = serde_json::json!(0.5);
     config["touch_workspace"] = serde_json::json!({
         "min":{"x":0.8,"y":0.2}, "max":{"x":0.2,"y":0.8}
     });

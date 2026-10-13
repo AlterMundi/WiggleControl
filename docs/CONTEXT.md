@@ -173,3 +173,8 @@ that the skeleton aligned perfectly over the hand. The initial camera-on /
 blank-preview interval remains a presentation issue with unmeasured duration
 and cause. Pinch intent acceptance remains pending; do not reinterpret aggregate
 press counts as confirmed deliberate gestures.
+
+Pinch comfort feedback led to optional validated close/open ratio config;
+0.35/0.5 is a diagnostic candidate, with default 0.25/0.4 preserved. Physical
+intended/relaxed-hand acceptance remains pending. Preview timer metadata now
+accounts for the age of its cached snapshot to avoid extending countdown expiry.

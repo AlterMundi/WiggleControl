@@ -31,8 +31,25 @@ pub struct SessionConfig {
     pub gain: f64,
     #[serde(default)]
     pub touch_workspace: crate::touch_gestures::Workspace,
+    #[serde(default = "default_close_ratio")]
+    pub pinch_close_ratio: f64,
+    #[serde(default = "default_open_ratio")]
+    pub pinch_open_ratio: f64,
+}
+fn default_close_ratio() -> f64 {
+    Config::default().close_ratio
+}
+fn default_open_ratio() -> f64 {
+    Config::default().open_ratio
 }
 impl SessionConfig {
+    pub fn gestures(&self) -> Config {
+        Config {
+            close_ratio: self.pinch_close_ratio,
+            open_ratio: self.pinch_open_ratio,
+            ..Config::default()
+        }
+    }
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
         let data = fs::read(path)?;
         if data.len() > 8192 {
@@ -40,6 +57,10 @@ impl SessionConfig {
         }
         let config: Self = serde_json::from_slice(&data)?;
         config.touch_workspace.validate()?;
+        Engine::new(config.gestures())?;
+        if config.pinch_open_ratio > 1.0 {
+            return Err("pinch ratios must satisfy 0 < close < open <= 1".into());
+        }
         if !(10..=20).contains(&config.fps)
             || !config.gain.is_finite()
             || !(1.0..=10000.0).contains(&config.gain)
@@ -275,10 +296,10 @@ fn run_mode(
     let camera = camera(&config, stop.clone(), mailbox.clone());
     let period = Duration::from_secs_f64(1.0 / config.fps as f64);
     let mut due = Instant::now();
-    let mut engine = Engine::new(Config::default())?;
+    let mut engine = Engine::new(config.gestures())?;
     engine.start();
     let mut touches =
-        crate::touch_gestures::Gestures::new(Config::default(), config.touch_workspace)?;
+        crate::touch_gestures::Gestures::new(config.gestures(), config.touch_workspace)?;
     touches.start();
     let mut summary = Summary {
         injected: inject,
@@ -397,8 +418,8 @@ fn run_mode(
                         "confidence":hand.as_ref().map(|h|h.confidence),
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
-                        "pinch_state":engine.pinch_state(), "close_ratio":Config::default().close_ratio,
-                        "open_ratio":Config::default().open_ratio,
+                        "pinch_state":engine.pinch_state(), "close_ratio":config.pinch_close_ratio,
+                        "open_ratio":config.pinch_open_ratio,
                         "fresh":now.saturating_sub(frame.source_us)<150_000,
                         "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                         "decode_ms":decode_ms,"inference_ms":inference_ms,

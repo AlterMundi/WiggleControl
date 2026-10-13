@@ -8,11 +8,24 @@ use std::{
         Arc, Mutex,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 struct Snapshot {
     jpeg: Vec<u8>,
     metadata: String,
+    expires: Option<Instant>,
+}
+impl Snapshot {
+    fn metadata_at(&self, now: Instant) -> io::Result<String> {
+        if let Some(expires) = self.expires {
+            let mut metadata: Value = serde_json::from_str(&self.metadata)?;
+            metadata["remaining_ms"] =
+                Value::from(expires.saturating_duration_since(now).as_millis() as u64);
+            Ok(serde_json::to_string(&metadata)?)
+        } else {
+            Ok(self.metadata.clone())
+        }
+    }
 }
 pub struct Preview {
     slot: Arc<Mutex<Option<Arc<Snapshot>>>>,
@@ -54,10 +67,18 @@ impl Preview {
             return Err(io::Error::other("preview frame too large"));
         }
         let metadata = serde_json::to_string(&data)?;
+        let expires = data
+            .get("remaining_ms")
+            .and_then(Value::as_u64)
+            .map(|remaining| Instant::now() + Duration::from_millis(remaining.min(120_000)));
         if metadata.len() > 8192 || metadata.contains(['\r', '\n']) {
             return Err(io::Error::other("preview metadata too large or invalid"));
         }
-        *self.slot.lock().unwrap() = Some(Arc::new(Snapshot { jpeg, metadata }));
+        *self.slot.lock().unwrap() = Some(Arc::new(Snapshot {
+            jpeg,
+            metadata,
+            expires,
+        }));
         Ok(())
     }
 }
@@ -140,7 +161,7 @@ fn serve(
                     "200 OK",
                     "image/jpeg",
                     &frame.jpeg,
-                    &format!("X-Wiggle-State: {}\r\n", frame.metadata),
+                    &format!("X-Wiggle-State: {}\r\n", frame.metadata_at(Instant::now())?),
                 )
             } else {
                 respond(stream, "204 No Content", "text/plain", b"", "")
@@ -169,6 +190,23 @@ fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cached_frame_does_not_extend_the_session_deadline() {
+        let now = Instant::now();
+        let snapshot = Snapshot {
+            jpeg: vec![],
+            metadata: "{\"remaining_ms\":1000}".into(),
+            expires: Some(now + Duration::from_secs(1)),
+        };
+        let remaining = |at| {
+            serde_json::from_str::<Value>(&snapshot.metadata_at(at).unwrap()).unwrap()
+                ["remaining_ms"]
+                .as_u64()
+                .unwrap()
+        };
+        assert_eq!(remaining(now + Duration::from_millis(700)), 300);
+        assert_eq!(remaining(now + Duration::from_secs(2)), 0);
+    }
     fn request(port: u16, route: &str, origin: bool) -> Vec<u8> {
         let mut stream = TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port)).unwrap();
         stream

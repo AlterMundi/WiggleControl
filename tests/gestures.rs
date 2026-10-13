@@ -201,3 +201,33 @@ fn scroll_releases_drag_freezes_pointer_and_resets_baseline() {
         .iter()
         .any(|e| matches!(e, Event::Move { .. } | Event::Scroll { .. })));
 }
+
+#[test]
+fn wider_pinch_tolerance_keeps_confirmation_hysteresis_and_open_before_press() {
+    let mut e = Engine::new(Config {
+        close_ratio: 0.35,
+        open_ratio: 0.5,
+        ..Config::default()
+    })
+    .unwrap();
+    e.start();
+    // A closed initial hand never creates a click.
+    assert!(!e
+        .observe(1, frame(1, 1, 0.3, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert_eq!(e.pinch_state(), "open_first");
+    e.observe(10_001, frame(10_001, 1, 0.6, 0.5));
+    assert!(!e
+        .observe(20_001, frame(20_001, 1, 0.3, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(60_001, frame(60_001, 1, 0.3, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(!e
+        .observe(80_001, frame(80_001, 1, 0.45, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert!(e
+        .observe(100_001, frame(100_001, 1, 0.6, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert_eq!(e.pinch_state(), "open");
+}

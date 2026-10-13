@@ -176,3 +176,14 @@ clock. Ending the test extinguishes the lamp and retains the press counter.
 Disconnect is distinguished from a known deadline. PINCH PRESSED is highlighted
 in green in the upper-right state box and beside the thumb/index segment on the
 image. Preparation/build/checks must finish before asking the human to be ready.
+
+Optional `pinch_close_ratio` and `pinch_open_ratio` configure distance between
+thumb/index landmarks divided by palm width. Omission preserves 0.25/0.4.
+Values must satisfy 0 < close < open <= 1; the configuration is rejected before
+model/device/camera acquisition otherwise. For a deliberately wider experiment,
+0.35/0.5 allows closing at 35% of palm width and requires separation to at least
+50% before releasing/rearming. Confirmation, freshness, eligibility and
+open-before-press remain unchanged. The preview displays the selected thresholds.
+Use an explicitly selected diagnostic config first and qualify intended pinches
+and relaxed-hand false activations before adopting a new profile. Older binaries
+reject these fields; this does not change the installed production defaults.

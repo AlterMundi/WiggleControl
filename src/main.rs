@@ -23,6 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "{}",
                 serde_json::json!({
                     "valid": true, "fps": config.fps, "gain": config.gain,
+                "pinch_close_ratio":config.pinch_close_ratio,
+                "pinch_open_ratio":config.pinch_open_ratio,
                     "touch_workspace": {
                         "min": config.touch_workspace.min, "max": config.touch_workspace.max
                     }

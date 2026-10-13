@@ -45,6 +45,9 @@ hand cannot press until it opens again. Scrolling is disabled in touch mode, whi
 emits no parallel mouse stream. Smoothed palm cursor coordinates map through an
 explicit normalized workspace rectangle, defaulting to the entire camera view.
 The rectangle is not a qualified seated-comfort calibration.
+Native session configuration can select it through optional `touch_workspace`;
+see INSTALL.md for validation, example and compatibility with older binaries.
+This does not change palm detection, pinch eligibility or hand association.
 
 ## Native camera sessions
 

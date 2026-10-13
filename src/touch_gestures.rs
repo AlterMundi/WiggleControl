@@ -24,7 +24,8 @@ pub enum Command {
     Frame { now_us: u64, observation: Frame },
 }
 /// The camera workspace rectangle mapped onto the configured output.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Workspace {
     pub min: Point,
     pub max: Point,
@@ -38,6 +39,19 @@ impl Default for Workspace {
     }
 }
 impl Workspace {
+    pub fn validate(self) -> Result<(), &'static str> {
+        if !self.min.valid()
+            || !self.max.valid()
+            || self.max.x - self.min.x < 0.05
+            || self.max.y - self.min.y < 0.05
+        {
+            return Err(
+                "touch workspace must be a finite normalized rectangle at least 0.05 wide/high",
+            );
+        }
+        Ok(())
+    }
+
     fn map(self, p: Point) -> Point {
         Point {
             x: ((p.x - self.min.x) / (self.max.x - self.min.x)).clamp(0.0, 1.0),
@@ -61,15 +75,7 @@ pub struct Gestures {
 impl Gestures {
     pub fn new(config: Config, workspace: Workspace) -> Result<Self, &'static str> {
         Engine::new(config)?;
-        if !workspace.min.valid()
-            || !workspace.max.valid()
-            || workspace.max.x - workspace.min.x < 0.05
-            || workspace.max.y - workspace.min.y < 0.05
-        {
-            return Err(
-                "touch workspace must be a finite normalized rectangle at least 0.05 wide/high",
-            );
-        }
+        workspace.validate()?;
         Ok(Self {
             config,
             workspace,

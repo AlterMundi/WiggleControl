@@ -36,6 +36,27 @@ gain 2000, and absolute local model/library/device paths. Calibrate against real
 hand comfort before treating gain/workspace defaults as final. No credentials,
 camera serials, host endpoints or captured images belong in Git.
 
+Source versions after the initial receiving deployment support an optional
+`touch_workspace` entry in that existing JSON configuration:
+
+```json
+"touch_workspace": {
+  "min": {"x": 0.2, "y": 0.2},
+  "max": {"x": 0.8, "y": 0.8}
+}
+```
+
+Merge this entry into the configuration object; it is not a complete config file.
+Coordinates refer to the mirrored, normalized camera cursor space. The chosen
+rectangle maps onto the entire touch output; motion beyond its edges clamps to
+the corresponding screen edge. Bounds must be finite, within 0–1 and at least
+0.05 apart on each axis. Invalid calibration fails before models, camera or device
+creation. Omission preserves the full-camera default. This setting affects direct
+touch only; relative mouse sensitivity still uses `gain`. The example is fictional,
+not a measured comfort profile. Older installed binaries reject this new field:
+deploy the updated binary before adding it, and remove the field before reverting
+to an older binary. The receiving config is preserved by installation/rollback.
+
 ## Manual use
 
 ```sh

@@ -29,6 +29,8 @@ pub struct SessionConfig {
     pub runtime: String,
     pub fps: u32,
     pub gain: f64,
+    #[serde(default)]
+    pub touch_workspace: crate::touch_gestures::Workspace,
 }
 impl SessionConfig {
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
@@ -37,6 +39,7 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        config.touch_workspace.validate()?;
         if !(10..=20).contains(&config.fps)
             || !config.gain.is_finite()
             || !(1.0..=10000.0).contains(&config.gain)
@@ -262,10 +265,8 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     let mut due = Instant::now();
     let mut engine = Engine::new(Config::default())?;
     engine.start();
-    let mut touches = crate::touch_gestures::Gestures::new(
-        Config::default(),
-        crate::touch_gestures::Workspace::default(),
-    )?;
+    let mut touches =
+        crate::touch_gestures::Gestures::new(Config::default(), config.touch_workspace)?;
     touches.start();
     let mut summary = Summary {
         injected: inject,
@@ -381,6 +382,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
         }
         Ok(())
     })();
+    let interrupted = stop.load(Ordering::Relaxed);
     stop.store(true, Ordering::Relaxed);
     let release = if touch {
         write_contacts(&mut output, touches.stop())
@@ -388,11 +390,15 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
         write_events(&mut output, engine.stop(), false).map(|_| ())
     };
     drop(output);
-    let writer_status = writer.map(|mut writer| writer.wait()).transpose()?;
+    // Keep wait errors until the camera thread has also been joined.
+    let writer_status = writer.map(|mut writer| writer.wait()).transpose();
+    let writer_ok = writer_status
+        .as_ref()
+        .is_ok_and(|status| status.is_some_and(|status| status.success()));
     // Its finite deadline can expire while the final inference is completing.
     // Successful device teardown is already neutral; a crashed/early writer is not.
     let release = if start.elapsed() >= Duration::from_secs(seconds)
-        && writer_status.is_some_and(|status| status.success())
+        && writer_ok
         && release
             .as_ref()
             .is_err_and(|error| error.kind() == io::ErrorKind::BrokenPipe)
@@ -401,7 +407,7 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     } else {
         release
     };
-    let _ = camera.join();
+    let camera_joined = camera.join();
     let slot = mailbox.lock().unwrap();
     summary.captured = slot.frames;
     summary.dropped = slot.dropped;
@@ -413,6 +419,85 @@ fn run_mode(path: &Path, seconds: u64, inject: bool, touch: bool) -> Result<(), 
     summary.timestamp_to_intent_p95_ms = percentile(&mut latency, 95);
     println!("{}", serde_json::to_string(&summary)?);
     result?;
+    check_writer_exit(writer_status?, interrupted)?;
+    camera_joined.map_err(|_| "camera thread panicked")?;
     release?;
     Ok(())
+}
+
+fn check_writer_exit(
+    status: Option<std::process::ExitStatus>,
+    interrupted: bool,
+) -> io::Result<()> {
+    use std::os::unix::process::ExitStatusExt;
+    match status {
+        None => Ok(()),
+        Some(status)
+            if status.success()
+                || (interrupted
+                    && matches!(status.signal(), Some(libc::SIGINT | libc::SIGTERM))) =>
+        {
+            Ok(())
+        }
+        Some(status) => Err(io::Error::other(format!("device writer exited: {status}"))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::process::ExitStatusExt;
+
+    #[test]
+    fn writer_failure_at_teardown_is_not_success_or_operator_stop() {
+        assert!(check_writer_exit(None, false).is_ok());
+        assert!(check_writer_exit(Some(std::process::ExitStatus::from_raw(0)), false).is_ok());
+        for interrupted in [false, true] {
+            let failed = Command::new("sh").args(["-c", "exit 7"]).status().unwrap();
+            assert!(check_writer_exit(Some(failed), interrupted).is_err());
+            assert!(check_writer_exit(
+                Some(std::process::ExitStatus::from_raw(libc::SIGKILL)),
+                interrupted
+            )
+            .is_err());
+        }
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            let signalled = std::process::ExitStatus::from_raw(signal);
+            assert!(check_writer_exit(Some(signalled), false).is_err());
+            assert!(check_writer_exit(Some(signalled), true).is_ok());
+        }
+    }
+
+    #[test]
+    fn session_config_loads_old_defaults_and_rejects_invalid_calibration() {
+        let path =
+            std::env::temp_dir().join(format!("wigglecontrol-config-{}.json", std::process::id()));
+        let mut value = serde_json::json!({
+            "camera":"/fictional/camera", "models":"/fictional/models",
+            "runtime":"/fictional/runtime", "fps":10, "gain":2000
+        });
+        fs::write(&path, value.to_string()).unwrap();
+        let config = SessionConfig::load(&path).unwrap();
+        assert_eq!(config.touch_workspace.min.x, 0.0);
+        assert_eq!(config.touch_workspace.max.y, 1.0);
+        value["touch_workspace"] = serde_json::json!({
+            "min":{"x":0.2,"y":0.2}, "max":{"x":0.8,"y":0.8}
+        });
+        fs::write(&path, value.to_string()).unwrap();
+        assert_eq!(
+            SessionConfig::load(&path).unwrap().touch_workspace.min.x,
+            0.2
+        );
+        for invalid in [
+            serde_json::json!({"min":{"x":0.8,"y":0.2},"max":{"x":0.2,"y":0.8}}),
+            serde_json::json!({"min":{"x":0.2,"y":0.2},"max":{"x":0.21,"y":0.8}}),
+            serde_json::json!({"min":{"x":-0.2,"y":0.2},"max":{"x":0.8,"y":0.8}}),
+            serde_json::json!({"min":{"x":0.2,"y":0.2},"max":{"x":0.8,"y":0.8},"typo":true}),
+        ] {
+            value["touch_workspace"] = invalid;
+            fs::write(&path, value.to_string()).unwrap();
+            assert!(SessionConfig::load(&path).is_err());
+        }
+        fs::remove_file(path).unwrap();
+    }
 }

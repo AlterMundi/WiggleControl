@@ -159,3 +159,31 @@ fn workspace_maps_absolute_contacts_and_rejects_degenerate_rectangles() {
     assert!((points[0].x - 1.0 / 6.0).abs() < 1e-8);
     assert!((points[1].x - 5.0 / 6.0).abs() < 1e-8);
 }
+
+#[test]
+fn calibrated_workspace_clamps_edges_without_changing_pinch_ownership() {
+    let mut g = Gestures::new(
+        Config {
+            smoothing_us: 0.0,
+            ..Config::default()
+        },
+        Workspace {
+            min: Point { x: 0.4, y: 0.2 },
+            max: Point { x: 0.6, y: 0.8 },
+        },
+    )
+    .unwrap();
+    g.start();
+    let points = press(&mut g);
+    assert_eq!(points[0].x, 0.0);
+    assert_eq!(points[1].x, 1.0);
+    let next = g.observe(
+        80_001,
+        frame(80_001, vec![hand(9, 0.5, true), hand(7, 0.5, true)]),
+    );
+    assert_eq!(
+        points.iter().map(|p| p.id).collect::<Vec<_>>(),
+        next.iter().map(|p| p.id).collect::<Vec<_>>()
+    );
+    assert!(next.iter().all(|p| (p.x - 0.5).abs() < 1e-8));
+}

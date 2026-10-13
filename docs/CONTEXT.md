@@ -122,3 +122,22 @@ finite session restored normal operation. Host access/other peripherals remained
 intact; camera/mic inactive after test. This covers driver-visible disconnect and
 recovery, while electrical hotplug and human held-hand behavior remain distinct.
 See exact observations and summary-field semantics in QUALIFICATION.md.
+
+## Source improvements while physical acceptance is paused
+
+Nicolás is unavailable for acceptance while the integrator room is occupied by a
+sleeping human. Work remains on the VPS: no receiving build, deployment, camera,
+microphone, synthetic input or desktop changes. The native goal stays paused.
+
+The native config now exposes the existing direct-touch workspace mapping as
+optional `touch_workspace`, validated before acquisition. Existing configs preserve
+their default; example bounds are not a qualified comfort calibration. Relative
+mouse gain remains separate. Camera-free regressions exercise calibrated contact
+edges/ownership and invalid/legacy configs.
+
+Session teardown now retains writer-wait errors until the camera thread has been
+joined and rejects late nonzero writer exit instead of silently returning success.
+Expected SIGINT/SIGTERM writer exit requires a matching parent interruption;
+SIGKILL and nonzero exit remain failures. Tests cover these terminal outcomes
+without opening sensors or input devices. Deployment and physical acceptance of
+these changes are deferred until the room is available.

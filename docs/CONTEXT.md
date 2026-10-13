@@ -1,0 +1,32 @@
+# Project context — 2026-10-13
+
+Nicolás selected the name **WiggleControl**, executable `wigglecontrol`, after
+checking naming collisions. He requests a lightweight Rust camera-driven input
+device usable over existing software as a mouse and later a multitouch screen.
+He explicitly requested research before implementation and then creation of
+AlterMundi/WiggleControl with the plan persisted here.
+
+Cuevanico is the receiving Pi 5 with C920e and labwc/Wayland, now at 1080p60. Its Rust
+status panel is deployed independently. Source-backed discovery lives in Shared
+Resources resource `host-cuevanico`, docs/integrators/cuevanico.md; exact local
+routes, operator credentials and media stay in that receiving private overlay.
+
+Ani/Oliva's ProyectoRPi/Barehands prototype has one documented successful
+physical pinch/selection passage on this Pi. That is the comparison baseline,
+not a universal input adapter or sustained performance benchmark. HarMoCAP has
+useful smoothing, timing, validity/replay methods; body pose alone is not finger
+recognition. Do not copy their private history or assume permission from a repo.
+
+Research completed in daimon-integrators at commit `208a698` and carried to this repository
+with provenance. Read-only receiving inspection found labwc 0.20.2/wlroots 0.20.2
+and a root-only uinput node; live virtual device creation is not qualified.
+Current inference library heads have compiler requirements newer than the
+panel's Rust 1.85 baseline; choose compatible pins or justify a separate toolchain.
+
+No Rust runtime, event schema, device grant, new camera session or input injection
+has been implemented in this project. Next step: milestone 1, replayable gesture
+contract/state; then milestone 2, actual Linux mouse adapter and recognition.
+Multitouch is a later distinct contract, not a promise of zoom in every app.
+
+Historical discussion/parent: daimon-integrators#3. Keep owning issues and this
+context aligned as implementation progresses; research is not implementation.

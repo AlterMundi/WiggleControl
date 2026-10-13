@@ -56,7 +56,8 @@ fn oversized_message_is_bounded_and_fails() {
 #[test]
 fn malformed_input_releases_a_held_button() {
     let fixture = include_str!("fixtures/click-drag.jsonl");
-    let first: String = fixture.lines().take(4).map(|l| format!("{l}\n")).collect();
+    let mut first = fixture.lines().take(4).collect::<Vec<_>>().join("\n");
+    first.push('\n');
     let output = run(format!("{first}{{broken\n").as_bytes());
     let events: Vec<Event> = String::from_utf8(output.stdout)
         .unwrap()

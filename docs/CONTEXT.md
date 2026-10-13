@@ -24,12 +24,16 @@ Current inference library heads have compiler requirements newer than the
 panel's Rust 1.85 baseline; choose compatible pins or justify a separate toolchain.
 
 Milestone 1 now has a Rust replay/gesture engine, observation contract v1, bounded
-JSONL CLI, fictional fixtures and 11 passing behavioral/CLI tests on VPS Rust 1.95.0.
+JSONL CLI, fictional fixtures and 14 passing behavioral/CLI tests on VPS Rust 1.95.0 and receiving ARM64 Rust 1.85.1.
 Pinch confirmation, hysteresis, loss/stale/stop release and neutral reacquisition
 are tested. Filtering is a timestamp-based exponential baseline, not yet a
 human-qualified smoothing choice. Scroll mapping remains pending. CI targets Rust
-1.85.1; receiving compiler adoption must be checked separately. No camera or input
-injection occurred. Next: Linux mouse adapter and receiving classification.
+1.85.1; its first run passed compilation/tests but failed an older-Clippy format
+collection lint; the test was corrected. The evdev virtual mouse adapter now
+creates an ID_INPUT_MOUSE=1 device on cuevanico and removes it after finite expiry.
+The temporary receiving uinput ACL applies only to the existing operator; original
+ACL retained for reversal, no persistent grant installed. No camera or input
+injection occurred. Application delivery/watchdog/SIGKILL qualification is pending.
 Multitouch is a later distinct contract, not a promise of zoom in every app.
 
 Owning implementation tracker: [WiggleControl #1](https://github.com/AlterMundi/WiggleControl/issues/1).

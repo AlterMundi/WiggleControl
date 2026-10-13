@@ -1,6 +1,9 @@
 //! Replayable gesture meaning, independent of camera and operating-system grants.
 use serde::{Deserialize, Serialize};
 
+#[cfg(target_os = "linux")]
+pub mod input;
+
 pub const SCHEMA_VERSION: u32 = 1;
 pub const MAX_MESSAGE_BYTES: usize = 16 * 1024;
 

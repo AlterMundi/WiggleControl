@@ -2,8 +2,22 @@ use std::io::{self, BufRead, Write};
 use wigglecontrol::{replay, Config, Engine, ReplayCommand, MAX_MESSAGE_BYTES};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::args().skip(1).collect::<Vec<_>>() != ["replay"] {
-        eprintln!("Usage: wigglecontrol replay < observations.jsonl\nReplay emits JSON events only; it opens no camera or input device.");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(target_os = "linux")]
+    match args.first().map(String::as_str) {
+        Some("device-check") if args.len() == 2 => {
+            return Ok(wigglecontrol::input::check(args[1].parse()?)?)
+        }
+        Some("device-stream") if args.len() == 3 => {
+            return Ok(wigglecontrol::input::stream(
+                args[1].parse()?,
+                args[2].parse()?,
+            )?)
+        }
+        _ => (),
+    }
+    if args != ["replay"] {
+        eprintln!("Usage: wigglecontrol replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\nReplay opens no camera/device. Device-stream injects mouse input.");
         std::process::exit(2);
     }
     let mut engine = Engine::new(Config::default())?;

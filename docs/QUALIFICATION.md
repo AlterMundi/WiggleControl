@@ -208,3 +208,28 @@ was not separately sampled in this trial. Panel status confirmed silent/0 RPM an
 camera/microphone inactive afterward; the virtual devices were absent. These
 dated no-accepted-hand trials do not qualify sustained thermal equilibrium or
 the proposed browser-baseline comparison.
+
+## VLC / XWayland native mouse delivery — 2026-10-13
+
+A task-owned VLC Qt instance selected `QT_QPA_PLATFORM=xcb`; its PID/window and
+fullscreen property were read from the real XWayland server. A synthetic 20-second
+640x360 color clip contained no audio, camera or private media. The desktop and
+physical inputs were preserved. Only WiggleControl's finite relative device writer
+sent movement/button/wheel events; no XTest, UI-script click or application control
+command was used to produce the effects.
+
+Native click changed explicit VLC state from playing to paused. Dragging its time
+bar moved the paused position from 3 to 18 seconds; wheel over its volume control
+changed 0 to 20. Double-click entered fullscreen and, after a separate interval,
+returned to windowed state, observed independently through the WM property.
+VLC's local control interface was used only to read status/time/volume. An earlier
+observer used `is_playing`, which remained 1 despite the paused UI; the corrected
+qualification reads explicit `status` and confirms the paused time. X11 pointer
+readback must not be assumed fresh while outside an XWayland client; the final
+trial uses the task-owned fullscreen client before targeting its controls.
+
+The writer exited successfully; its virtual device and the owned VLC process were
+absent afterward, with camera/microphone inactive. Screenshots and receiving
+bindings remain private. This qualifies VLC/XWayland pointer/button/drag/wheel and
+fullscreen delivery, complementing Chromium native Wayland's trusted-event proof.
+It does not establish camera-driven VLC accuracy or native VLC touch gestures.

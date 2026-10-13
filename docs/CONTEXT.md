@@ -93,3 +93,9 @@ in bounded summaries. Actual receiving mouse/touch trials completed, about 64%
 of one CPU core and 45 MiB main-process peak under the silent cap. No hands were
 accepted, so tracked-hand cost and accuracy remain pending. Source-qualified
 counter semantics and exact context are in QUALIFICATION.md, not a speed claim.
+
+VLC Qt on XWayland now has real native virtual-mouse delivery proof: pause click,
+time-bar drag, volume wheel and fullscreen/windowed double-click. It complements
+Chromium Wayland, using read-only observations and no application-dispatched input.
+Owned test process/device removed afterward; no sensor opened. Physical hand
+accuracy, comparative tracker scenes and comfort remain separate pending gates.

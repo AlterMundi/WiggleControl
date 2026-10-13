@@ -454,3 +454,15 @@ intentional pinches; this is not an all-open-hand false-positive test. The numbe
 and timing of attempted gestures were not counted, so do not claim three-of-three
 recognition or a measured success rate. Next: five counted attempts with visible
 feedback, following a fresh explicit readiness acknowledgment.
+
+### Counted-pinch preview trial
+
+After a fresh explicit ready reply, a 30-second aligned preview requested five
+counted thumb/index pinches, opening between attempts and waiting for the image.
+The native engine reported four press intents; human completion and displayed
+state perception are not yet confirmed. Summary: 410 captured, 273 processed,
+270 detected, 268 tracked, 135 dropped, five stale; fresh FPS 8.83, timestamp-
+to-intent p50/p95 110.78/143.15 ms, one-core CPU 49.98%, runtime RSS 52640 KiB,
+child RSS zero. The live page was observed showing Pinch closing while model
+processing continued. No input writer or recording was created. Do not classify
+the four intents as four-of-five success until human attempt count is confirmed.

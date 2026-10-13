@@ -168,13 +168,6 @@ fn serve(
             include_bytes!("../tools/qualification.html"),
             "",
         ),
-        "GET /hand_overlay.js HTTP/1.1" => respond(
-            stream,
-            "200 OK",
-            "text/javascript; charset=utf-8",
-            include_bytes!("../tools/hand_overlay.js"),
-            "",
-        ),
         "GET /state HTTP/1.1" => {
             let frame = slot.lock().unwrap().clone();
             if let Some(frame) = frame {

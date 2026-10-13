@@ -212,24 +212,33 @@ continues preparation. On a failed bounded readiness probe, stop only the owned
 preview, verify camera closure, restore the local page and obtain fresh human
 readiness for another physical attempt. No probe or page navigation starts capture.
 
-## Qualification page with a hand cursor, without video
+## Native desktop feedback, without video
 
-`wigglecontrol run-feedback SECONDS CONFIG PORT` uses the existing native mouse
-writer and local feedback server. Navigate to the receiving loopback
-`/qualification` after confirming HTTP readiness. Only `/state` metadata is
-requested; the page does not fetch camera images. The camera remains active
-for native inference. No recordings or extra perception stack are introduced.
+`wigglecontrol run-feedback SECONDS CONFIG PORT` joins the existing relative
+virtual mouse writer and bounded local metadata server. Separately run the
+receiving daimon-integrators `hand-overlay PORT UI_SECONDS` on its Wayland desktop.
+The native overlay requests `/state` only; no video is displayed or recorded,
+and there is no second perception stack. Both commands are manual, finite and
+require a new human ready acknowledgment before each physical gesture trial.
 
-The skeleton is mirrored and translated around the actual trusted pointer
-position received by this page, with a palm anchor ring and pinch coloring.
-It neither intercepts pointer events nor dispatches synthetic application clicks.
-Move the hand to establish pointer location after page load. This is feedback
-inside the qualification page; a desktop-wide layer-shell cursor and workspace
-calibration remain separate future work. The current mapping is still relative.
+The overlay is a transparent GTK3/layer-shell surface above ordinary applications,
+with no keyboard focus and an empty input region. Its separate native STOP INPUT
+button targets `/stop` of this direct session. The existing independent panel
+continues to report observed camera activity; its managed capture Stop does not
+own this direct invocation. No background/startup capture is installed.
 
-Input is suppressed during preparation. Once the rendered view acknowledges
-readiness, the finite test starts and the existing gesture writer drives normal
-Linux mouse input. The writer independently expires within the combined
-preparation/test bound and releases on EOF or its freshness watchdog. The page's
-STOP INPUT stops this direct owned session; the floating panel observes device
-use but does not own this direct invocation. Production binary/config are unchanged.
+The hand is mirrored, with camera-pixel bone lengths around a palm anchor mapped
+into the output workspace. This is **observed hand position**, not the relative
+mouse's global cursor position. Cursor-coincident mapping and guided calibration
+remain pending; no unsupported Wayland global pointer position is guessed.
+
+Input remains neutral during preparation. Once the native overlay paints its
+first metadata view, `/ready` starts the visible measured test/countdown. The
+writer independently expires within the combined preparation/test bound and
+releases on EOF or its freshness watchdog. Raw-frame freshness and cached-state
+age determine whether the skeleton can remain visible.
+
+Use the static `tools/qualification.html`, VLC or another existing application
+below it. The temporary JavaScript hand renderer was removed; the page observes
+trusted application input only. Camera-preview remains a separate diagnosis
+view when checking alignment against the actual image.

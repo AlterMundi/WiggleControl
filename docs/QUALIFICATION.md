@@ -581,3 +581,18 @@ A receiving-local probe now requires HTTP 200 from the existing preview root
 within twelve seconds before live navigation. A failed probe must abort that
 owned attempt and restore the local page, not retry acquisition without another
 human readiness acknowledgment. No raw frames are retained.
+
+## Feedback moved to native desktop layer — 2026-10-13
+
+Nicolás requested using the real overlay instead of maintaining a temporary
+web-only hand cursor. daimon-integrators now renders the existing metadata-only
+projection using GTK3/layer-shell/Cairo. The qualification page's JavaScript hand
+renderer was removed; native uinput remains the application input path. The
+receiving overlay passed camera-free fullscreen/transparent input delivery
+checks, including real trusted click/drag/wheel and watchdog release. See
+[the owning panel qualification](https://github.com/AlterMundi/daimon-integrators/blob/main/docs/qualification.md).
+
+Visual palm position maps the mirrored camera workspace to the output, preserving
+camera-pixel bone lengths. It is not the global position of the relative mouse.
+Guided calibration and a qualified cursor-coincident mapping remain pending.
+No new physical gesture trial or camera acquisition occurred in this increment.

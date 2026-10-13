@@ -196,10 +196,15 @@ The human prioritizes advancing calibration/system interaction over prolonged
 pinch tuning; one further baseline diagnostic trial is requested, readiness
 still required. No wider-tolerance candidate was adopted in production.
 
-The human selected the four-zone qualification page as the interaction surface
-with an overlaid hand skeleton/cursor and no camera video. The new receiving
-development mode run-feedback reuses native gesture/mouse output plus metadata
-feedback, gating output until the page is ready. The rendered skeleton follows
-the page's trusted system-pointer position. Calibration and a desktop-wide
-overlay are not implied; the camera view remains available for diagnosis.
-No new acquisition starts until the next explicit human ready reply.
+The human selected the four-zone qualification page without camera video, then
+requested moving hand feedback directly to the real desktop overlay rather than
+maintaining a temporary web renderer. daimon-integrators now owns a transparent
+GTK3/layer-shell hand surface and separate scoped Stop button; WiggleControl
+retains native perception, gestures, input and the bounded `/state` projection.
+The JavaScript hand renderer was removed. The page remains an ordinary trusted
+input observer; live camera-preview is reserved for image alignment diagnosis.
+
+Hand feedback currently maps mirrored palm position into the output workspace
+and preserves camera-pixel bone lengths. It is not coincident with the existing
+relative mouse pointer. Guided calibration and a qualified cursor mapping remain
+pending. No new acquisition starts until the next explicit human ready reply.

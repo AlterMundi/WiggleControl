@@ -208,3 +208,16 @@ Hand feedback currently maps mirrored palm position into the output workspace
 and preserves camera-pixel bone lengths. It is not coincident with the existing
 relative mouse pointer. Guided calibration and a qualified cursor mapping remain
 pending. No new acquisition starts until the next explicit human ready reply.
+
+## Calibration before further click qualification
+
+The first acknowledged native-overlay trial ran its visible measured window for
+30.35 seconds. Nicolás reported a flickering hand and a disconnect from the
+actual mouse/click representation, then requested calibration before continuing
+click tests. The mismatch is architectural: mirrored palm-to-output mapping and
+relative mouse deltas are separate coordinate contracts. Issue #2 now prioritizes
+a shared qualified screen target, explicit native calibration control, robust
+comfortable bounds/corner verification, local profile adoption/rollback and visual
+continuity independent of input freshness. Prayer-pose entry follows the manual
+workflow. Pinch thresholds remain 0.25/0.4. No calibration is implemented yet.
+The human cleared the earlier end-to-end goal; no replacement has been created.

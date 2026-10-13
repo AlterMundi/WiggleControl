@@ -596,3 +596,36 @@ Visual palm position maps the mirrored camera workspace to the output, preservin
 camera-pixel bone lengths. It is not the global position of the relative mouse.
 Guided calibration and a qualified cursor-coincident mapping remain pending.
 No new physical gesture trial or camera acquisition occurred in this increment.
+
+## First human native-overlay trial — 2026-10-13
+
+The human explicitly acknowledged readiness. The measured window began after
+native metadata paint and ran 30.35 seconds; total capture was 31.20 seconds.
+Native summary: 415 captured, 278 processed, 124 detected, 113 tracked, 135
+dropped, 75 stale, 203 fresh processed (6.51 FPS); one accepted press intent.
+Source timestamp-to-intent latency p50 131.10 / p95 197.59 ms, not photon-to-screen
+latency. Process-tree CPU averaged 67.07% of one core; runtime peak RSS 53.4 MiB
+and reaped-child peak 36.4 MiB are separate measurements, not additive concurrent RSS.
+
+The browser observation tunnel initially required reopening, so no exact
+application baseline was collected before acquisition. The first available
+sample had 51 pointer moves, five downs/ups and two target clicks; the final
+sample had 103 moves, six downs/ups and the same two target clicks. That establishes
+52 moves during the observed interval, one additional trusted down/up pair and
+no new target click. The retained event pair occurred near screen (808,106),
+outside the large click target. No accuracy fraction is claimed without a
+human intended-gesture count. Drag/wheel acceptance was not tested in this trial.
+
+The terminal compositor image showed TEST ENDED / 00:00 and press intents 1.
+The native process exited successfully, feedback listener and virtual mouse
+were absent afterward, and the independent observer reported camera/microphone
+inactive. Silent power mode and compact status panel persisted. Stop-button
+termination was not exercised; this qualifies finite expiry cleanup.
+
+Human feedback: hand flickered and appeared unrelated to the system pointer/click
+representation. The separate mirrored-palm versus relative-pointer mapping is
+known; the strict visual freshness cutoff is a hypothesis for flicker alongside
+75 stale frames, not a proved exclusive cause. The human requested calibration
+first. Issue #2 owns the shared mapping/manual calibration and later prayer entry.
+The earlier goal was cleared; no additional acquisition or replacement goal
+followed this request.

@@ -11,7 +11,7 @@ fn previous(path: &Path) -> PathBuf {
     name.push(".previous");
     PathBuf::from(name)
 }
-pub fn load(path: &Path) -> io::Result<Profile> {
+pub(crate) fn load_value<T: serde::de::DeserializeOwned>(path: &Path) -> io::Result<T> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
@@ -25,12 +25,14 @@ pub fn load(path: &Path) -> io::Result<Profile> {
     if bytes.len() > 4096 {
         return Err(io::Error::other("oversized profile"));
     }
-    let profile: Profile = serde_json::from_slice(&bytes)?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+pub fn load(path: &Path) -> io::Result<Profile> {
+    let profile: Profile = load_value(path)?;
     profile.validate().map_err(io::Error::other)?;
     Ok(profile)
 }
-fn atomic(path: &Path, profile: Profile) -> io::Result<()> {
-    profile.validate().map_err(io::Error::other)?;
+pub(crate) fn atomic_value<T: serde::Serialize>(path: &Path, value: &T) -> io::Result<()> {
     let mut temp = path.as_os_str().to_os_string();
     temp.push(format!(".new-{}", std::process::id()));
     let temp = PathBuf::from(temp);
@@ -41,7 +43,7 @@ fn atomic(path: &Path, profile: Profile) -> io::Result<()> {
         .custom_flags(libc::O_NOFOLLOW)
         .open(&temp)?;
     let result = (|| {
-        serde_json::to_writer(&mut file, &profile)?;
+        serde_json::to_writer(&mut file, value)?;
         file.write_all(b"\n")?;
         file.sync_all()?;
         fs::rename(&temp, path)?;
@@ -56,6 +58,10 @@ fn atomic(path: &Path, profile: Profile) -> io::Result<()> {
         let _ = fs::remove_file(&temp);
     }
     result
+}
+fn atomic(path: &Path, profile: Profile) -> io::Result<()> {
+    profile.validate().map_err(io::Error::other)?;
+    atomic_value(path, &profile)
 }
 pub fn adopt(path: &Path, profile: Profile) -> io::Result<()> {
     profile.validate().map_err(io::Error::other)?;

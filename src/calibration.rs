@@ -38,6 +38,7 @@ pub enum Stage {
 }
 /// Bounded stable observations at each comfortable extreme. Median rejects
 /// isolated extreme outliers; the previous adopted profile is owned by the caller.
+#[derive(Clone)]
 pub struct Calibration {
     pub stage: Stage,
     samples: VecDeque<(Point, u64)>,
@@ -55,6 +56,40 @@ impl Default for Calibration {
     }
 }
 impl Calibration {
+    /// Persist only explicitly confirmed bounds, never pending observations.
+    pub fn confirmed_bounds(&self) -> [Option<f64>; 4] {
+        self.bounds
+    }
+    pub fn from_bounds(bounds: [Option<f64>; 4]) -> Result<Self, &'static str> {
+        let mut count = 0;
+        let mut gap = false;
+        for bound in bounds {
+            match bound {
+                Some(value) if !gap && value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    count += 1
+                }
+                None => gap = true,
+                _ => return Err("invalid confirmed calibration bounds"),
+            }
+        }
+        if count >= 2 && bounds[1].unwrap() - bounds[0].unwrap() < 0.05
+            || count == 4 && bounds[3].unwrap() - bounds[2].unwrap() < 0.05
+        {
+            return Err("confirmed calibration bounds are narrow or reversed");
+        }
+        Ok(Self {
+            stage: [
+                Stage::Left,
+                Stage::Right,
+                Stage::Top,
+                Stage::Bottom,
+                Stage::Review,
+            ][count],
+            bounds,
+            ..Self::default()
+        })
+    }
+
     pub fn sample(&mut self, point: Point, source_us: u64, now_us: u64) -> bool {
         if matches!(self.stage, Stage::Review | Stage::Cancelled)
             || !point.valid()
@@ -64,12 +99,28 @@ impl Calibration {
         {
             return false;
         }
+        // Reject old observations without discarding an otherwise stable window.
+        // A real gap still requires a new window; input freshness is unchanged.
+        if self
+            .last_source
+            .is_some_and(|last| source_us - last >= 500_000)
+        {
+            self.samples.clear();
+        }
         self.last_source = Some(source_us);
         if self.samples.len() == 24 {
             self.samples.pop_front();
         }
         self.samples.push_back((point, source_us));
         true
+    }
+    pub fn expire_samples(&mut self, now_us: u64) {
+        if self
+            .last_source
+            .is_some_and(|last| now_us.saturating_sub(last) >= 500_000)
+        {
+            self.samples.clear();
+        }
     }
     pub fn tracking_lost(&mut self) {
         self.samples.clear();
@@ -158,6 +209,21 @@ mod tests {
         for n in 0..12 {
             assert!(cal.sample(point, start + n * 100_000, start + n * 100_000 + 50_000));
         }
+    }
+    #[test]
+    fn restored_bounds_are_ordered_and_long_sampling_gaps_reset_pending_samples() {
+        assert!(Calibration::from_bounds([None, Some(0.8), None, None]).is_err());
+        assert!(Calibration::from_bounds([Some(f64::NAN), None, None, None]).is_err());
+        assert!(Calibration::from_bounds([Some(0.8), Some(0.2), None, None]).is_err());
+        let c = Calibration::from_bounds([Some(0.2), Some(0.8), Some(0.3), Some(0.7)]).unwrap();
+        assert_eq!(c.stage, Stage::Review);
+        assert!(c.candidate([1920, 1080]).is_ok());
+        let mut c = Calibration::default();
+        let p = Point { x: 0.2, y: 0.5 };
+        feed(&mut c, p, 1_000_000);
+        c.sample(p, 3_000_000, 3_000_000);
+        assert_eq!(c.sample_count(), 1);
+        assert!(c.advance().is_err());
     }
     #[test]
     fn shared_target_reaches_calibrated_edges_and_rejects_invalid_profile() {

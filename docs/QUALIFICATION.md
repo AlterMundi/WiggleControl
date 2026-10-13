@@ -701,3 +701,35 @@ and unsupported session mode rejection before fictional unavailable inference
 paths are opened. Full native-feature tests and Clippy passed. No live pose,
 model coverage, paired latency or human acceptance is established by these tests.
 The prepared receiving manual configuration has not enabled this option.
+
+## Distracted manual trial and finite step preparation
+
+The acknowledged native trial expired after 90.35 measured seconds (91.28 total),
+with 1185 captured / 825 processed / 212 tracked frames, 225 stale observations,
+6.57 fresh processed FPS and p50/p95 source-to-intent age 130.5/166.5 ms. It produced
+zero press intents during neutral calibration, saved no profile and closed its
+camera/device/listener. The human subsequently reported distraction; this is
+lifecycle evidence, not physical calibration or pinch acceptance. The human also
+reported less fluid native skeleton presentation than the earlier web preview.
+Those trials were not a controlled comparison, so the cause remains unproved.
+
+Confirmed bounds now persist separately in an owner-only atomic `.draft` beside
+the receiving profile. Finite sessions resume the next unconfirmed bound with
+empty samples; a completed draft restarts all four corner checks. Expiry never
+adopts it. Start/Cancel discard the draft; Accept requires fresh corner review.
+No images, pending samples, dwell timers or verified corners persist. A changed
+output, corrupt/invalid/noncontiguous bounds or symlink is refused. Tests cover
+restart without adoption, empty resumed samples, incompatible output and Cancel.
+
+Delayed detected frames no longer erase a stable sampling window by themselves;
+only fresh observations enter it. Actual tracking loss or a 500 ms fresh-sample
+gap clears pending samples. Input freshness, pinch thresholds and corner checks
+remain unchanged. This fixes source-level sample starvation, not measured gesture
+accuracy. Native UI polling/drawing scheduling was reduced independently; physical
+fluency and idle/resource impact still require receiving qualification.
+
+Next trial: one comfortable bound at a time, explicit human verbal confirmation
+before operator Next, then Stop. Resume in a new finite ready-acknowledged session;
+never automatically restart acquisition to complete the draft. The human must
+remain in the same seated position until all bounds/corners are checked; if they
+move, explicitly restart the draft. No physical mouse is required.

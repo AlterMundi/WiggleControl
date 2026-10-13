@@ -3,11 +3,24 @@ use crate::{
     calibration::{Calibration, Control, Profile, Review, Stage},
     profile_store, Event, Point,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     io,
     path::{Path, PathBuf},
 };
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Draft {
+    version: u32,
+    output: [u32; 2],
+    bounds: [Option<f64>; 4],
+}
+fn draft_path(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".draft");
+    PathBuf::from(name)
+}
 pub struct Runtime {
     path: PathBuf,
     output: [u32; 2],
@@ -38,14 +51,36 @@ impl Runtime {
             Err(e) if e.kind() == io::ErrorKind::NotFound => None,
             Err(e) => return Err(e),
         };
+        let mut sampling = None;
+        let mut review = None;
+        let mut message = "Ready for manual calibration".to_string();
+        match profile_store::load_value::<Draft>(&draft_path(path)) {
+            Ok(draft) => {
+                if draft.version != 1 || draft.output != output {
+                    return Err(io::Error::other("invalid calibration draft version/output"));
+                }
+                let cal = Calibration::from_bounds(draft.bounds).map_err(io::Error::other)?;
+                if cal.stage == Stage::Review {
+                    review = Some(
+                        Review::new(cal.candidate(output).map_err(io::Error::other)?)
+                            .map_err(io::Error::other)?,
+                    );
+                } else {
+                    sampling = Some(cal);
+                }
+                message = "Resumed confirmed bounds; fresh sampling/corner checks required".into();
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => (),
+            Err(e) => return Err(e),
+        }
         Ok(Self {
             path: path.into(),
             output,
             profile,
-            sampling: None,
-            review: None,
+            sampling,
+            review,
             last_target: None,
-            message: "Ready for manual calibration".into(),
+            message,
         })
     }
     pub fn gesture_entry_available(&self) -> bool {
@@ -65,21 +100,35 @@ impl Runtime {
         let result = (|| {
             match action {
                 Control::Start => {
+                    self.clear_draft()?;
                     self.sampling = Some(Calibration::default());
                     self.review = None;
                 }
                 Control::Next => {
-                    let cal = self
+                    let mut cal = self
                         .sampling
-                        .as_mut()
-                        .ok_or("No sampling stage is active")?;
+                        .as_ref()
+                        .ok_or("No sampling stage is active")?
+                        .clone();
                     let stage = cal.advance()?;
+                    profile_store::atomic_value(
+                        &draft_path(&self.path),
+                        &Draft {
+                            version: 1,
+                            output: self.output,
+                            bounds: cal.confirmed_bounds(),
+                        },
+                    )
+                    .map_err(|e| e.to_string())?;
                     if stage == Stage::Review {
                         self.review = Some(Review::new(cal.candidate(self.output)?)?);
                         self.sampling = None;
+                    } else {
+                        self.sampling = Some(cal);
                     }
                 }
                 Control::Cancel => {
+                    self.clear_draft()?;
                     self.sampling = None;
                     self.review = None;
                 }
@@ -90,6 +139,7 @@ impl Runtime {
                         .ok_or("No corner review is active")?
                         .accepted()?;
                     profile_store::adopt(&self.path, profile).map_err(|e| e.to_string())?;
+                    self.clear_draft()?;
                     self.profile = Some(profile);
                     self.review = None;
                 }
@@ -100,6 +150,7 @@ impl Runtime {
                         return Err("Previous profile belongs to another output".into());
                     }
                     profile_store::adopt(&self.path, profile).map_err(|e| e.to_string())?;
+                    self.clear_draft()?;
                     self.profile = Some(profile);
                     self.sampling = None;
                     self.review = None;
@@ -113,6 +164,13 @@ impl Runtime {
         };
         result
     }
+    fn clear_draft(&self) -> Result<(), String> {
+        match std::fs::remove_file(draft_path(&self.path)) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
     pub fn frame(
         &mut self,
         raw: Option<Point>,
@@ -122,11 +180,13 @@ impl Runtime {
         events: Vec<Event>,
     ) -> (Option<Point>, Vec<Event>) {
         let fresh = source_us <= now_us && now_us - source_us < 150_000;
-        let raw = raw.filter(|p| p.valid() && fresh);
+        let detected = raw.filter(|p| p.valid());
+        let raw = detected.filter(|_| fresh);
         if let Some(cal) = &mut self.sampling {
+            cal.expire_samples(now_us);
             if let Some(p) = raw {
                 cal.sample(p, source_us, now_us);
-            } else {
+            } else if detected.is_none() {
                 cal.tracking_lost();
             }
             return (None, Vec::new());
@@ -185,6 +245,41 @@ impl Runtime {
 mod tests {
     use super::*;
     #[test]
+    fn confirmed_steps_resume_without_samples_or_adoption_and_stale_frames_do_not_erase_them() {
+        let dir = std::env::temp_dir().join(format!("wiggle-draft-test-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("profile.json");
+        let mut runtime = Runtime::new(&path, [1920, 1080]).unwrap();
+        runtime.control(Control::Start).unwrap();
+        let p = Point { x: 0.2, y: 0.5 };
+        for n in 0..12 {
+            let at = 1_000_000 + n * 200_000;
+            runtime.frame(Some(p), Some(p), at, at + 50_000, vec![]);
+            runtime.frame(Some(p), Some(p), at + 10_000, at + 170_000, vec![]);
+        }
+        assert_eq!(runtime.state()["samples"], 12);
+        runtime.control(Control::Next).unwrap();
+        assert!(!path.exists());
+        drop(runtime);
+        let mut resumed = Runtime::new(&path, [1920, 1080]).unwrap();
+        assert_eq!(resumed.state()["stage"], "right");
+        assert_eq!(resumed.state()["samples"], 0);
+        assert!(resumed.control(Control::Next).is_err());
+        assert!(resumed.control(Control::Accept).is_err());
+        assert!(Runtime::new(&path, [1280, 720]).is_err());
+        let at = 5_000_000;
+        resumed.frame(Some(p), Some(p), at, at, vec![]);
+        resumed.frame(None, None, at + 100_000, at + 100_000, vec![]);
+        assert_eq!(resumed.state()["samples"], 0);
+        resumed.control(Control::Cancel).unwrap();
+        assert!(!draft_path(&path).exists());
+        assert_eq!(
+            Runtime::new(&path, [1920, 1080]).unwrap().state()["stage"],
+            "uncalibrated"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
     fn sampling_review_adoption_cancel_and_rollback_preserve_neutral_contract() {
         let dir = std::env::temp_dir().join(format!("wiggle-runtime-test-{}", std::process::id()));
         std::fs::create_dir(&dir).unwrap();
@@ -226,6 +321,9 @@ mod tests {
             }
             runtime.control(Control::Next).unwrap();
         }
+        runtime = Runtime::new(&path, [1920, 1080]).unwrap();
+        assert_eq!(runtime.state()["stage"], "review");
+        assert_eq!(runtime.state()["corners_verified"], false);
         assert!(runtime.control(Control::Accept).is_err());
         for p in [
             Point { x: 0.2, y: 0.3 },

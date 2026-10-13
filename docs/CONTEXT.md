@@ -297,3 +297,10 @@ state. Source tests cover absent/active/modal profile gating and disabled legacy
 config/default/pre-inference rejection. Receiving manual configuration stays
 unchanged with prayer disabled; manual and prayer physical acceptance still wait
 for the human's next explicit ready acknowledgment in the required order.
+
+Manual trial correction: the human was distracted; no physical calibration/profile
+was accepted. Native presentation felt less fluid. Confirmed-bound-only drafts
+now allow short independently acknowledged trials, instead of fitting chat and
+all four bounds/corners into one countdown. Resumption retains no observations or
+corner approval, and never activates a camera itself. Start/Cancel restart/discard
+it; adoption still requires complete fresh review. See QUALIFICATION.md.

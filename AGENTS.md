@@ -35,3 +35,10 @@ English code/docs, Spanish conversation with Nicolás. Validate only relevant
 behavior: cargo fmt, meaningful unit/replay tests and clippy once Rust exists.
 Do not claim source tests prove real libinput recognition, gesture accuracy or
 latency. Record source, runtime/device acceptance and human feedback separately.
+
+TV-facing interfaces prioritize the actual integrator display: 1920x1080
+fullscreen, readable from the seated viewing distance, all primary controls and
+status visible without whole-page scrolling, and space for the top-right compact
+status panel. Preserve the chosen Star Trek/LCARS style. Check real viewport
+bounds including dynamically inserted controls before asking for a physical trial.
+Scrollable content inside the explicit scroll exercise is intentional.

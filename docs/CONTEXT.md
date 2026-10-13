@@ -149,3 +149,12 @@ available image/camera/run commands and their effects. A CLI regression uses
 nonexistent camera/model/runtime paths to verify schema validation is independent
 of acquisition; invalid workspace bounds return failure without a success report.
 This source-only increment also remains undeployed while the room is unavailable.
+
+TV-first correction: the human reported that the qualification page exceeded the
+actual display. Primary panels now use a viewport-height grid with a reserved
+right strip for the compact overlay. Real Chromium at 1920x1080 reports page
+scroll dimensions 1920x1080; all four dynamically populated panels and footer
+fit, and a compositor screenshot confirms the mini panel remains visible. Only
+the explicit scroll exercise scrolls internally. AGENTS.md records TV-first
+layout, viewing-distance readability and dynamic viewport checks for future work.
+No sensor or input session was opened for this layout correction.

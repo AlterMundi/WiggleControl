@@ -254,3 +254,16 @@ review; acceptance only after four corners; atomic adoption plus neutral rearmin
 shared emitted absolute target in metadata and native overlay. Add explicit native
 controls and independent bounded visual freshness before deployment and new
 human trials. Prayer activation remains after manual workflow qualification.
+
+Runtime/control wiring checkpoint: `run-calibrated` now joins the separately
+qualified absolute writer with the calibration coordinator, validates an explicit
+receiving output/profile before models, keeps collection neutral and review
+hover-only, requires verified corners to adopt, and releases/rearms on each
+control. It publishes the actual emitted screen target and calibration result.
+A full camera-free lifecycle test covers collection, refused early acceptance,
+corner hover, adoption, active mapped input, stale release, cancel and rollback.
+The native overlay adds manual controls, stage/sample/corner guidance and the
+shared-target anchor. Visual retention is independently bounded at 300 ms with
+strict 150 ms input/press eligibility. Receiving builds/layout qualification
+are separate from still-pending real calibration/pinch/drag/loss/Stop and prayer
+activation. No camera has opened during this implementation increment.

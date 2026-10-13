@@ -66,6 +66,9 @@ pub fn adopt(path: &Path, profile: Profile) -> io::Result<()> {
     }
     atomic(path, profile)
 }
+pub fn previous_profile(path: &Path) -> io::Result<Profile> {
+    load(&previous(path))
+}
 pub fn rollback(path: &Path) -> io::Result<Profile> {
     let profile = load(&previous(path))?;
     adopt(path, profile)?;

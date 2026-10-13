@@ -14,6 +14,9 @@ pub mod touch_gestures;
 pub mod calibration;
 
 #[cfg(target_os = "linux")]
+pub mod calibration_runtime;
+
+#[cfg(target_os = "linux")]
 pub mod profile_store;
 
 #[cfg(target_os = "linux")]
@@ -192,6 +195,9 @@ impl Engine {
         self.cancel("stop")
     }
     /// Read-only diagnostic state; does not modify gesture decisions.
+    pub fn cursor_position(&self) -> Option<Point> {
+        self.cursor
+    }
     pub fn pinch_state(&self) -> &'static str {
         if !self.running {
             "stopped"

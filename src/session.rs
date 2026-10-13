@@ -30,6 +30,8 @@ pub struct SessionConfig {
     pub fps: u32,
     pub gain: f64,
     #[serde(default)]
+    pub pointer_output: Option<[u32; 2]>,
+    #[serde(default)]
     pub touch_workspace: crate::touch_gestures::Workspace,
     #[serde(default = "default_close_ratio")]
     pub pinch_close_ratio: f64,
@@ -57,6 +59,14 @@ impl SessionConfig {
         }
         let config: Self = serde_json::from_slice(&data)?;
         config.touch_workspace.validate()?;
+        if let Some(output) = config.pointer_output {
+            crate::calibration::Profile {
+                version: 1,
+                workspace: Default::default(),
+                output,
+            }
+            .validate()?;
+        }
         Engine::new(config.gestures())?;
         if config.pinch_open_ratio > 1.0 {
             return Err("pinch ratios must satisfy 0 < close < open <= 1".into());
@@ -264,16 +274,38 @@ fn write_events(
     Ok(presses)
 }
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, false, None)
+    run_mode(path, seconds, inject, false, None, None)
 }
 pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, true, None)
+    run_mode(path, seconds, inject, true, None, None)
 }
 pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, false, false, Some(port))
+    run_mode(path, seconds, false, false, Some(port), None)
 }
 pub fn feedback(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, true, false, Some(port))
+    run_mode(path, seconds, true, false, Some(port), None)
+}
+pub fn calibrated(
+    path: &Path,
+    seconds: u64,
+    port: u16,
+    profile: &Path,
+) -> Result<(), Box<dyn Error>> {
+    run_mode(path, seconds, true, false, Some(port), Some(profile))
+}
+fn write_absolute(
+    output: &mut Option<std::process::ChildStdin>,
+    target: crate::Point,
+) -> io::Result<()> {
+    if let Some(out) = output {
+        serde_json::to_writer(
+            &mut *out,
+            &serde_json::json!({"type":"absolute","x":target.x,"y":target.y}),
+        )?;
+        writeln!(out)?;
+        out.flush()?;
+    }
+    Ok(())
 }
 fn write_contacts(
     output: &mut Option<std::process::ChildStdin>,
@@ -295,6 +327,7 @@ fn run_mode(
     inject: bool,
     touch: bool,
     preview_port: Option<u16>,
+    profile_path: Option<&Path>,
 ) -> Result<(), Box<dyn Error>> {
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
@@ -306,6 +339,16 @@ fn run_mode(
     }
     let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
+    let mut calibration = profile_path
+        .map(|profile| {
+            crate::calibration_runtime::Runtime::new(
+                profile,
+                config.pointer_output.ok_or_else(|| {
+                    io::Error::other("calibrated mode requires pointer_output dimensions")
+                })?,
+            )
+        })
+        .transpose()?;
     ort::init_from(&config.runtime).commit()?;
     let mut perception = Perception::new(Path::new(&config.models))?;
     let stop = Arc::new(AtomicBool::new(false));
@@ -314,6 +357,11 @@ fn run_mode(
     let preview = preview_port
         .map(|port| crate::preview::Preview::start(port, stop.clone()))
         .transpose()?;
+    if calibration.is_some() {
+        if let Some(preview) = &preview {
+            preview.enable_calibration_controls();
+        }
+    }
     // Start the session deadline before spawning its independently finite writer.
     let start = Instant::now();
     let mut preview_clock = preview.as_ref().map(|_| PreviewClock::new(start, seconds));
@@ -328,6 +376,8 @@ fn run_mode(
             Command::new(std::env::current_exe()?)
                 .args(if touch {
                     vec!["touch-stream".into(), writer_seconds.to_string()]
+                } else if calibration.is_some() {
+                    vec!["absolute-stream".into(), writer_seconds.to_string()]
                 } else {
                     vec![
                         "device-stream".into(),
@@ -371,6 +421,13 @@ fn run_mode(
                     engine.stop();
                     engine.start();
                     preview_press_baseline = summary.button_down_intents;
+                }
+            }
+            if let (Some(preview), Some(calibration)) = (&preview, &mut calibration) {
+                if let Some(action) = preview.take_control() {
+                    write_events(&mut output, engine.stop(), false)?;
+                    engine.start();
+                    let _ = calibration.control(action);
                 }
             }
             if let Some(writer) = writer.as_mut() {
@@ -487,8 +544,28 @@ fn run_mode(
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
                 let events = engine.observe(now, observation);
+                let (target, events) = if let Some(calibration) = &mut calibration {
+                    calibration.frame(
+                        interpreted
+                            .as_ref()
+                            .filter(|h| h.confidence >= config.gestures().min_confidence)
+                            .map(|h| h.cursor),
+                        engine.cursor_position(),
+                        frame.source_us,
+                        now,
+                        events,
+                    )
+                } else {
+                    (None, events)
+                };
                 let output_enabled = preview_clock.as_ref().is_none_or(|c| c.started.is_some());
                 summary.button_down_intents += if output_enabled {
+                    if let Some(target) = target {
+                        write_absolute(&mut output, target)?;
+                        if let Some(calibration) = &mut calibration {
+                            calibration.last_target = Some(target);
+                        }
+                    }
                     write_events(&mut output, events, true)?
                 } else {
                     write_events(&mut output, Vec::new(), true)?;
@@ -499,6 +576,8 @@ fn run_mode(
                         .as_ref()
                         .map(|h| h.thumb_tip.distance(h.index_tip) / h.palm_width);
                     let data = serde_json::json!({
+                        "calibration":calibration.as_ref().map(|c|c.state()),
+                        "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
                         "sequence": frame.sequence, "width":image.width(), "height":image.height(),
                         "landmarks":hand.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),
                         "confidence":hand.as_ref().map(|h|h.confidence),

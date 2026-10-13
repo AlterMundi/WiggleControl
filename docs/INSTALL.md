@@ -242,3 +242,37 @@ Use the static `tools/qualification.html`, VLC or another existing application
 below it. The temporary JavaScript hand renderer was removed; the page observes
 trusted application input only. Camera-preview remains a separate diagnosis
 view when checking alignment against the actual image.
+
+## Calibrated absolute mouse and native controls
+
+`wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE` selects the absolute
+mouse writer and finite native feedback/control projection. Its receiving-local
+config must include `pointer_output: [width, height]` matching the qualified
+single output. Missing/invalid output or an incompatible existing profile fails
+before inference/camera initialization. Existing modes/configs remain separate.
+The native overlay refuses the measured-window acknowledgment if its actual
+allocated dimensions differ. Each physical trial still requires human readiness.
+
+CALIBRATE begins left/right/top/bottom collection. Hold each comfortable extreme
+and choose NEXT; the runtime requires stable fresh samples. Buttons/wheel/motion
+are neutral during collection. Corner review emits absolute hover only, requiring
+a continuous half-second at each ordered corner. ACCEPT is valid only after all
+four corners; CANCEL retains the old profile. ROLLBACK restores the previous
+compatible profile. Each control releases/rearms the gesture engine and writer,
+including rejected actions; a closed hand never becomes an adoption click.
+
+Profiles are owner-local bounded JSON, atomically published with 0600 permissions
+and a `.previous` rollback. Queue acknowledgment is not adoption: the native
+calibration state reports stage/message, and accepted profile bytes prove saving.
+No camera frames are retained. A corrupt/incompatible active profile is reported
+without overwriting it. Source corner tests and storage tests are not physical
+calibration acceptance.
+
+In active use and corner review, the overlay anchors the hand to the same
+normalized `screen_target` actually emitted to the system writer. During neutral
+collection it shows the mirrored observation workspace. Physical mouse movement
+after hand loss can override the last emitted target; the overlay does not
+pretend to query a global Wayland cursor. Visual hand feedback may remain up to
+300 ms with delayed coloring, while input/green press eligibility keeps the
+strict 150 ms freshness rule. Live flicker/comfort still require human acceptance.
+Prayer entry and physical acceptance remain pending.

@@ -325,3 +325,27 @@ Historical summary field `injected` identifies requested writer mode; it does no
 prove an emitted press, device delivery or successful session. Actual exit status,
 event counters, independent device state and application observations remain the
 effect evidence, especially in a failing startup.
+
+## Controlled receiving camera loss and return — 2026-10-13
+
+A selected camera UVC video interface was detached from its driver during a
+panel-managed thirty-second mouse session. Baseline confirmed complete/free
+camera and inactive mic; before detach a privileged scan of both interface video
+endpoints found no other process using them. Only the owned managed runtime held
+the camera. The change addressed one interface, not the USB device/hub, other
+peripherals, storage or the host network. Its private recovery binding was retained
+before modification and the root test restored the interface in finally cleanup.
+
+The actual failed session log reported ENODEV after 6 captured / 3 processed
+frames, zero accepted hands/press intents and about 1.18 seconds. Panel reported
+failed with its child reaped; the virtual mouse was absent. Rebinding the same UVC
+interface and waiting for udev restored camera presence. A new three-second
+panel-managed session completed; camera/microphone were inactive afterward,
+virtual device absent and silent mode preserved. Fresh SSH and panel control
+worked independently after recovery.
+
+This qualifies actual driver-visible camera loss/return and session/device cleanup.
+It does not claim a physical cable/electrical hotplug test, nor held-hand accuracy:
+this trial had no accepted hands or held click. Held-button release already has
+distinct replay/application writer-stall/death evidence. No continuous recording
+or automatic capture restart was installed.

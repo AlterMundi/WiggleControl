@@ -114,4 +114,11 @@ to normal operator identity/groups; the host network/access stayed unchanged.
 A missing-camera startup failed as expected and released its writer/device, with
 real camera/mic inactive afterward. These qualify offline local lifecycle and
 startup failure cleanup, not physical USB hotplug or human gesture acceptance.
+
+Controlled receiving driver loss/return now also passed: selected UVC interface
+detached only after confirming no foreign camera endpoint users, owned session
+failed with actual ENODEV and removed its virtual device, then rebind plus a new
+finite session restored normal operation. Host access/other peripherals remained
+intact; camera/mic inactive after test. This covers driver-visible disconnect and
+recovery, while electrical hotplug and human held-hand behavior remain distinct.
 See exact observations and summary-field semantics in QUALIFICATION.md.

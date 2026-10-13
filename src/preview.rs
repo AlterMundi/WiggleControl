@@ -1,5 +1,11 @@
 //! Finite loopback-only live feedback; frames exist only in the latest memory slot.
+use crate::calibration::Control;
 use serde_json::Value;
+#[derive(Default)]
+struct Controls {
+    enabled: bool,
+    pending: Option<Control>,
+}
 use std::{
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
@@ -33,6 +39,7 @@ pub struct Preview {
     worker: Option<thread::JoinHandle<()>>,
     ready: Arc<AtomicBool>,
     pub port: u16,
+    controls: Arc<Mutex<Controls>>,
 }
 impl Preview {
     pub fn start(port: u16, stop: Arc<AtomicBool>) -> io::Result<Self> {
@@ -44,11 +51,20 @@ impl Preview {
         let stopped = stop.clone();
         let ready = Arc::new(AtomicBool::new(false));
         let acknowledged = ready.clone();
+        let controls = Arc::new(Mutex::new(Controls::default()));
+        let commands = controls.clone();
         let worker = thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        let _ = serve(&mut stream, &shared, &stopped, &acknowledged, port);
+                        let _ = serve(
+                            &mut stream,
+                            &shared,
+                            &stopped,
+                            &acknowledged,
+                            &commands,
+                            port,
+                        );
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(10))
@@ -64,7 +80,14 @@ impl Preview {
             worker: Some(worker),
             port,
             ready,
+            controls,
         })
+    }
+    pub fn enable_calibration_controls(&self) {
+        self.controls.lock().unwrap().enabled = true;
+    }
+    pub fn take_control(&self) -> Option<Control> {
+        self.controls.lock().unwrap().pending.take()
     }
     pub fn view_ready(&self) -> bool {
         self.ready.load(Ordering::Relaxed)
@@ -113,6 +136,7 @@ fn serve(
     slot: &Mutex<Option<Arc<Snapshot>>>,
     stop: &AtomicBool,
     ready: &AtomicBool,
+    controls: &Mutex<Controls>,
     port: u16,
 ) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -196,7 +220,13 @@ fn serve(
                 respond(stream, "204 No Content", "text/plain", b"", "")
             }
         }
-        "POST /stop HTTP/1.1" | "POST /ready HTTP/1.1" => {
+        "POST /stop HTTP/1.1"
+        | "POST /ready HTTP/1.1"
+        | "POST /calibration/start HTTP/1.1"
+        | "POST /calibration/next HTTP/1.1"
+        | "POST /calibration/cancel HTTP/1.1"
+        | "POST /calibration/accept HTTP/1.1"
+        | "POST /calibration/rollback HTTP/1.1" => {
             let origin = format!("http://{host}");
             if !headers
                 .iter()
@@ -207,6 +237,43 @@ fn serve(
                     "403 Forbidden",
                     "text/plain",
                     b"Same origin required",
+                    "",
+                );
+            }
+            let action = match first {
+                "POST /calibration/start HTTP/1.1" => Some(Control::Start),
+                "POST /calibration/next HTTP/1.1" => Some(Control::Next),
+                "POST /calibration/cancel HTTP/1.1" => Some(Control::Cancel),
+                "POST /calibration/accept HTTP/1.1" => Some(Control::Accept),
+                "POST /calibration/rollback HTTP/1.1" => Some(Control::Rollback),
+                _ => None,
+            };
+            if let Some(action) = action {
+                let mut controls = controls.lock().unwrap();
+                if !controls.enabled {
+                    return respond(
+                        stream,
+                        "403 Forbidden",
+                        "text/plain",
+                        b"Calibration mode not enabled",
+                        "",
+                    );
+                }
+                if controls.pending.is_some() {
+                    return respond(
+                        stream,
+                        "409 Conflict",
+                        "text/plain",
+                        b"A control is already pending",
+                        "",
+                    );
+                }
+                controls.pending = Some(action);
+                return respond(
+                    stream,
+                    "200 OK",
+                    "text/plain",
+                    b"Queued; await producer calibration state",
                     "",
                 );
             }
@@ -300,5 +367,43 @@ mod tests {
         let port = preview.port;
         drop(preview);
         assert!(TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port)).is_err());
+    }
+    #[test]
+    fn calibration_control_requires_selected_mode_origin_and_bounded_consumption() {
+        let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /calibration/start", true))
+                .starts_with("HTTP/1.1 403")
+        );
+        preview.enable_calibration_controls();
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /calibration/start", false))
+                .starts_with("HTTP/1.1 403")
+        );
+        assert_eq!(preview.take_control(), None);
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /calibration/start", true))
+                .starts_with("HTTP/1.1 200")
+        );
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /calibration/accept", true))
+                .starts_with("HTTP/1.1 409")
+        );
+        assert_eq!(preview.take_control(), Some(Control::Start));
+        assert_eq!(preview.take_control(), None);
+        for (path, action) in [
+            ("next", Control::Next),
+            ("cancel", Control::Cancel),
+            ("accept", Control::Accept),
+            ("rollback", Control::Rollback),
+        ] {
+            assert!(String::from_utf8_lossy(&request(
+                preview.port,
+                &format!("POST /calibration/{path}"),
+                true
+            ))
+            .starts_with("HTTP/1.1 200"));
+            assert_eq!(preview.take_control(), Some(action));
+        }
     }
 }

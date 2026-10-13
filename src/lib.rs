@@ -14,6 +14,9 @@ pub mod touch_gestures;
 pub mod calibration;
 
 #[cfg(target_os = "linux")]
+pub mod profile_store;
+
+#[cfg(target_os = "linux")]
 pub mod metrics;
 
 #[cfg(target_os = "linux")]

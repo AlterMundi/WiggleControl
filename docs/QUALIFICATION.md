@@ -655,3 +655,18 @@ calibration and invalid profile version/output; one extreme outlier is tolerated
 Review/candidate generation alone does not adopt a profile. Native controls,
 corner verification, profile persistence/rollback, perception/output/overlay
 wiring, visual continuity and prayer activation remain unfinished.
+
+## Source corner verification, profile rollback and command seam
+
+Camera-free Rust tests now verify four ordered corners with 500 ms continuous
+fresh dwell, and reject stale/lost/invalid/out-of-order observations as completion
+evidence. No button gesture is required to verify a corner. Profile storage tests
+exercise first adoption at 0600, previous-profile preservation, rollback/swap,
+invalid profile refusal, symlink refusal and preservation of corrupt current data.
+
+Loopback HTTP tests demonstrate calibration controls disabled by default,
+same-origin requirement, single-pending-command backpressure, and consumption
+of each named control. The response explicitly acknowledges queueing, not
+producer execution/profile adoption. Twenty native-feature library tests and
+all-target Clippy passed. These components have not been wired to the receiving
+UI/session or qualified with physical hands; no acquisition took place.

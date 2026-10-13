@@ -230,3 +230,27 @@ and has bounded fresh median/stability tests. It is not wired to native controls
 or perception yet; full calibration, matching overlay anchor, persistent rollback,
 visual continuity and prayer entry remain active goal work. Production services
 and device permissions were not changed.
+
+## Current active calibration goal
+
+Nicolás explicitly activated the new end-to-end calibration goal after clearing
+the earlier goal. Preserve its full scope: shared input/overlay mapping, visual
+continuity, local profiles/rollback, physical corner/pinch/drag/loss/Stop acceptance,
+then prayer-pose activation. Physical acquisition still requires a new ready reply.
+
+Source now has four-corner verification requiring 500 ms of continuous fresh
+observations per corner; stale/lost/invalid observations break the dwell. Profile
+storage validates bounded owner-local files, publishes atomically at mode 0600,
+retains the previous profile and supports rollback. Invalid profiles, corrupt
+current data and symlinks do not overwrite the current profile in tested cases.
+The finite loopback projection has a single-slot calibration command seam for
+start/next/cancel/accept/rollback, disabled by default unless its producer selects
+calibration mode. HTTP queue acknowledgment is not adoption; producer state must
+report the actual result. Source tests cover origin/enablement/backpressure.
+
+These are source components, not completed native UI or live calibration. Next
+wire the session controller: neutral input while collecting; hover-only candidate
+review; acceptance only after four corners; atomic adoption plus neutral rearming;
+shared emitted absolute target in metadata and native overlay. Add explicit native
+controls and independent bounded visual freshness before deployment and new
+human trials. Prayer activation remains after manual workflow qualification.

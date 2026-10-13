@@ -232,3 +232,146 @@ mod tests {
         assert_eq!(c.stage, Stage::Right);
     }
 }
+
+/// Candidate corner verification is independent of pinch. Sampling/hover review
+/// never authorizes a button press or adoption by itself.
+pub struct Review {
+    profile: Profile,
+    next: usize,
+    held_since: Option<u64>,
+    last_source: Option<u64>,
+}
+impl Review {
+    pub fn new(profile: Profile) -> Result<Self, &'static str> {
+        profile.validate()?;
+        Ok(Self {
+            profile,
+            next: 0,
+            held_since: None,
+            last_source: None,
+        })
+    }
+    pub fn target(&self) -> Option<Point> {
+        [
+            Point { x: 0.0, y: 0.0 },
+            Point { x: 1.0, y: 0.0 },
+            Point { x: 1.0, y: 1.0 },
+            Point { x: 0.0, y: 1.0 },
+        ]
+        .get(self.next)
+        .copied()
+    }
+    pub fn observe(
+        &mut self,
+        point: Point,
+        source_us: u64,
+        now_us: u64,
+    ) -> Result<Point, &'static str> {
+        if source_us > now_us
+            || now_us - source_us >= 150_000
+            || self.last_source.is_some_and(|s| source_us <= s)
+        {
+            self.held_since = None;
+            return Err("corner observation is stale or out of order");
+        }
+        if self.last_source.is_some_and(|s| source_us - s >= 150_000) {
+            self.held_since = None;
+        }
+        self.last_source = Some(source_us);
+        let mapped = match self.profile.target(point) {
+            Ok(mapped) => mapped,
+            Err(error) => {
+                self.held_since = None;
+                return Err(error);
+            }
+        };
+        if let Some(target) = self.target() {
+            if (mapped.x - target.x).abs() <= 0.05 && (mapped.y - target.y).abs() <= 0.05 {
+                let since = *self.held_since.get_or_insert(source_us);
+                if source_us - since >= 500_000 {
+                    self.next += 1;
+                    self.held_since = None;
+                }
+            } else {
+                self.held_since = None;
+            }
+        }
+        Ok(mapped)
+    }
+    pub fn tracking_lost(&mut self) {
+        self.held_since = None;
+    }
+    pub fn verified(&self) -> bool {
+        self.next == 4
+    }
+    pub fn accepted(&self) -> Result<Profile, &'static str> {
+        if !self.verified() {
+            return Err("verify all four corners before adoption");
+        }
+        Ok(self.profile)
+    }
+}
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+    fn profile() -> Profile {
+        Profile {
+            version: 1,
+            workspace: Workspace::default(),
+            output: [1920, 1080],
+        }
+    }
+    #[test]
+    fn all_four_corners_require_fresh_continuous_dwell_before_acceptance() {
+        let mut review = Review::new(profile()).unwrap();
+        assert!(review.accepted().is_err());
+        let mut at = 1_000_000;
+        for _ in 0..4 {
+            let target = review.target().unwrap();
+            for _ in 0..6 {
+                review.observe(target, at, at + 50_000).unwrap();
+                at += 100_000;
+            }
+        }
+        assert!(review.verified());
+        assert!(review.accepted().is_ok());
+        assert!(review.target().is_none());
+    }
+    #[test]
+    fn stale_loss_invalid_and_jump_cannot_complete_a_corner() {
+        let mut review = Review::new(profile()).unwrap();
+        let p = review.target().unwrap();
+        for n in 0..3 {
+            review
+                .observe(p, 1_000_000 + n * 100_000, 1_000_000 + n * 100_000)
+                .unwrap();
+        }
+        review.tracking_lost();
+        review.observe(p, 1_300_000, 1_300_000).unwrap();
+        assert!(review.observe(p, 1_400_000, 1_550_000).is_err());
+        assert!(review
+            .observe(
+                Point {
+                    x: f64::NAN,
+                    y: 0.0
+                },
+                1_500_000,
+                1_500_000
+            )
+            .is_err());
+        review.observe(p, 3_000_000, 3_000_000).unwrap();
+        assert_eq!(review.target().unwrap().x, 0.0);
+        assert!(!review.verified());
+        assert!(review.observe(p, 2_000_000, 3_000_000).is_err());
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Control {
+    Start,
+    Next,
+    Cancel,
+    Accept,
+    Rollback,
+}

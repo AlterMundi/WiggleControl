@@ -100,3 +100,24 @@ Integrators `input 20` entered visible preparation, then observed input activity
 and camera-open with microphone inactive; its existing Stop ended the owned
 process group and actual camera usage. Application/gesture human accuracy, VLC
 /XWayland acceptance and direct multitouch remain pending.
+
+## Direct-touch writer checkpoint — 2026-10-13
+
+Twenty-two native-vision/replay/Linux tests pass on the development host. New
+tests verify stable slots despite producer-array reordering, individual contact
+loss, neutral release and rejection of duplicate/nonfinite contacts. The shared
+bounded intent reader is used by mouse and touch writers; their watchdog clocks
+remain independent of a blocked reader.
+
+Receiving ARM64 Rust 1.85.1 built the camera-free touch writer. Real type-B
+contacts reached the task-owned Chromium native Wayland page through uinput,
+libinput and labwc. The page received trusted touchstart/touchmove events with
+two simultaneous stable contacts despite alternating producer order. Its explicit
+touch interpretation measured scale 1.709 and rotation 5.88 degrees. These values
+describe the scratch touch-aware client, not universal system gesture support.
+
+A producer stall then delivered touchend and left zero active contacts in the
+application. Explicit Stop exited successfully and removed only the virtual
+touch device. No camera/microphone was opened. Coordinates matched the single
+1080p output; multi-output mapping remains unqualified. Two-hand recognition,
+crossing/occlusion identity and camera-to-touch engagement are still pending.

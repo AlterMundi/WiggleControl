@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "linux")]
 pub mod input;
 
+#[cfg(target_os = "linux")]
+pub mod touch;
+
+#[cfg(target_os = "linux")]
+mod intent;
+
 #[cfg(feature = "native-vision")]
 pub mod vision;
 

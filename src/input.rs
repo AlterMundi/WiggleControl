@@ -4,7 +4,7 @@ use evdev::{
 };
 use serde::Deserialize;
 use std::{
-    io::{self, BufRead},
+    io,
     sync::mpsc,
     time::{Duration, Instant},
 };
@@ -137,45 +137,7 @@ pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
         ));
     }
     let mut device = create()?;
-    let (tx, rx) = mpsc::sync_channel(1);
-    std::thread::spawn(move || {
-        let mut input = io::stdin().lock();
-        let mut line = Vec::with_capacity(crate::MAX_MESSAGE_BYTES);
-        loop {
-            let buffer = match input.fill_buf() {
-                Ok(b) => b,
-                Err(e) => {
-                    let _ = tx.send(Err(e));
-                    return;
-                }
-            };
-            if buffer.is_empty() {
-                if !line.is_empty() {
-                    let _ = tx.send(parse(&line));
-                }
-                return;
-            }
-            let n = buffer
-                .iter()
-                .position(|b| *b == b'\n')
-                .map_or(buffer.len(), |i| i + 1);
-            if line.len() + n > crate::MAX_MESSAGE_BYTES {
-                let _ = tx.send(Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "oversized mouse intent",
-                )));
-                return;
-            }
-            line.extend_from_slice(&buffer[..n]);
-            input.consume(n);
-            if line.last() == Some(&b'\n') {
-                if tx.send(parse(&line)).is_err() {
-                    return;
-                }
-                line.clear();
-            }
-        }
-    });
+    let rx = crate::intent::reader::<MouseIntent>();
     let start = Instant::now();
     let mut fresh = Instant::now();
     let mut state = MouseState::default();
@@ -210,7 +172,4 @@ pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
     // Closing the sole uinput fd removes this virtual device, including on errors.
     drop(device);
     result.and(release)
-}
-fn parse(line: &[u8]) -> io::Result<MouseIntent> {
-    serde_json::from_slice(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }

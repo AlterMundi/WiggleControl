@@ -58,3 +58,11 @@ camera-only session accepted no hands. Do not infer human absence from that.
 Source/account/private bindings remain in Shared Resources. No models at boot.
 Next: direct touch replay/typing, additional application acceptance and a
 human-present gesture session with real accuracy/comfort measurements.
+
+Direct type-B touch now has a separate bounded intent contract and two stable
+slots. Real trusted two-contact events reached Chromium native Wayland; the
+touch-aware scratch page interpreted scale/rotation, and producer stall released
+both contacts before device removal. This qualifies the writer, not camera-to-touch
+or hand crossing. See TOUCH.md and QUALIFICATION.md for exact limits. The source
+panel integration was published at daimon-integrators 662ff69 with successful
+Actions run 38412337990; receiving start/Stop evidence is recorded independently.

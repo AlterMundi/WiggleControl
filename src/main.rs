@@ -47,6 +47,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(target_os = "linux")]
     match args.first().map(String::as_str) {
+        Some("touch-check") if args.len() == 2 => {
+            return Ok(wigglecontrol::touch::check(args[1].parse()?)?)
+        }
+        Some("touch-stream") if args.len() == 2 => {
+            return Ok(wigglecontrol::touch::stream(args[1].parse()?)?)
+        }
         Some("device-check") if args.len() == 2 => {
             return Ok(wigglecontrol::input::check(args[1].parse()?)?)
         }
@@ -59,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => (),
     }
     if args != ["replay"] {
-        eprintln!("Usage: wigglecontrol replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\nReplay opens no camera/device. Device-stream injects mouse input.");
+        eprintln!("Usage: wigglecontrol replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nReplay opens no camera/device. Device-stream and touch-stream inject system input.");
         std::process::exit(2);
     }
     let mut engine = Engine::new(Config::default())?;

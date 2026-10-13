@@ -12,6 +12,7 @@ a specific technical justification; low resource use must be measured.
 Start here:
 
 - [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.
+- [Direct-touch intent](docs/TOUCH.md), separate from camera hand engagement.
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native
   Rust inference choices and Linux input semantics.

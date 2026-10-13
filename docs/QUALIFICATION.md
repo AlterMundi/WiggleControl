@@ -536,3 +536,20 @@ time without weakening gesture rules. The human requests less separation to
 release/rearm; a receiving-only 0.35/0.45 diagnostic candidate is prepared for
 a later acknowledged trial, preserving production defaults. Actual comfort,
 intended count, relaxed-hand behavior and new timing adoption need live evidence.
+
+### Visible-window and relaxed-release trial
+
+After a fresh ready acknowledgment, receiving development source dc8f531 ran
+the 0.35/0.45 candidate for thirty measured seconds after first-frame readiness.
+The camera session lasted 37.39 seconds in total, including about seven seconds
+preparation; preview_test_elapsed_seconds was 30.37 and preview_test_started
+true. The test-specific counter reported seven press intents (aggregate seven);
+human attempt count/comfort/block explanations remain pending. Read-only live
+inspection observed TESTING at 00:28 with Open / ready and the selected 0.35/0.45
+thresholds. No input writer, microphone stream or recording.
+
+Aggregate preparation-plus-test summary: 506 captured, 334 processed, 265
+detected, 264 tracked, 170 dropped and 33 stale; fresh FPS 8.05, timestamp-to-
+intent p50/p95 120.54/159.78 ms, one-core CPU 57.52%, runtime RSS 55200 KiB,
+child RSS zero. These whole-session counters must not be relabeled as
+test-only recognition accuracy.

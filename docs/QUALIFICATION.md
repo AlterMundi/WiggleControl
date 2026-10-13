@@ -466,3 +466,11 @@ to-intent p50/p95 110.78/143.15 ms, one-core CPU 49.98%, runtime RSS 52640 KiB,
 child RSS zero. The live page was observed showing Pinch closing while model
 processing continued. No input writer or recording was created. Do not classify
 the four intents as four-of-five success until human attempt count is confirmed.
+
+Human correction: the last requested pinch may have reached the trial deadline,
+and the pinch-state labels were not noticed. Attempt timing is therefore
+uncertain; do not label the four-intent result a lost fifth gesture. The preview
+now adds a prominent red TESTING lamp/countdown tied to producer remaining
+milliseconds, an explicit end/disconnect state, a green upper-right pressed
+state and a co-located PINCH PRESSED label on the recognized thumb/index span.
+No new trial was activated for this correction.

@@ -8,6 +8,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85.1
         with:
           components: rustfmt, clippy
+      - run: node tests/preview_timer.cjs
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings

@@ -47,3 +47,9 @@ For each live human gesture trial, describe one finite test and wait for the
 human's explicit ready acknowledgment before acquisition. Presence in a prior
 message and a delivered instruction do not establish that the human read it or
 is attending the new test. Separate preparation/build/layout work from capture.
+
+Finish receiving preparation and relevant checks before asking for the human's
+ready acknowledgment. The human may be attending another session; do not ask
+for readiness while still building or leave them waiting after they reply.
+Timed trials must show a conspicuous running indicator and producer-tied
+countdown, with terminal state and retained result on completion.

@@ -169,3 +169,10 @@ video/frame file, microphone, network upload or startup service is created.
 Initial receiving adoption uses the ordinary development binary, preserving the
 installed production binary and operator permissions. Source publication and
 physical alignment/pinch acceptance remain separate checks.
+
+The preview header shows a red TESTING lamp and large countdown derived from
+the native session's remaining milliseconds; duplicate frames do not reset its
+clock. Ending the test extinguishes the lamp and retains the press counter.
+Disconnect is distinguished from a known deadline. PINCH PRESSED is highlighted
+in green in the upper-right state box and beside the thumb/index segment on the
+image. Preparation/build/checks must finish before asking the human to be ready.

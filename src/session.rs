@@ -402,7 +402,8 @@ fn run_mode(
                         "fresh":now.saturating_sub(frame.source_us)<150_000,
                         "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                         "decode_ms":decode_ms,"inference_ms":inference_ms,
-                        "presses":summary.button_down_intents, "remaining_seconds":seconds.saturating_sub(start.elapsed().as_secs())
+                        "presses":summary.button_down_intents, "remaining_seconds":seconds.saturating_sub(start.elapsed().as_secs()),
+                        "remaining_ms":Duration::from_secs(seconds).saturating_sub(start.elapsed()).as_millis() as u64
                     });
                     preview.publish(frame.bytes, data)?;
                 }

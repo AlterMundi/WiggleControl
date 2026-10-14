@@ -924,3 +924,20 @@ legacy150 ms default, rejecting unbounded budgets. Config-check accepts300 and
 rejects1001 without opening devices. Loss/ineligibility/Stop still release; this
 change tolerates processing delays and does not infer a hand from missing data.
 Physical sustained-pinch acceptance still requires a new acknowledged finite trial.
+
+## First human-ready 300 ms camera-only trial
+
+Nicolás acknowledged forty measured seconds, requesting three right-hand pinches
+and a three-second final hold. Live metadata confirmed freshness_ms300, testing
+and input_enabledfalse. Summary:608 captured,387 processed,370 detected,363
+tracked, seven press intents and73 pressed-state frames; stale0. Blocks:
+hand_not_engaged36, invalid_hand9 (palm_width), tracking_lost17, open_before_press3.
+Timing p50/p95 120.189/154.254 ms, elapsed41.181 s, measured test40.335 s.
+
+Previous150 ms trial had one intent, ten pressed frames and43 stale. This
+comparison establishes reduced stale rejection and more held-state frames, not
+seven intentional pinches or a continuous three-second hold. Human extra attempts
+versus split/repeated activations and perceived sustained green remain pending.
+No OS input or recording; microphone stayed inactive and a later fresh observer
+confirmed camera inactive (the immediate post-exit observer was still cached open).
+Do not infer that all remaining posture/tracking failures were solved by timing.

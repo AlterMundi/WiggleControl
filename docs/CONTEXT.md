@@ -387,3 +387,13 @@ Native feedback also now accepts null blocked_reason when pinch is pressed;
 previous parser expected text and could discard that valid metadata. Its regression
 preserves input freshness and rejects invalid guidance. This is a source finding,
 not measured physical pinpoint accuracy or completion of the larger goal.
+
+Guided receiving adoption completed: human reported COMPLETE and saved all-corner
+candidate existed. Initial exact-match refusal was reproduced as JSON float
+parsing drift, corrected with serde_json's existing float_roundtrip feature
+(9dce3da), without weakening matching. Receiving corrected build accepted the
+retained proof camera-free; former profile preserved for rollback. New workspace
+is about 1.80 times as wide and 2.96 times as tall as the previously accepted one.
+Camera/microphone inactive afterward. No repeated gesture capture occurred. This
+qualifies one guided completion/adoption, not pinch/drag accuracy or exact perceived
+setup timing/fluency, which still require human-directed physical checks.

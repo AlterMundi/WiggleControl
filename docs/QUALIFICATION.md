@@ -811,3 +811,12 @@ parsing without weakening exact candidate matching or changing dependency versio
 That same 999-case persistence regression passes with the feature. Camera remains
 off; retained real draft/verification are preserved for corrected explicit adoption.
 This is a serialization correction, not a new hand measurement or relaxed gate.
+
+Corrected receiving Rust 1.85.1 build at 9dce3da accepted the original retained
+verified candidate through the explicit camera-free command. Previous accepted
+profile exists in rollback storage. New/old workspace ratios are approximately
+1.80 horizontal and 2.96 vertical; no camera repeat occurred. Receiving observer
+reported camera/microphone inactive afterward. Human completion plus retained
+fresh all-corner proof and successful exact adoption establish one physical guided
+calibration. User-perceived timing, pinch/drag precision, held-input Stop, tracking
+loss, visual continuity and prayer remain pending; no broad goal completion claim.

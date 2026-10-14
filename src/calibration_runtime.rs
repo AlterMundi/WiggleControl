@@ -15,6 +15,8 @@ struct Draft {
     version: u32,
     output: [u32; 2],
     bounds: [Option<f64>; 4],
+    #[serde(default)]
+    diagonal: bool,
 }
 fn draft_path(path: &Path) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
@@ -59,7 +61,12 @@ impl Runtime {
                 if draft.version != 1 || draft.output != output {
                     return Err(io::Error::other("invalid calibration draft version/output"));
                 }
-                let cal = Calibration::from_bounds(draft.bounds).map_err(io::Error::other)?;
+                let cal = if draft.diagonal {
+                    Calibration::from_diagonal_bounds(draft.bounds)
+                } else {
+                    Calibration::from_bounds(draft.bounds)
+                }
+                .map_err(io::Error::other)?;
                 if cal.stage == Stage::Review {
                     review = Some(
                         Review::new(cal.candidate(output).map_err(io::Error::other)?)
@@ -99,9 +106,13 @@ impl Runtime {
     pub fn control(&mut self, action: Control) -> Result<(), String> {
         let result = (|| {
             match action {
-                Control::Start => {
+                Control::Start | Control::StartDiagonal => {
                     self.clear_draft()?;
-                    self.sampling = Some(Calibration::default());
+                    self.sampling = Some(if action == Control::StartDiagonal {
+                        Calibration::diagonal()
+                    } else {
+                        Calibration::default()
+                    });
                     self.review = None;
                 }
                 Control::Next => {
@@ -117,6 +128,7 @@ impl Runtime {
                             version: 1,
                             output: self.output,
                             bounds: cal.confirmed_bounds(),
+                            diagonal: cal.is_diagonal(),
                         },
                     )
                     .map_err(|e| e.to_string())?;
@@ -244,6 +256,44 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn diagonal_draft_resumes_second_pose_then_review_without_automatic_adoption() {
+        let dir = std::env::temp_dir().join(format!("wiggle-diagonal-test-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("profile.json");
+        let mut r = Runtime::new(&path, [1920, 1080]).unwrap();
+        r.control(Control::StartDiagonal).unwrap();
+        assert_eq!(r.state()["stage"], "upper_left");
+        for (i, point) in [Point { x: 0.2, y: 0.3 }, Point { x: 0.8, y: 0.7 }]
+            .into_iter()
+            .enumerate()
+        {
+            for n in 0..12 {
+                let t = 1_000_000 + i as u64 * 2_000_000 + n * 100_000;
+                let (_, events) = r.frame(
+                    Some(point),
+                    Some(point),
+                    t,
+                    t,
+                    vec![Event::Button { down: true }],
+                );
+                assert!(events.is_empty());
+            }
+            r.control(Control::Next).unwrap();
+            r = Runtime::new(&path, [1920, 1080]).unwrap();
+            assert!(!path.exists());
+            assert_eq!(r.state()["samples"], 0);
+            assert!(r.control(Control::Accept).is_err());
+            assert_eq!(
+                r.state()["stage"],
+                if i == 0 { "lower_right" } else { "review" }
+            );
+        }
+        assert_eq!(r.state()["corners_verified"], false);
+        r.control(Control::Cancel).unwrap();
+        assert!(!draft_path(&path).exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn confirmed_steps_resume_without_samples_or_adoption_and_stale_frames_do_not_erase_them() {
         let dir = std::env::temp_dir().join(format!("wiggle-draft-test-{}", std::process::id()));

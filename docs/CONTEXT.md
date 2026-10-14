@@ -304,3 +304,27 @@ now allow short independently acknowledged trials, instead of fitting chat and
 all four bounds/corners into one countdown. Resumption retains no observations or
 corner approval, and never activates a camera itself. Start/Cancel restart/discard
 it; adoption still requires complete fresh review. See QUALIFICATION.md.
+
+## Two-diagonal comfort calibration — 2026-10-14
+
+The human confirmed four manual bounds in separate finite sessions. Corner review
+passed upper-left but the human could not reach upper-right, describing a barrier
+before the corner. No profile was accepted; review was stopped and observed camera
+closure retained. Separately sampled extrema may be unreachable together: this
+is a hypothesis, not a diagnosed cause. The captured point after the report was
+not a held-at-limit sample and cannot establish the barrier's coordinates.
+
+Nicolás selected a shorter two-diagonal trial prioritizing comfort and precision.
+POST calibration/diagonal samples a stable comfortable upper-left position then
+lower-right, both axes together. Both samples retain existing freshness/stability
+checks; each confirmed pose survives expiry. The candidate maps an interior
+rectangle with 5% margin per side to the screen. Four fresh corner checks and
+explicit acceptance are still required; the margin is a trial choice, not a
+qualified universal default. Classic Start remains supported. Native CALIBRATE
+selects the diagonal route; prayer entry remains the previous dormant route.
+
+Use a separate receiving-local profile/draft for this trial to preserve the old
+four-bound evidence. The human must not chase screen edges during raw-coordinate
+sampling. Position the whole hand comfortably within the camera view; any tracking
+failure invalidates pending samples. Camera-exit-based auto-calibration and frozen
+last-hand visual feedback are deferred, not implemented by this change.

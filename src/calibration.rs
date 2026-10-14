@@ -33,6 +33,8 @@ pub enum Stage {
     Right,
     Top,
     Bottom,
+    UpperLeft,
+    LowerRight,
     Review,
     Cancelled,
 }
@@ -44,10 +46,12 @@ pub struct Calibration {
     samples: VecDeque<(Point, u64)>,
     bounds: [Option<f64>; 4],
     last_source: Option<u64>,
+    diagonal: bool,
 }
 impl Default for Calibration {
     fn default() -> Self {
         Self {
+            diagonal: false,
             stage: Stage::Left,
             samples: VecDeque::new(),
             bounds: [None; 4],
@@ -56,6 +60,36 @@ impl Default for Calibration {
     }
 }
 impl Calibration {
+    pub fn diagonal() -> Self {
+        Self {
+            stage: Stage::UpperLeft,
+            diagonal: true,
+            ..Self::default()
+        }
+    }
+    pub fn is_diagonal(&self) -> bool {
+        self.diagonal
+    }
+    pub fn from_diagonal_bounds(bounds: [Option<f64>; 4]) -> Result<Self, &'static str> {
+        let valid_value =
+            |v: Option<f64>| v.is_some_and(|n| n.is_finite() && (0.0..=1.0).contains(&n));
+        let stage = match bounds {
+            [None, None, None, None] => Stage::UpperLeft,
+            [Some(_), None, Some(_), None] if valid_value(bounds[0]) && valid_value(bounds[2]) => {
+                Stage::LowerRight
+            }
+            [Some(_), Some(_), Some(_), Some(_)] => {
+                Self::from_bounds(bounds)?;
+                Stage::Review
+            }
+            _ => return Err("invalid diagonal calibration bounds"),
+        };
+        Ok(Self {
+            stage,
+            bounds,
+            ..Self::diagonal()
+        })
+    }
     /// Persist only explicitly confirmed bounds, never pending observations.
     pub fn confirmed_bounds(&self) -> [Option<f64>; 4] {
         self.bounds
@@ -128,16 +162,11 @@ impl Calibration {
     pub fn sample_count(&self) -> usize {
         self.samples.len()
     }
-    pub fn advance(&mut self) -> Result<Stage, &'static str> {
-        let axis = match self.stage {
-            Stage::Left | Stage::Right => 0,
-            Stage::Top | Stage::Bottom => 1,
-            _ => return Err("calibration is not sampling"),
-        };
+    fn stable_median(&self, axis: usize) -> Result<f64, &'static str> {
         if self.samples.len() < 10
             || self.samples.back().unwrap().1 - self.samples.front().unwrap().1 < 750_000
         {
-            return Err("hold a stable extreme for at least ten fresh samples and 750 ms");
+            return Err("hold the position for ten fresh samples and 750 ms");
         }
         let mut values: Vec<_> = self
             .samples
@@ -146,11 +175,38 @@ impl Calibration {
             .collect();
         values.sort_by(f64::total_cmp);
         let n = values.len();
-        // Require a stable central population; isolated end outliers do not veto it.
         if values[n * 3 / 4] - values[n / 4] > 0.04 {
-            return Err("extreme position is not stable");
+            return Err("position is not stable");
         }
-        let median = (values[(n - 1) / 2] + values[n / 2]) / 2.0;
+        Ok((values[(n - 1) / 2] + values[n / 2]) / 2.0)
+    }
+    pub fn advance(&mut self) -> Result<Stage, &'static str> {
+        if matches!(self.stage, Stage::UpperLeft | Stage::LowerRight) {
+            let x = self.stable_median(0)?;
+            let y = self.stable_median(1)?;
+            if self.stage == Stage::UpperLeft {
+                self.bounds = [Some(x), None, Some(y), None];
+                self.stage = Stage::LowerRight;
+            } else {
+                // Leave at least 0.05 usable width/height after a 5% margin per side.
+                if (x - self.bounds[0].unwrap()) * 0.9 < 0.05
+                    || (y - self.bounds[2].unwrap()) * 0.9 < 0.05
+                {
+                    return Err("diagonal positions are too close or reversed");
+                }
+                self.bounds[1] = Some(x);
+                self.bounds[3] = Some(y);
+                self.stage = Stage::Review;
+            }
+            self.samples.clear();
+            return Ok(self.stage);
+        }
+        let axis = match self.stage {
+            Stage::Left | Stage::Right => 0,
+            Stage::Top | Stage::Bottom => 1,
+            _ => return Err("calibration is not sampling"),
+        };
+        let median = self.stable_median(axis)?;
         let index = match self.stage {
             Stage::Left => 0,
             Stage::Right => 1,
@@ -179,7 +235,7 @@ impl Calibration {
         if self.stage != Stage::Review {
             return Err("calibration requires corner review before adoption");
         }
-        let profile = Profile {
+        let mut profile = Profile {
             version: 1,
             workspace: Workspace {
                 min: Point {
@@ -193,6 +249,15 @@ impl Calibration {
             },
             output,
         };
+        if self.diagonal {
+            // Reach the screen edges before the exact sampled endpoints.
+            let dx = (profile.workspace.max.x - profile.workspace.min.x) * 0.05;
+            let dy = (profile.workspace.max.y - profile.workspace.min.y) * 0.05;
+            profile.workspace.min.x += dx;
+            profile.workspace.max.x -= dx;
+            profile.workspace.min.y += dy;
+            profile.workspace.max.y -= dy;
+        }
         profile.validate()?;
         Ok(profile)
     }
@@ -209,6 +274,46 @@ mod tests {
         for n in 0..12 {
             assert!(cal.sample(point, start + n * 100_000, start + n * 100_000 + 50_000));
         }
+    }
+    #[test]
+    fn diagonal_positions_require_both_stable_axes_and_map_interior_edges() {
+        let mut c = Calibration::diagonal();
+        feed(&mut c, Point { x: 0.2, y: 0.3 }, 1_000_000);
+        assert_eq!(c.advance().unwrap(), Stage::LowerRight);
+        let restored = Calibration::from_diagonal_bounds(c.confirmed_bounds()).unwrap();
+        assert_eq!(restored.stage, Stage::LowerRight);
+        assert_eq!(restored.sample_count(), 0);
+        for n in 0..12 {
+            c.sample(
+                Point {
+                    x: 0.8,
+                    y: if n % 2 == 0 { 0.5 } else { 0.9 },
+                },
+                3_000_000 + n * 100_000,
+                3_000_000 + n * 100_000,
+            );
+        }
+        assert!(c.advance().is_err());
+        c.tracking_lost();
+        feed(&mut c, Point { x: 0.8, y: 0.7 }, 5_000_000);
+        assert_eq!(c.advance().unwrap(), Stage::Review);
+        let profile = c.candidate([1920, 1080]).unwrap();
+        assert!((profile.workspace.min.x - 0.23).abs() < 1e-9);
+        assert!((profile.workspace.max.y - 0.68).abs() < 1e-9);
+        assert_eq!(profile.target(Point { x: 0.2, y: 0.3 }).unwrap().x, 0.0);
+        assert_eq!(profile.target(Point { x: 0.8, y: 0.7 }).unwrap().y, 1.0);
+        let restored = Calibration::from_diagonal_bounds(c.confirmed_bounds()).unwrap();
+        assert_eq!(
+            restored.candidate([1920, 1080]).unwrap().workspace.min.x,
+            profile.workspace.min.x
+        );
+        assert!(Calibration::from_diagonal_bounds([Some(0.2), None, None, None]).is_err());
+        let mut reversed = Calibration::diagonal();
+        feed(&mut reversed, Point { x: 0.6, y: 0.5 }, 1_000_000);
+        reversed.advance().unwrap();
+        feed(&mut reversed, Point { x: 0.4, y: 0.8 }, 3_000_000);
+        assert!(reversed.advance().is_err());
+        assert_eq!(reversed.stage, Stage::LowerRight);
     }
     #[test]
     fn restored_bounds_are_ordered_and_long_sampling_gaps_reset_pending_samples() {
@@ -436,6 +541,7 @@ mod review_tests {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Control {
     Start,
+    StartDiagonal,
     Next,
     Cancel,
     Accept,

@@ -223,6 +223,7 @@ fn serve(
         "POST /stop HTTP/1.1"
         | "POST /ready HTTP/1.1"
         | "POST /calibration/start HTTP/1.1"
+        | "POST /calibration/diagonal HTTP/1.1"
         | "POST /calibration/next HTTP/1.1"
         | "POST /calibration/cancel HTTP/1.1"
         | "POST /calibration/accept HTTP/1.1"
@@ -242,6 +243,7 @@ fn serve(
             }
             let action = match first {
                 "POST /calibration/start HTTP/1.1" => Some(Control::Start),
+                "POST /calibration/diagonal HTTP/1.1" => Some(Control::StartDiagonal),
                 "POST /calibration/next HTTP/1.1" => Some(Control::Next),
                 "POST /calibration/cancel HTTP/1.1" => Some(Control::Cancel),
                 "POST /calibration/accept HTTP/1.1" => Some(Control::Accept),
@@ -392,6 +394,7 @@ mod tests {
         assert_eq!(preview.take_control(), Some(Control::Start));
         assert_eq!(preview.take_control(), None);
         for (path, action) in [
+            ("diagonal", Control::StartDiagonal),
             ("next", Control::Next),
             ("cancel", Control::Cancel),
             ("accept", Control::Accept),

@@ -733,3 +733,14 @@ before operator Next, then Stop. Resume in a new finite ready-acknowledged sessi
 never automatically restart acquisition to complete the draft. The human must
 remain in the same seated position until all bounds/corners are checked; if they
 move, explicitly restart the draft. No physical mouse is required.
+
+## Diagonal calibration source qualification
+
+Camera-free tests cover two-axis stability, reversed/narrow diagonal rejection,
+median positions, 5% interior-margin mapping, partial and full draft resumption
+without observations or automatic adoption, and unchanged fresh corner checks.
+The loopback control regression covers the new same-origin diagonal route with
+existing single-command queueing. Twenty-eight native library tests and all-target
+Clippy passed; the rest of the native suite also passed before adding these two
+new library regressions. Real diagonal comfort, precision and all-corner reach
+remain unqualified until the next acknowledged physical trial.

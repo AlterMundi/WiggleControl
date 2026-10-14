@@ -763,3 +763,21 @@ workspace. Adoption is an operator action, not a sensor event. This prevents the
 operator chat round-trip from requiring a running camera after the corners finish.
 The completed human-reported receiving trial predates this persistence; it does
 not establish a saved producer result or an accepted physical profile.
+
+## First receiving two-diagonal profile accepted — 2026-10-14
+
+After the human moved the camera, old positions were preserved as local evidence
+and explicitly restarted. Upper-left and lower-right were confirmed in separate
+human-ready finite sessions. One failed lower-right advance had too few fresh
+samples; it adopted nothing and was repeated with operator sampling wait.
+
+On the new corner-review trial the native producer reported all four corners
+verified and saved, with 53.17 seconds remaining. The human independently said
+"Terminé". Operator Stop was acknowledged; the verified candidate existed on disk.
+The explicit camera-free accept-calibration command then accepted the unchanged
+draft/candidate, and receiving observation showed camera/microphone inactive.
+Output is 1920x1080; candidate uses the implemented 5% interior margin. Exact
+receiving coordinates/access remain private. This establishes one physically
+completed calibration/adoption, not click/drag accuracy or broad seated comfort.
+Pinch, drag, hand loss, Stop during held input, fluidity and prayer remain pending.
+The old camera-position draft is evidence only and is not the new active profile.

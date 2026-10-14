@@ -346,3 +346,10 @@ verification too; a changed draft, missing proof or malformed proof cannot adopt
 No camera restart or automatic acceptance occurs. Older trials cannot retroactively
 produce this evidence. Physical replay of review is still needed once the prepared
 release is installed; the two measured poses do not need repeating.
+
+Receiving two-diagonal adoption now passed with the relocated camera: both poses
+were confirmed, all four fresh corner checks completed, saved candidate existed,
+explicit camera-free acceptance succeeded and camera/mic closed. See QUALIFICATION.
+This is the first accepted calibration profile, not completed mouse/prayer goal.
+Next human-ready work is pointer alignment, intentional pinch and drag, then
+loss/Stop and the deferred visual-continuity improvement/prayer acceptance.

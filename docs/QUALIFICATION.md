@@ -796,3 +796,18 @@ Camera/microphone observed inactive afterward. These receipts qualify UI routing
 and layout only, not actual camera startup, guided comfort or physical accuracy.
 Thirty-two native library tests, full native suite, and all-target Clippy passed.
 Guided physical acceptance awaits Nicolás's fresh ready acknowledgment.
+
+## Exact JSON coordinate round-trip correction
+
+The first one-pass receiving trial displayed completion and retained a verified
+candidate, but camera-free adoption refused because reconstructed draft and saved
+candidate differed under exact JSON value comparison. Receiving Python decimal
+reconstruction reported zero differences; no accepted-profile replacement occurred.
+A camera-free regression over fictional diagonal coordinates reproduced the Rust
+failure at sample 3: 0.20031500000000002 versus 0.200315 after JSON persistence.
+
+The existing pinned serde_json 1.0.145 float_roundtrip feature corrects float
+parsing without weakening exact candidate matching or changing dependency version.
+That same 999-case persistence regression passes with the feature. Camera remains
+off; retained real draft/verification are preserved for corrected explicit adoption.
+This is a serialization correction, not a new hand measurement or relaxed gate.

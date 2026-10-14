@@ -312,6 +312,40 @@ impl Runtime {
 mod tests {
     use super::*;
     #[test]
+    fn persisted_diagonal_coordinates_reconstruct_the_exact_verified_candidate() {
+        for n in 1..1000 {
+            let t = n as f64;
+            let draft = Draft {
+                version: 1,
+                output: [1920, 1080],
+                diagonal: true,
+                bounds: [
+                    Some(0.17 + t * 0.00011),
+                    Some(0.77 + t * 0.00001),
+                    Some(0.21 + t * 0.00013),
+                    Some(0.87 + t * 0.00003),
+                ],
+            };
+            let candidate = Calibration::from_diagonal_bounds(draft.bounds)
+                .unwrap()
+                .candidate(draft.output)
+                .unwrap();
+            let persisted_draft: Draft =
+                serde_json::from_slice(&serde_json::to_vec(&draft).unwrap()).unwrap();
+            let persisted_candidate: Profile =
+                serde_json::from_slice(&serde_json::to_vec(&candidate).unwrap()).unwrap();
+            let reconstructed = Calibration::from_diagonal_bounds(persisted_draft.bounds)
+                .unwrap()
+                .candidate(persisted_draft.output)
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(reconstructed).unwrap(),
+                serde_json::to_value(persisted_candidate).unwrap(),
+                "fictional sample {n}"
+            );
+        }
+    }
+    #[test]
     fn diagonal_draft_resumes_second_pose_then_review_without_automatic_adoption() {
         let dir = std::env::temp_dir().join(format!("wiggle-diagonal-test-{}", std::process::id()));
         std::fs::create_dir(&dir).unwrap();

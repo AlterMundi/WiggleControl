@@ -1001,3 +1001,23 @@ viewport1920x1080, body height999 px; all controls fit and preserve the compact
 panel. Synthetic marks are fixture evidence only, never human truth. Camera/mic
 observed inactive after preparation. Future acknowledged human trials will retain
 video and inference metadata; no real take was acquired during this increment.
+
+## First recorded3D trial; next selected35/60 mm window
+
+Fresh human ready activated forty measured seconds with10/30 mm thresholds,
+freshness300 ms, recordingtrue and input_enabledfalse, confirmed live. Summary:
+604 captured,385 processed,368 detected, one press intent,48 pressed frames,
+zero stale/invalid; blocks hand_not_engaged7 /tracking_lost17. Timing p50/p95
+122.204/154.820 ms. These are recognition observations, not labeled success rate.
+
+Private take contains604 indexed raw frames /385 observations /75,954,432 video
+bytes covering40.230469 s. Final indexed offset matches video size; source times
+strictly increase. Saved config retains original10/30 mm. Nicolás selected35 mm
+close /60 mm release for the next trial; config-check accepted,300 ms freshness
+and recording retained. Both earlier configs are preserved locally for rollback.
+
+Human had no keyboard/mouse and explicitly deferred playback/annotation. The
+task-owned review server was terminated without navigating to the take; raw video
+remains retained and unlabeled. Do not infer annotation acceptance or convert
+predictions into ground truth. Fresh observer confirmed camera/mic inactive.
+No second capture starts until a new explicit ready reply.

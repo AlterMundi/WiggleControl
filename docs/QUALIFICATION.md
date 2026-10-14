@@ -1021,3 +1021,13 @@ task-owned review server was terminated without navigating to the take; raw vide
 remains retained and unlabeled. Do not infer annotation acceptance or convert
 predictions into ground truth. Fresh observer confirmed camera/mic inactive.
 No second capture starts until a new explicit ready reply.
+
+Fresh human-ready35/60 mm camera-only trial: forty measured seconds, recording
+and thresholds confirmed live.608 captured /389 processed /365 detected, nine
+press intents /91 pressed frames, zero stale/invalid frames and24 tracking_lost
+frames. No posture-block frames in this take. p50/p95 age123.024/153.955 ms.
+Private take verified608 indexed frames /389 observations /77,271,232 bytes /
+40.230257 s, with35/60 config preserved. Human proposes45/65 mm to catch remaining
+pinches; intentional count/hold continuity and false activations remain unlabeled.
+Next selected config45/65 passes config-check; old35/60 configs retained. Camera
+and microphone observed inactive. No next capture without fresh human ready.

@@ -1031,3 +1031,18 @@ Private take verified608 indexed frames /389 observations /77,271,232 bytes /
 pinches; intentional count/hold continuity and false activations remain unlabeled.
 Next selected config45/65 passes config-check; old35/60 configs retained. Camera
 and microphone observed inactive. No next capture without fresh human ready.
+
+Fresh human-ready45/65 mm recorded camera-only trial:40 measured seconds,
+thresholds/recording/no input confirmed live.607 captured /389 processed /373
+detected, seven press intents /53 pressed-state frames, zero stale/invalid.
+Blocks hand_not_engaged133 /tracking_lost16 /open_before_press64. Source age
+p50/p95 123.043/153.484 ms. No human event labels or acceptance yet.
+
+Raw take verified607 indexed frames /389 observations /76,890,464 bytes over
+40.230221 s; original45/65 config preserved. Of133 engagement-blocked frames,
+65 had estimated gap<=45 mm; all65 reported hand_in_viewfalse. Source gate
+requires every21 projected landmark in frame, so these were visibility blocks,
+not evidence that the distance threshold was too small. This does not identify
+which landmark was outside or establish physical ground-truth pinch. Capture
+ended and fresh observer reported camera/microphone inactive; playback remains
+deferred at the human's request. Keep visibility and distance failure separate.

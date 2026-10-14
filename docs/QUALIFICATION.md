@@ -854,3 +854,21 @@ and block reason, plus existing hand ID/handedness estimate/in-view metadata. No
 raw recording, threshold change, model change or camera activation. Next human
 trial should isolate perception/gesture state camera-only before another OS drag
 qualification, retain terminal summary on the receiving host, and wait fresh ready.
+
+## Camera-only recognition diagnostic and persistent pinch feedback
+
+A fresh human-ready, finite 40-second right-hand trial requested three slow
+pinches, holding the last for approximately three seconds. No OS input was
+injected. The retained summary reports 381 detections out of 390 processed
+frames, two press intents and six total pressed-state frames. Block counts:
+72 invalid hand, 26 stale frame, six tracking lost; 104 total not-eligible frames.
+Neither three intentional pinches nor a sustained three-second hold is qualified.
+An earlier unattended trial is runtime evidence only, not human acceptance.
+
+The specific invalid field was not retained by that version. New diagnostics
+count the first failing hand field and publish it in metadata, reusing the same
+validation predicates; confidence, geometry, thresholds and freshness behavior
+are unchanged. This prepares diagnosis, not a fix for gesture reliability.
+The native overlay now retains a recognized-onset expanding/fading pulse for
+700 ms, independently of brief PINCH state text. Camera remains off during
+source/replay preparation; a new physical trial still requires fresh human ready.

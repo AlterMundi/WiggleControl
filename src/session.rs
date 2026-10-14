@@ -217,6 +217,7 @@ struct Summary {
     button_down_intents: u64,
     gesture_state_frames: std::collections::BTreeMap<String, u64>,
     gesture_block_frames: std::collections::BTreeMap<String, u64>,
+    invalid_hand_fields: std::collections::BTreeMap<String, u64>,
     dropped: u64,
     stale: u64,
     elapsed_seconds: f64,
@@ -615,6 +616,12 @@ fn run_mode(
                     });
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
+                if let Some(reason) = interpreted.as_ref().and_then(|h| h.invalid_reason()) {
+                    *summary
+                        .invalid_hand_fields
+                        .entry(reason.into())
+                        .or_default() += 1;
+                }
                 let events = engine.observe(now, observation);
                 *summary
                     .gesture_state_frames
@@ -703,6 +710,7 @@ fn run_mode(
                         "confidence":hand.as_ref().map(|h|h.confidence),
                         "handedness_score":hand.as_ref().map(|h|h.handedness),
                         "hand_id":hand.as_ref().map(|h|h.id),
+                        "invalid_hand_field":interpreted.as_ref().and_then(|h|h.invalid_reason()),
                         "hand_in_view":hand.as_ref().is_some_and(|h|h.in_view(image.width(),image.height())),
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,

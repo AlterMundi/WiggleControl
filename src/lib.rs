@@ -77,14 +77,23 @@ pub struct Hand {
     pub palm_width: f64,
 }
 impl Hand {
+    pub(crate) fn invalid_reason(&self) -> Option<&'static str> {
+        if !self.confidence.is_finite() || !(0.0..=1.0).contains(&self.confidence) {
+            Some("confidence")
+        } else if !self.cursor.valid() {
+            Some("cursor")
+        } else if !self.thumb_tip.valid() {
+            Some("thumb_tip")
+        } else if !self.index_tip.valid() {
+            Some("index_tip")
+        } else if !self.palm_width.is_finite() || !(0.01..=1.0).contains(&self.palm_width) {
+            Some("palm_width")
+        } else {
+            None
+        }
+    }
     fn valid(&self) -> bool {
-        self.confidence.is_finite()
-            && (0.0..=1.0).contains(&self.confidence)
-            && self.cursor.valid()
-            && self.thumb_tip.valid()
-            && self.index_tip.valid()
-            && self.palm_width.is_finite()
-            && (0.01..=1.0).contains(&self.palm_width)
+        self.invalid_reason().is_none()
     }
 }
 

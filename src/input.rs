@@ -175,12 +175,23 @@ pub fn check(seconds: u64) -> io::Result<()> {
     Ok(())
 }
 pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
-    stream_mode(seconds, gain, false)
+    stream_mode(seconds, gain, false, 150)
 }
 pub fn absolute_stream(seconds: u64) -> io::Result<()> {
-    stream_mode(seconds, 1.0, true)
+    stream_mode(seconds, 1.0, true, 150)
 }
-fn stream_mode(seconds: u64, gain: f64, absolute: bool) -> io::Result<()> {
+pub fn stream_with_watchdog(
+    seconds: u64,
+    gain: f64,
+    absolute: bool,
+    watchdog_ms: u64,
+) -> io::Result<()> {
+    stream_mode(seconds, gain, absolute, watchdog_ms)
+}
+fn stream_mode(seconds: u64, gain: f64, absolute: bool, watchdog_ms: u64) -> io::Result<()> {
+    if !(50..=1000).contains(&watchdog_ms) {
+        return Err(io::Error::other("watchdog_ms must be 50..1000"));
+    }
     let limit = duration(seconds)?;
     if !gain.is_finite() || !(1.0..=10_000.0).contains(&gain) {
         return Err(io::Error::new(
@@ -218,7 +229,7 @@ fn stream_mode(seconds: u64, gain: f64, absolute: bool) -> io::Result<()> {
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 Err(mpsc::RecvTimeoutError::Timeout) => (),
             }
-            if fresh.elapsed() >= Duration::from_millis(150) {
+            if fresh.elapsed() >= Duration::from_millis(watchdog_ms) {
                 let release = state.release();
                 if !release.is_empty() {
                     device.emit(&release)?;

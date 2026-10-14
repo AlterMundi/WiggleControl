@@ -33,6 +33,13 @@ fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     assert!(report.get("camera").is_none());
     assert_eq!(report["pinch_close_ratio"], 0.25);
     assert_eq!(report["pinch_open_ratio"], 0.4);
+    config["freshness_ms"] = serde_json::json!(300);
+    fs::write(&path, config.to_string()).unwrap();
+    assert!(check().status.success());
+    config["freshness_ms"] = serde_json::json!(1001);
+    fs::write(&path, config.to_string()).unwrap();
+    assert!(!check().status.success());
+    config["freshness_ms"] = serde_json::json!(300);
     config["prayer_enabled"] = true.into();
     fs::write(&path, config.to_string()).unwrap();
     let rejected = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))

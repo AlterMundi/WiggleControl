@@ -125,6 +125,12 @@ pub fn check(seconds: u64) -> io::Result<()> {
     Ok(())
 }
 pub fn stream(seconds: u64) -> io::Result<()> {
+    stream_with_watchdog(seconds, 250)
+}
+pub fn stream_with_watchdog(seconds: u64, watchdog_ms: u64) -> io::Result<()> {
+    if !(50..=1000).contains(&watchdog_ms) {
+        return Err(io::Error::other("watchdog_ms must be 50..1000"));
+    }
     use std::{sync::mpsc, time::Instant};
     if !(1..=120).contains(&seconds) {
         return Err(io::Error::other("duration 1..120 seconds"));
@@ -146,7 +152,7 @@ pub fn stream(seconds: u64) -> io::Result<()> {
                 Ok(Err(e)) => return Err(e),
                 Err(mpsc::RecvTimeoutError::Timeout) => (),
             }
-            if fresh.elapsed() >= Duration::from_millis(250) {
+            if fresh.elapsed() >= Duration::from_millis(watchdog_ms) {
                 let events = state.release();
                 if !events.is_empty() {
                     device.emit(&events)?;

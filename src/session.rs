@@ -29,6 +29,8 @@ pub struct SessionConfig {
     pub runtime: String,
     pub fps: u32,
     pub gain: f64,
+    #[serde(default = "default_freshness_ms")]
+    pub freshness_ms: u64,
     #[serde(default)]
     pub pointer_output: Option<[u32; 2]>,
     #[serde(default)]
@@ -40,6 +42,9 @@ pub struct SessionConfig {
     #[serde(default = "default_open_ratio")]
     pub pinch_open_ratio: f64,
 }
+fn default_freshness_ms() -> u64 {
+    150
+}
 fn default_close_ratio() -> f64 {
     Config::default().close_ratio
 }
@@ -49,6 +54,7 @@ fn default_open_ratio() -> f64 {
 impl SessionConfig {
     pub fn gestures(&self) -> Config {
         Config {
+            stale_us: self.freshness_ms * 1000,
             close_ratio: self.pinch_close_ratio,
             open_ratio: self.pinch_open_ratio,
             ..Config::default()
@@ -69,6 +75,9 @@ impl SessionConfig {
             }
             .validate()?;
         }
+        if !(50..=1000).contains(&config.freshness_ms) {
+            return Err("freshness_ms must be 50..1000".into());
+        }
         Engine::new(config.gestures())?;
         if config.pinch_open_ratio > 1.0 {
             return Err("pinch ratios must satisfy 0 < close < open <= 1".into());
@@ -77,7 +86,7 @@ impl SessionConfig {
             || !config.gain.is_finite()
             || !(1.0..=10000.0).contains(&config.gain)
         {
-            return Err("fps 10..20 (150 ms freshness budget); gain 1..10000".into());
+            return Err("fps 10..20; gain 1..10000".into());
         }
         for p in [&config.camera, &config.models, &config.runtime] {
             if !Path::new(p).is_absolute() {
@@ -407,14 +416,23 @@ fn run_mode(
         Some(
             Command::new(std::env::current_exe()?)
                 .args(if touch {
-                    vec!["touch-stream".into(), writer_seconds.to_string()]
+                    vec![
+                        "touch-stream".into(),
+                        writer_seconds.to_string(),
+                        config.freshness_ms.to_string(),
+                    ]
                 } else if calibration.is_some() {
-                    vec!["absolute-stream".into(), writer_seconds.to_string()]
+                    vec![
+                        "absolute-stream".into(),
+                        writer_seconds.to_string(),
+                        config.freshness_ms.to_string(),
+                    ]
                 } else {
                     vec![
                         "device-stream".into(),
                         writer_seconds.to_string(),
                         config.gain.to_string(),
+                        config.freshness_ms.to_string(),
                     ]
                 })
                 .stdin(Stdio::piped())
@@ -719,7 +737,8 @@ fn run_mode(
                         "confirmation_elapsed_ms":engine.confirmation_elapsed_us()/1000,
                         "confirmation_required_ms":config.gestures().confirm_us/1000,
                         "open_ratio":config.pinch_open_ratio,
-                        "fresh":now.saturating_sub(frame.source_us)<150_000,
+                        "freshness_ms":config.freshness_ms,
+                        "fresh":now.saturating_sub(frame.source_us)<config.gestures().stale_us,
                         "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                         "decode_ms":decode_ms,"inference_ms":inference_ms,
                         "presses":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {summary.button_down_intents.saturating_sub(preview_press_baseline)} else {0},
@@ -737,7 +756,7 @@ fn run_mode(
                 }
             }
             let age = now.saturating_sub(frame.source_us);
-            if age >= 150_000 {
+            if age >= config.gestures().stale_us {
                 summary.stale += 1;
             } else if frame.source_us <= now {
                 summary.fresh_processed += 1;

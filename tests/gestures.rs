@@ -268,3 +268,26 @@ fn relaxed_release_uses_finger_separation_without_full_hand_reopening() {
         .contains(&Event::Button { down: false }));
     assert_eq!(e.pinch_state(), "open");
 }
+
+#[test]
+fn selected_300ms_window_preserves_delayed_hold_and_releases_at_deadline() {
+    let mut e = Engine::new(Config {
+        stale_us: 300_000,
+        ..Config::default()
+    })
+    .unwrap();
+    e.start();
+    e.observe(200_001, frame(1, 1, 0.6, 0.5));
+    e.observe(240_001, frame(40_001, 1, 0.1, 0.5));
+    assert!(e
+        .observe(280_001, frame(80_001, 1, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(!e
+        .observe(480_001, frame(280_001, 1, 0.1, 0.6))
+        .contains(&Event::Button { down: false }));
+    assert!(!e.tick(780_000).contains(&Event::Button { down: false }));
+    assert!(e.tick(780_001).contains(&Event::Button { down: false }));
+    assert!(!e
+        .observe(800_001, frame(700_001, 1, 0.1, 0.6))
+        .contains(&Event::Button { down: true }));
+}

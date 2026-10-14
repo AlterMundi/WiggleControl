@@ -904,3 +904,23 @@ and configuration regression against that baseline. ProyectoRPi/Barehands is a
 separate browser recognizer; do not conflate its implementation or model pipeline
 with the user-qualified WiggleControl preview. No new capture or parameter change
 occurred during this comparison.
+
+## Selected gesture freshness window — 2026-10-14
+
+Nicolás requested a less brittle late-frame window. Session config now accepts
+freshness_ms (50..1000, legacy default150); the selected receiving diagnostic
+configs use300. Gesture source-age rejection, receive-gap expiry, summary freshness
+and published metadata use that setting. Native and web consumers read the same
+budget; pointer/contact writer CLI accepts an optional bounded WATCHDOG_MS and
+sessions pass the setting, preventing an independent writer cutoff at150.
+Standalone writer defaults and replay defaults remain unchanged. Calibration
+sampling/corner/prayer validity retain their separate150 ms rules; accepted
+profile and pinch close/open .25/.4 are unchanged.
+
+A replay regression qualifies a200 ms-old continuous held observation at the
+selected300 ms window, release at the exact300 ms receive gap and neutral closed
+reacquisition. Consumer regression qualifies matching300 ms display expiry and
+legacy150 ms default, rejecting unbounded budgets. Config-check accepts300 and
+rejects1001 without opening devices. Loss/ineligibility/Stop still release; this
+change tolerates processing delays and does not infer a hand from missing data.
+Physical sustained-pinch acceptance still requires a new acknowledged finite trial.

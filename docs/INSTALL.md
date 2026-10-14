@@ -299,3 +299,9 @@ still passes through the existing neutral/open-first gesture rules. Ambiguous
 pairs release ordinary input and cannot request calibration. Prototype pose
 thresholds/model coverage, paired inference latency and physical activation
 remain unqualified; 2-D adjacency is not proof of physical palm contact.
+
+Session `freshness_ms` optionally selects the gesture/frame and device-producer
+watchdog budget (50..1000 ms; omitted preserves150 ms). Selected diagnostic
+receiving profile uses300 ms. Metadata carries it to web/native feedback. Device
+stream commands accept `[WATCHDOG_MS]`; defaults remain150 ms for mouse and250 ms
+for standalone touch. Calibration/prayer sampling freshness remains separate.

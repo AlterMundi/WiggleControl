@@ -872,3 +872,24 @@ are unchanged. This prepares diagnosis, not a fix for gesture reliability.
 The native overlay now retains a recognized-onset expanding/fading pulse for
 700 ms, independently of brief PINCH state text. Camera remains off during
 source/replay preparation; a new physical trial still requires fresh human ready.
+
+## Held-color human trial — 2026-10-14
+
+Nicolás acknowledged a 40-second camera-only trial of onset pulse and held-green
+skeleton, requesting three right-hand pinches and a three-second final hold.
+He reported never seeing the hand remain green: recognition appeared absent or
+very brief. Summary: 390 processed, 348 detected, one press intent, ten pressed
+frames; blocks stale_frame43, tracking_lost33, invalid_hand2 (palm_width),
+open_before_press39. No OS input injected; camera/mic inactive after completion.
+Color implementation was separately qualified with synthetic held/released
+Wayland frames; sustained physical pinch remains failed/unqualified.
+
+Source inspection confirms stale observations cancel held input and clear arming;
+fresh closed fingers cannot rearm until an open-ratio observation. Timing p50
+123.828 ms / p95 154.038 ms crosses the configured 150 ms stale cutoff. This is
+a concrete cancellation/rearming mechanism and measured timing conflict, not
+proof that every held-input release in this trial had that cause. Aggregate
+state/block counts do not retain release chronology. Retain per-release reasons
+and timing before choosing a gesture or freshness change; do not hide actual
+release by keeping visual green. The previous trial's 72 invalid-hand frames
+cannot be retroactively assigned to palm_width from this later trial's two.

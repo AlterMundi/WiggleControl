@@ -90,6 +90,22 @@ fn roi_from(points: &[XY], wrist: XY, middle: XY, scale: f64, shift: f64) -> Opt
         angle,
     })
 }
+
+/// MediaPipe's hand-landmark ROI recipe uses proximal joints rather than
+/// fingertip extrema. See the pinned source links in POSITION-BIAS.md.
+/// Kept experimental until recorded-input comparisons qualify the change.
+fn proximal_tracking_roi(hand: &DetectedHand) -> Option<Roi> {
+    let p = &hand.landmarks;
+    let direction = XY {
+        x: (p[6].x + p[14].x) / 4.0 + p[10].x / 2.0,
+        y: (p[6].y + p[14].y) / 4.0 + p[10].y / 2.0,
+    };
+    let points: Vec<_> = [0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18]
+        .iter()
+        .map(|i| p[*i])
+        .collect();
+    roi_from(&points, p[0], direction, 2.0, -0.1)
+}
 pub fn anchors() -> Vec<XY> {
     let mut result = Vec::with_capacity(2016);
     for (side, repeats) in [(24, 2), (12, 6)] {
@@ -479,9 +495,160 @@ impl DetectedHand {
         }
     }
 }
+
+/// Controlled image translation, not a source of known physical fingertip distances.
+/// The fixed-ROI branch isolates preprocessing/model invariance; cold detection
+/// followed by ten identical frames additionally exercises detection and tracking.
+/// No camera, device, live configuration or production inference path is changed.
+pub fn position_sweep(
+    models: &Path,
+    image: &RgbImage,
+    directory: &Path,
+) -> Result<serde_json::Value, Box<dyn Error>> {
+    use serde_json::json;
+    let mut model = Perception::new(models)?;
+    let reference = model.infer(image)?.ok_or("reference hand not detected")?;
+    let roi = model.last_roi.ok_or("reference ROI missing")?;
+    let corners = [
+        roi.source(0., 0.),
+        roi.source(0., 1.),
+        roi.source(1., 0.),
+        roi.source(1., 1.),
+    ];
+    let (lo, hi) = bounds(&corners).ok_or("invalid reference ROI")?;
+    // Keep interpolation support inside the copied patch, without clipping/padding
+    // the reference hand differently at different sweep locations.
+    let left = lo.x.floor() as i64 - 2;
+    let top = lo.y.floor() as i64 - 2;
+    let right = hi.x.ceil() as i64 + 2;
+    let bottom = hi.y.ceil() as i64 + 2;
+    if left < 0 || top < 0 || right > i64::from(image.width()) || bottom > i64::from(image.height())
+    {
+        return Err("reference crop touches image boundary; choose a fully visible hand".into());
+    }
+    let patch = image::imageops::crop_imm(
+        image,
+        left as u32,
+        top as u32,
+        (right - left) as u32,
+        (bottom - top) as u32,
+    )
+    .to_image();
+    std::fs::create_dir(directory)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))?;
+    }
+    let baseline_crop = crop(image, roi, 224);
+    let metrics = |h: &DetectedHand| {
+        let distance = |a: usize, b: usize| {
+            h.world_landmarks[a]
+                .iter()
+                .zip(h.world_landmarks[b])
+                .map(|(x, y)| (x - y).powi(2))
+                .sum::<f64>()
+                .sqrt()
+        };
+        json!({"gap_m":h.world_pinch_distance_m(),
+            "gap_xyz_m":std::array::from_fn::<_,3,_>(|i|h.world_landmarks[4][i]-h.world_landmarks[8][i]),
+            "palm_length_m":distance(0,9),"palm_width_m":distance(5,17),
+            "confidence":h.confidence,
+            "world_landmarks":h.world_landmarks,
+            "landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()})
+    };
+    let mut samples = Vec::new();
+    for gy in 0..3 {
+        for gx in 0..3 {
+            let x = gx * (image.width() - patch.width()) / 2;
+            let y = gy * (image.height() - patch.height()) / 2;
+            let shifted = translated_patch(&patch, image.width(), image.height(), x, y);
+            let dx = f64::from(x) - left as f64;
+            let dy = f64::from(y) - top as f64;
+            let shifted_roi = Roi {
+                center: XY {
+                    x: roi.center.x + dx,
+                    y: roi.center.y + dy,
+                },
+                ..roi
+            };
+            let input = crop(&shifted, shifted_roi, 224);
+            let max_input_delta = input
+                .iter()
+                .zip(&baseline_crop)
+                .map(|(a, b)| f64::from((a - b).abs()))
+                .fold(0.0, f64::max);
+            let fixed = model.infer_roi(&shifted, shifted_roi, 1, false)?;
+            let fixed = fixed.as_ref().map(&metrics);
+            // Reset tracking for every location; do not leak a preceding ROI or
+            // make translation invariance tautological in the end-to-end branch.
+            model.roi = None;
+            let mut tracked = Vec::new();
+            for _ in 0..10 {
+                let hand = model.infer(&shifted)?;
+                tracked.push(hand.as_ref().map(&metrics));
+            }
+            model.roi = None;
+            let mut proximal = Vec::new();
+            for _ in 0..10 {
+                let hand = model.infer(&shifted)?;
+                model.roi = hand.as_ref().and_then(proximal_tracking_roi);
+                proximal.push(hand.as_ref().map(&metrics));
+            }
+            let file = format!("position-{gx}-{gy}.png");
+            shifted.save(directory.join(&file))?;
+            samples.push(json!({"grid":[gx,gy],"translation_px":[dx,dy],
+                "image":file,"fixed_crop_max_input_delta":max_input_delta,
+                "fixed_roi":fixed,"detection_and_tracking":tracked,
+                "experimental_proximal_tracking":proximal}));
+        }
+    }
+    let report = json!({"schema":"wigglecontrol.position-sweep/v1",
+        "control":"identical hand pixels, orientation and scale; integer translation only",
+        "physical_distance_ground_truth":false,"camera_opened":false,
+        "image_size":[image.width(),image.height()],
+        "patch_size":[patch.width(),patch.height()],"reference":metrics(&reference),"samples":samples});
+    std::fs::write(
+        directory.join("report.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
+    Ok(report)
+}
+
+fn translated_patch(patch: &RgbImage, width: u32, height: u32, x: u32, y: u32) -> RgbImage {
+    let mut canvas = RgbImage::new(width, height);
+    image::imageops::replace(&mut canvas, patch, i64::from(x), i64::from(y));
+    canvas
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn controlled_translation_preserves_pixels_and_rotated_model_input() {
+        let patch = RgbImage::from_fn(64, 64, |x, y| image::Rgb([x as u8, y as u8, (x + y) as u8]));
+        let original = translated_patch(&patch, 200, 160, 20, 30);
+        let shifted = translated_patch(&patch, 200, 160, 100, 70);
+        let roi = Roi {
+            center: XY { x: 52., y: 62. },
+            side: 40.,
+            angle: 0.4,
+        };
+        let moved = Roi {
+            center: XY { x: 132., y: 102. },
+            ..roi
+        };
+        let a = crop(&original, roi, 224);
+        let b = crop(&shifted, moved, 224);
+        assert!(a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-6));
+        for y in 0..64 {
+            for x in 0..64 {
+                assert_eq!(
+                    original.get_pixel(20 + x, 30 + y),
+                    shifted.get_pixel(100 + x, 70 + y)
+                );
+            }
+        }
+    }
     #[test]
     fn suppression_and_ambiguous_identity_geometry() {
         assert!((iou([0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 10.0, 10.0]) - 1.0).abs() < 1e-8);

@@ -406,3 +406,30 @@ page is a renderer. Source-frame timing cuts and a stricter native display-age
 gate are separate findings. Do not claim the failure is solely before drawing.
 Preserve the baseline, qualify shared state semantics and actual release reasons
 before further physical tuning. No capture or threshold change during review.
+
+## Human-reported position-dependent 3D scale — 2026-10-14
+
+Nicolás reports that estimated fingertip distance changes with image position:
+at the center, an intended pinch can remain at60–70 mm rather than reaching
+the45 mm threshold. An open pose reads approximately130 mm at the center versus
+90 mm at the sides. These are human observations, not a controlled measurement
+of constant physical pose or a confirmed cause.
+
+Source inspection: infer_roi retains model output3 directly as world landmarks;
+world_pinch_distance_m computes Euclidean distance between landmarks4 and8.
+There is no explicit image-position scale multiplier in that distance path.
+This does not establish correctness of the model output contract or preprocessing.
+Possible model/crop/pose scale bias remains a hypothesis. Do not tune global
+45/65 mm thresholds or introduce an image-position correction from this report.
+Next diagnostic should compare raw gap, stable 3D bone lengths, crop geometry
+and screen position for matched poses, using retained recordings first. A3D
+anatomical normalization is a candidate only if the apparent scale drift is
+shared by those lengths; preserve raw estimated meters and distinguish derived
+unitless measurements. No new capture or runtime change for this report.
+
+Offline investigation now has a reproducible Rust position-sweep generator and
+two actual-model controlled pose comparisons. See POSITION-BIAS.md. Synthetic
+translation with corresponding ROI is exactly invariant; cold detection and
+tracking recrops alter estimates. An experimental proximal ROI is not uniformly
+better and remains probe-only. No live correction or new capture was deployed.
+The human clarified only horizontal real-camera variation was observed.

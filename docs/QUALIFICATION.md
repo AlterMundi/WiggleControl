@@ -985,3 +985,19 @@ width, invalid metric rejection and hysteresis. Perception test covers depth
 separation and rotated-axis invariance. Indexed capture and label-validation
 regressions are camera-free. Physical orientation/metric accuracy, continuous
 recording under load and human annotation usability still need acceptance.
+
+Receiving user-local producer9995a8d / native UI1bbcb22 installed reversibly.
+Config-check confirmed3D enabled, close10 mm, open30 mm, freshness300 ms and
+recording enabled. VPS/Pi camera-free inference on the same permitted reference
+returned21 world points, confidence0.987821 and distance72.8093 mm (difference
+approximately4.1e-8 m); this qualifies output extraction compatibility, not pinch
+accuracy or physical metric calibration. Tests/Clippy and CI38527771488 /
+38527782291 passed.
+
+A fictional90-frame receiving take qualified camera-free review playback
+(frame22 at733.326 ms after approximately750 ms), stepping, press/hold interval
+creation and saved labels333.33..1666.65 ms with revision retained. Actual TV
+viewport1920x1080, body height999 px; all controls fit and preserve the compact
+panel. Synthetic marks are fixture evidence only, never human truth. Camera/mic
+observed inactive after preparation. Future acknowledged human trials will retain
+video and inference metadata; no real take was acquired during this increment.

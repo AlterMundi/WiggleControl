@@ -941,3 +941,29 @@ versus split/repeated activations and perceived sustained green remain pending.
 No OS input or recording; microphone stayed inactive and a later fresh observer
 confirmed camera inactive (the immediate post-exit observer was still cached open).
 Do not infer that all remaining posture/tracking failures were solved by timing.
+
+Human feedback for the first300 ms trial: sustained green remained fixed while
+the pinch was recognized as held; held-state color is accepted for that observed
+case. Nicolás made multiple deliberate attempts, initially unsuccessful, then
+pinches began working after rotating his hand sideways. Front-facing recognition
+was worse despite visually correct skeleton tracking. Seven intents therefore
+are not evidence of seven unintended activations, and no intended success rate
+is established. Recognition across orientation remains unresolved.
+
+Source currently computes2D thumb/index distance divided by projected MCP5–17
+palm width and separately gates engagement on finger extension/full in-view.
+Thus failed front-facing pinches may involve geometry or posture eligibility;
+the aggregate36 hand_not_engaged frames do not identify specific attempts.
+The pinned OpenCV hand model's reference adapter consumes screenXYZ plus a
+worldXYZ output; current Rust consumes only screenXY and discards depth/world
+coordinates. Primary reference:
+https://github.com/opencv/opencv_zoo/blob/47534e27c9851bb1128ccc0102f1145e27f23f98/models/handpose_estimation_mediapipe/mp_handpose.py
+
+Next corpus should include frontal/sideways poses and preserve estimated3D tip
+distance, stable anatomical scale and posture gates separately. Compare a
+3D proximity/contact estimator with current2D ratio on labeled held/released
+intervals, including unintended overlaps. Model-derived3D is an estimate, not
+a measured physical contact; qualify output order/units before adoption. No
+new model inference is intrinsically needed to retain existing outputs. Keep
+hysteresis and loss/Stop release; do not change multiple gates without replay
+evidence. No geometry change or recording was started in this turn.

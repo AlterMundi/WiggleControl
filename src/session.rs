@@ -317,16 +317,16 @@ fn write_events(
     Ok(presses)
 }
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, false, None, None, false)
+    run_mode(path, Some(seconds), inject, false, None, None, false)
 }
 pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, true, None, None, false)
+    run_mode(path, Some(seconds), inject, true, None, None, false)
 }
 pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, false, false, Some(port), None, false)
+    run_mode(path, Some(seconds), false, false, Some(port), None, false)
 }
 pub fn feedback(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, true, false, Some(port), None, false)
+    run_mode(path, Some(seconds), true, false, Some(port), None, false)
 }
 pub fn calibrated(
     path: &Path,
@@ -334,10 +334,29 @@ pub fn calibrated(
     port: u16,
     profile: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, true, false, Some(port), Some(profile), false)
+    run_mode(
+        path,
+        Some(seconds),
+        true,
+        false,
+        Some(port),
+        Some(profile),
+        false,
+    )
+}
+pub fn calibrated_until_stop(path: &Path, port: u16, profile: &Path) -> Result<(), Box<dyn Error>> {
+    run_mode(path, None, true, false, Some(port), Some(profile), false)
 }
 pub fn guided(path: &Path, port: u16, profile: &Path) -> Result<(), Box<dyn Error>> {
-    run_mode(path, 120, false, false, Some(port), Some(profile), true)
+    run_mode(
+        path,
+        Some(120),
+        false,
+        false,
+        Some(port),
+        Some(profile),
+        true,
+    )
 }
 fn write_absolute(
     output: &mut Option<std::process::ChildStdin>,
@@ -369,14 +388,16 @@ fn write_contacts(
 }
 fn run_mode(
     path: &Path,
-    seconds: u64,
+    seconds: Option<u64>,
     inject: bool,
     touch: bool,
     preview_port: Option<u16>,
     profile_path: Option<&Path>,
     guided: bool,
 ) -> Result<(), Box<dyn Error>> {
-    if !(1..=120).contains(&seconds) {
+    let until_stop = seconds.is_none();
+    let seconds = seconds.unwrap_or(0);
+    if !until_stop && !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
     if preview_port.is_some() && seconds > 90 && !guided {
@@ -429,7 +450,10 @@ fn run_mode(
     }
     // Start the session deadline before spawning its independently finite writer.
     let start = Instant::now();
-    let mut preview_clock = preview.as_ref().map(|_| PreviewClock::new(start, seconds));
+    let mut preview_clock = preview
+        .as_ref()
+        .filter(|_| !until_stop)
+        .map(|_| PreviewClock::new(start, seconds));
     if guided {
         preview_clock.as_mut().unwrap().maximum = Duration::from_secs(150);
     }
@@ -458,7 +482,12 @@ fn run_mode(
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
-                .args(if touch {
+                .args(if until_stop {
+                    vec![
+                        "absolute-stream-until-stop".into(),
+                        config.freshness_ms.to_string(),
+                    ]
+                } else if touch {
                     vec![
                         "touch-stream".into(),
                         writer_seconds.to_string(),
@@ -504,11 +533,12 @@ fn run_mode(
     let mut prayer = crate::prayer::Detector::default();
     let mut primary_hand = None;
     let result = (|| -> Result<(), Box<dyn Error>> {
-        while Instant::now()
-            < preview_clock
-                .as_ref()
-                .map(PreviewClock::deadline)
-                .unwrap_or(start + Duration::from_secs(seconds))
+        while (until_stop
+            || Instant::now()
+                < preview_clock
+                    .as_ref()
+                    .map(PreviewClock::deadline)
+                    .unwrap_or(start + Duration::from_secs(seconds)))
             && !stop.load(Ordering::Relaxed)
         {
             if let (Some(preview), Some(clock)) = (&preview, &mut preview_clock) {
@@ -577,11 +607,12 @@ fn run_mode(
             let now;
             if touch {
                 let detected = perception.infer_many(&image)?;
-                if Instant::now()
-                    >= preview_clock
-                        .as_ref()
-                        .map(PreviewClock::deadline)
-                        .unwrap_or(start + Duration::from_secs(seconds))
+                if !until_stop
+                    && Instant::now()
+                        >= preview_clock
+                            .as_ref()
+                            .map(PreviewClock::deadline)
+                            .unwrap_or(start + Duration::from_secs(seconds))
                 {
                     break;
                 }
@@ -651,11 +682,12 @@ fn run_mode(
                     perception.infer(&image)?
                 };
                 let inference_ms = inference_started.elapsed().as_secs_f64() * 1000.0;
-                if Instant::now()
-                    >= preview_clock
-                        .as_ref()
-                        .map(PreviewClock::deadline)
-                        .unwrap_or(start + Duration::from_secs(seconds))
+                if !until_stop
+                    && Instant::now()
+                        >= preview_clock
+                            .as_ref()
+                            .map(PreviewClock::deadline)
+                            .unwrap_or(start + Duration::from_secs(seconds))
                 {
                     break;
                 }
@@ -709,7 +741,7 @@ fn run_mode(
                 }
                 let collecting = guide.as_ref().is_none_or(|g| g.collecting(now));
                 let (target, events) = if let Some(calibration) = &mut calibration {
-                    calibration.frame(
+                    calibration.frame_with_freshness(
                         interpreted
                             .as_ref()
                             .filter(|h| {
@@ -721,9 +753,9 @@ fn run_mode(
                             .filter(|_| collecting)
                             .map(|h| h.cursor),
                         engine.cursor_position(),
-                        frame.source_us,
-                        now,
+                        (frame.source_us, now),
                         events,
+                        config.gestures().stale_us,
                     )
                 } else {
                     (None, events)
@@ -768,7 +800,7 @@ fn run_mode(
                     } else {
                         engine.pinch_block_reason()
                     };
-                    let data = serde_json::json!({
+                    let mut data = serde_json::json!({
                         "guided":guide.as_ref().map(|g|g.state(now)),
                         "input_enabled":inject && output_enabled,
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
@@ -797,11 +829,12 @@ fn run_mode(
                         "fresh":now.saturating_sub(frame.source_us)<config.gestures().stale_us,
                         "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                         "decode_ms":decode_ms,"inference_ms":inference_ms,
-                        "presses":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {summary.button_down_intents.saturating_sub(preview_press_baseline)} else {0},
-                        "test_phase":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {"testing"} else {"preparing"},
+                        "presses":if until_stop || preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {summary.button_down_intents.saturating_sub(preview_press_baseline)} else {0},
+                        "test_phase":if until_stop || preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {"testing"} else {"preparing"},
                         "test_duration_seconds":seconds,
                         "remaining_ms":if guide.as_ref().is_some_and(|g|g.finished()) {Some(0)} else {preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))}
                     });
+                    data["until_stop"] = until_stop.into();
                     if let Some(file) = &mut recording_observations {
                         serde_json::to_writer(&mut *file, &data)?;
                         writeln!(file)?;

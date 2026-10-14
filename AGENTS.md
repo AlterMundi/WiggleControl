@@ -59,3 +59,9 @@ offline iteration. Use the selected private recording-enabled trial config;
 keep raw frames/timestamps, predictions and human labels separate. This does
 not authorize startup capture or waive fresh human ready for a finite trial.
 Recordings stay outside Git; do not substitute predicted states for annotation.
+
+Nicolás explicitly selected manual continuous usage on2026-10-14: when the human
+requests input until they say to exit, use the named until-stop session/renderer
+commands. This overrides finite-trial timing for that requested session only;
+do not simulate it by silently chaining finite captures or add automatic restart.
+Keep observed activity, recording and task-local Stop available.

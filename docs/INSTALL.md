@@ -305,3 +305,9 @@ watchdog budget (50..1000 ms; omitted preserves150 ms). Selected diagnostic
 receiving profile uses300 ms. Metadata carries it to web/native feedback. Device
 stream commands accept `[WATCHDOG_MS]`; defaults remain150 ms for mouse and250 ms
 for standalone touch. Calibration/prayer sampling freshness remains separate.
+
+For an explicitly requested manual continuous session, use
+`run-calibrated-until-stop CONFIG PORT PROFILE` and the receiving
+`hand-overlay-until-stop PORT`. These have no exit countdown; Stop/EOF/error
+releases input. Recordings rotate indexed512 MiB segments. Existing finite
+commands keep their duration bounds; no auto-start/restart is installed.

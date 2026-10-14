@@ -35,7 +35,7 @@ pub fn serve(dir: &Path, port: u16, seconds: u64) -> io::Result<()> {
         ));
     }
     let raw = fs::read(dir.join("frames.jsonl"))?;
-    if raw.len() > 1024 * 1024 {
+    if raw.len() > 16 * 1024 * 1024 {
         return Err(io::Error::other("index too large"));
     }
     let rows: Vec<FrameIndex> = String::from_utf8(raw)
@@ -43,17 +43,32 @@ pub fn serve(dir: &Path, port: u16, seconds: u64) -> io::Result<()> {
         .lines()
         .map(serde_json::from_str)
         .collect::<Result<_, _>>()?;
-    let mut video = File::open(dir.join("video.mjpeg"))?;
-    let size = video.metadata()?.len();
+    let mut videos = std::collections::BTreeMap::new();
+    for row in &rows {
+        if row.segment > 1000 {
+            return Err(io::Error::other("invalid segment"));
+        }
+        if let std::collections::btree_map::Entry::Vacant(entry) = videos.entry(row.segment) {
+            let name = if row.segment == 0 {
+                "video.mjpeg".to_string()
+            } else {
+                format!("video-{}.mjpeg", row.segment)
+            };
+            let file = File::open(dir.join(name))?;
+            if file.metadata()?.len() > MAX_BYTES {
+                return Err(io::Error::other("segment too large"));
+            }
+            entry.insert(file);
+        }
+    }
     if rows.is_empty()
-        || rows.len() > 5000
-        || size > MAX_BYTES
+        || rows.len() > 100000
         || rows.iter().any(|r| {
             r.length == 0
                 || r.length > 2 * 1024 * 1024
                 || r.offset
                     .checked_add(r.length as u64)
-                    .is_none_or(|n| n > size)
+                    .is_none_or(|n| n > videos[&r.segment].metadata().map(|m| m.len()).unwrap_or(0))
         })
         || rows.windows(2).any(|r| r[1].source_us <= r[0].source_us)
     {
@@ -136,6 +151,7 @@ pub fn serve(dir: &Path, port: u16, seconds: u64) -> io::Result<()> {
             {
                 if let Some(row) = rows.get(id) {
                     let mut bytes = vec![0; row.length];
+                    let video = videos.get_mut(&row.segment).unwrap();
                     video.seek(SeekFrom::Start(row.offset))?;
                     video.read_exact(&mut bytes)?;
                     return respond(&mut stream, "200 OK", "image/jpeg", &bytes);

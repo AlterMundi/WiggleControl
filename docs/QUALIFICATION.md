@@ -1046,3 +1046,20 @@ not evidence that the distance threshold was too small. This does not identify
 which landmark was outside or establish physical ground-truth pinch. Capture
 ended and fresh observer reported camera/microphone inactive; playback remains
 deferred at the human's request. Keep visibility and distance failure separate.
+
+Nicolás reports45/65 mm works well except corners; hold/recognition comfort is
+accepted for the observed case, not universal precision or OS drag qualification.
+He explicitly requested continuous real mouse use until he asks to exit. New
+run-calibrated-until-stop /absolute-stream-until-stop commands opt into no session
+deadline; existing finite commands stay finite. Until-stop metadata and native
+renderer show live input/recording and UNTIL STOP. The300 ms writer watchdog,
+loss/ineligibility release, EOF/device teardown and explicit Stop remain. Raw
+recording rolls512 MiB files with indexed segments instead of forcing session
+closure. Review accepts segmented takes; legacy single-file indices still load.
+
+Preparing calibrated real input exposed another150 ms gate in active profile
+mapping, which could drop a valid300 ms button-down. Active delivery now receives
+the selected gesture budget; sampling/corner validation keep their separate150 ms
+rules. A regression covers200 ms button-down delivery under300 ms and legacy150
+ms refusal. Rotation test verifies no overwrite/closure on chunk rollover.
+These source checks do not qualify continuous physical drag or corner behavior.

@@ -233,6 +233,17 @@ impl Runtime {
         now_us: u64,
         events: Vec<Event>,
     ) -> (Option<Point>, Vec<Event>) {
+        self.frame_with_freshness(raw, pointer, (source_us, now_us), events, 150_000)
+    }
+    pub fn frame_with_freshness(
+        &mut self,
+        raw: Option<Point>,
+        pointer: Option<Point>,
+        timing: (u64, u64),
+        events: Vec<Event>,
+        freshness_us: u64,
+    ) -> (Option<Point>, Vec<Event>) {
+        let (source_us, now_us) = timing;
         let fresh = source_us <= now_us && now_us - source_us < 150_000;
         let detected = raw.filter(|p| p.valid());
         let raw = detected.filter(|_| fresh);
@@ -267,7 +278,7 @@ impl Runtime {
             }
             return (target, Vec::new());
         }
-        let target = if fresh {
+        let target = if source_us <= now_us && now_us - source_us < freshness_us {
             self.profile
                 .and_then(|p| pointer.and_then(|point| p.target(point).ok()))
         } else {
@@ -311,6 +322,38 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn active_pointer_delivery_uses_selected_budget_without_loosening_sampling() {
+        let base =
+            std::env::temp_dir().join(format!("wiggle-active-budget-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        let path = base.join("profile.json");
+        profile_store::adopt(
+            &path,
+            Profile {
+                version: 1,
+                workspace: Default::default(),
+                output: [1920, 1080],
+            },
+        )
+        .unwrap();
+        let mut r = Runtime::new(&path, [1920, 1080]).unwrap();
+        let point = Point { x: 0.5, y: 0.5 };
+        let events = vec![Event::Button { down: true }];
+        let (target, delivered) = r.frame_with_freshness(
+            Some(point),
+            Some(point),
+            (1, 200_001),
+            events.clone(),
+            300_000,
+        );
+        assert!(target.is_some());
+        assert_eq!(delivered, events);
+        let (target, delivered) = r.frame(Some(point), Some(point), 1, 200_001, events);
+        assert!(target.is_none());
+        assert!(delivered.is_empty());
+        std::fs::remove_dir_all(base).unwrap();
+    }
     #[test]
     fn persisted_diagonal_coordinates_reconstruct_the_exact_verified_candidate() {
         for n in 1..1000 {

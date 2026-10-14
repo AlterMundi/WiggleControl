@@ -175,9 +175,11 @@ pub fn check(seconds: u64) -> io::Result<()> {
     Ok(())
 }
 pub fn stream(seconds: u64, gain: f64) -> io::Result<()> {
+    duration(seconds)?;
     stream_mode(seconds, gain, false, 150)
 }
 pub fn absolute_stream(seconds: u64) -> io::Result<()> {
+    duration(seconds)?;
     stream_mode(seconds, 1.0, true, 150)
 }
 pub fn stream_with_watchdog(
@@ -186,13 +188,21 @@ pub fn stream_with_watchdog(
     absolute: bool,
     watchdog_ms: u64,
 ) -> io::Result<()> {
+    duration(seconds)?;
     stream_mode(seconds, gain, absolute, watchdog_ms)
+}
+pub fn absolute_until_stop(watchdog_ms: u64) -> io::Result<()> {
+    stream_mode(0, 1.0, true, watchdog_ms)
 }
 fn stream_mode(seconds: u64, gain: f64, absolute: bool, watchdog_ms: u64) -> io::Result<()> {
     if !(50..=1000).contains(&watchdog_ms) {
         return Err(io::Error::other("watchdog_ms must be 50..1000"));
     }
-    let limit = duration(seconds)?;
+    let limit = if seconds == 0 {
+        Duration::MAX
+    } else {
+        duration(seconds)?
+    };
     if !gain.is_finite() || !(1.0..=10_000.0).contains(&gain) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,

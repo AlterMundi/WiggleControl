@@ -9,12 +9,16 @@ use std::{
 pub const MAX_BYTES: u64 = 512 * 1024 * 1024;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct FrameIndex {
+    #[serde(default)]
+    pub segment: u32,
     pub source_us: u64,
     pub sequence: u32,
     pub offset: u64,
     pub length: usize,
 }
 pub struct Frames {
+    dir: PathBuf,
+    segment: u32,
     video: File,
     index: File,
     offset: u64,
@@ -44,6 +48,8 @@ pub fn create(
     serde_json::to_writer_pretty(private_file(&dir.join("manifest.json"))?, manifest)?;
     Ok((
         Frames {
+            dir: dir.clone(),
+            segment: 0,
             video,
             index,
             offset: 0,
@@ -57,15 +63,23 @@ impl Frames {
     pub fn append(&mut self, bytes: &[u8], source_us: u64, sequence: u32) -> io::Result<()> {
         if bytes.is_empty()
             || bytes.len() > 2 * 1024 * 1024
-            || self.offset + bytes.len() as u64 > MAX_BYTES
             || self.last.is_some_and(|s| source_us <= s)
         {
             return Err(io::Error::other("invalid or exhausted trial recording"));
+        }
+        if self.offset + bytes.len() as u64 > MAX_BYTES {
+            self.segment = self
+                .segment
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("recording segment overflow"))?;
+            self.video = private_file(&self.dir.join(format!("video-{}.mjpeg", self.segment)))?;
+            self.offset = 0;
         }
         self.video.write_all(bytes)?;
         serde_json::to_writer(
             &mut self.index,
             &FrameIndex {
+                segment: self.segment,
                 source_us,
                 sequence,
                 offset: self.offset,
@@ -81,6 +95,25 @@ impl Frames {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn continued_recording_rotates_without_overwriting_or_stopping() {
+        let base = std::env::temp_dir().join(format!("wiggle-rotate-{}", std::process::id()));
+        let (mut frames, _, dir) = create(&base, 2, &serde_json::json!({})).unwrap();
+        frames.append(b"first", 100, 1).unwrap();
+        frames.offset = MAX_BYTES;
+        frames.append(b"second", 200, 2).unwrap();
+        drop(frames);
+        assert_eq!(fs::read(dir.join("video.mjpeg")).unwrap(), b"first");
+        assert_eq!(fs::read(dir.join("video-1.mjpeg")).unwrap(), b"second");
+        let rows: Vec<FrameIndex> = fs::read_to_string(dir.join("frames.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|s| serde_json::from_str(s).unwrap())
+            .collect();
+        assert_eq!(rows[1].segment, 1);
+        assert_eq!(rows[1].offset, 0);
+        fs::remove_dir_all(base).unwrap();
+    }
     #[test]
     fn recording_retains_dropped_frame_evidence_and_rejects_overwrite_or_clock_regression() {
         let base = std::env::temp_dir().join(format!("wiggle-recording-{}", std::process::id()));

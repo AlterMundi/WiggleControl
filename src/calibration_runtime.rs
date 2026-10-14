@@ -122,6 +122,9 @@ impl Runtime {
             review_saved: false,
         })
     }
+    pub fn is_sampling_or_reviewing(&self) -> bool {
+        self.sampling.is_some() || self.review.is_some()
+    }
     pub fn gesture_entry_available(&self) -> bool {
         self.profile.is_some() && self.sampling.is_none() && self.review.is_none()
     }

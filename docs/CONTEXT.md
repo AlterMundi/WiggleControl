@@ -353,3 +353,13 @@ explicit camera-free acceptance succeeded and camera/mic closed. See QUALIFICATI
 This is the first accepted calibration profile, not completed mouse/prayer goal.
 Next human-ready work is pointer alignment, intentional pinch and drag, then
 loss/Stop and the deferred visual-continuity improvement/prayer acceptance.
+
+Expanded workspace request: after accepting the first diagonal profile, Nicolás
+requested a larger movement rectangle. New upper-left confirmed; lower-right
+collected zero usable samples during a 20-second operator wait, and was not
+confirmed. Camera was stopped/observed inactive; accepted profile preserved. The
+cause is unknown because the sampled summary did not expose detection confidence
+or full-hand in-view status. Native calibration feedback now distinguishes delayed
+frame, no detected hand, low confidence, partially out-of-view landmarks and
+visible stable sampling, separately from ordinary pinch engine diagnostics.
+Next finite human trial must inspect that actual reason rather than guessing.

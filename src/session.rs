@@ -623,6 +623,26 @@ fn run_mode(
                     let ratio = interpreted
                         .as_ref()
                         .map(|h| h.thumb_tip.distance(h.index_tip) / h.palm_width);
+                    let feedback_reason = if calibration
+                        .as_ref()
+                        .is_some_and(|c| c.is_sampling_or_reviewing())
+                    {
+                        Some(if now.saturating_sub(frame.source_us) >= 150_000 {
+                            "Calibration: frame delayed"
+                        } else if let Some(detected) = &hand {
+                            if detected.confidence < config.gestures().min_confidence {
+                                "Calibration: low hand confidence"
+                            } else if !detected.in_view(image.width(), image.height()) {
+                                "Calibration: hand partly outside camera; move inward"
+                            } else {
+                                "Calibration: hand visible; hold steady"
+                            }
+                        } else {
+                            "Calibration: no hand detected"
+                        })
+                    } else {
+                        engine.pinch_block_reason()
+                    };
                     let data = serde_json::json!({
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
@@ -633,7 +653,7 @@ fn run_mode(
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
                         "pinch_state":engine.pinch_state(), "close_ratio":config.pinch_close_ratio,
-                        "blocked_reason":engine.pinch_block_reason(),
+                        "blocked_reason":feedback_reason,
                         "confirmation_elapsed_ms":engine.confirmation_elapsed_us()/1000,
                         "confirmation_required_ms":config.gestures().confirm_us/1000,
                         "open_ratio":config.pinch_open_ratio,

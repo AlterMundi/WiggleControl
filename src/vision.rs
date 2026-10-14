@@ -579,21 +579,21 @@ pub fn position_sweep(
                 .map(|(a, b)| f64::from((a - b).abs()))
                 .fold(0.0, f64::max);
             let fixed = model.infer_roi(&shifted, shifted_roi, 1, false)?;
-            let fixed = fixed.as_ref().map(&metrics);
+            let fixed = fixed.as_ref().map(metrics);
             // Reset tracking for every location; do not leak a preceding ROI or
             // make translation invariance tautological in the end-to-end branch.
             model.roi = None;
             let mut tracked = Vec::new();
             for _ in 0..10 {
                 let hand = model.infer(&shifted)?;
-                tracked.push(hand.as_ref().map(&metrics));
+                tracked.push(hand.as_ref().map(metrics));
             }
             model.roi = None;
             let mut proximal = Vec::new();
             for _ in 0..10 {
                 let hand = model.infer(&shifted)?;
                 model.roi = hand.as_ref().and_then(proximal_tracking_roi);
-                proximal.push(hand.as_ref().map(&metrics));
+                proximal.push(hand.as_ref().map(metrics));
             }
             let file = format!("position-{gx}-{gy}.png");
             shifted.save(directory.join(&file))?;

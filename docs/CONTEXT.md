@@ -397,3 +397,12 @@ is about 1.80 times as wide and 2.96 times as tall as the previously accepted on
 Camera/microphone inactive afterward. No repeated gesture capture occurred. This
 qualifies one guided completion/adoption, not pinch/drag accuracy or exact perceived
 setup timing/fluency, which still require human-directed physical checks.
+
+## Full web/native baseline review — 2026-10-14
+
+See [WEB-BASELINE-REVIEW.md](WEB-BASELINE-REVIEW.md) for the source comparison
+requested after failed held-pinch feedback. Recognition is shared Rust; the web
+page is a renderer. Source-frame timing cuts and a stricter native display-age
+gate are separate findings. Do not claim the failure is solely before drawing.
+Preserve the baseline, qualify shared state semantics and actual release reasons
+before further physical tuning. No capture or threshold change during review.

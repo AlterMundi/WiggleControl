@@ -433,3 +433,8 @@ translation with corresponding ROI is exactly invariant; cold detection and
 tracking recrops alter estimates. An experimental proximal ROI is not uniformly
 better and remains probe-only. No live correction or new capture was deployed.
 The human clarified only horizontal real-camera variation was observed.
+
+Human-requested AI human pose/animation research is retained in
+research/ai-human-motion-2026-10.md, with official availability, output/rig
+limits and a concrete controlled-render experiment. Research is not an installed
+renderer, generated human motion, or a qualified fingertip correction.

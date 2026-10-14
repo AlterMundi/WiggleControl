@@ -92,6 +92,7 @@ struct PreviewClock {
     opened: Instant,
     duration: Duration,
     started: Option<Instant>,
+    maximum: Duration,
 }
 impl PreviewClock {
     fn new(opened: Instant, seconds: u64) -> Self {
@@ -99,13 +100,14 @@ impl PreviewClock {
             opened,
             duration: Duration::from_secs(seconds),
             started: None,
+            maximum: Duration::from_secs(120),
         }
     }
     fn deadline(&self) -> Instant {
         self.started
             .map(|started| started + self.duration)
             .unwrap_or(self.opened + Duration::from_secs(30))
-            .min(self.opened + Duration::from_secs(120))
+            .min(self.opened + self.maximum)
     }
     fn update(&mut self, ready: bool, now: Instant) -> bool {
         if self.started.is_none() && ready && now < self.deadline() {
@@ -276,16 +278,16 @@ fn write_events(
     Ok(presses)
 }
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, false, None, None)
+    run_mode(path, seconds, inject, false, None, None, false)
 }
 pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, inject, true, None, None)
+    run_mode(path, seconds, inject, true, None, None, false)
 }
 pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, false, false, Some(port), None)
+    run_mode(path, seconds, false, false, Some(port), None, false)
 }
 pub fn feedback(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, true, false, Some(port), None)
+    run_mode(path, seconds, true, false, Some(port), None, false)
 }
 pub fn calibrated(
     path: &Path,
@@ -293,7 +295,10 @@ pub fn calibrated(
     port: u16,
     profile: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    run_mode(path, seconds, true, false, Some(port), Some(profile))
+    run_mode(path, seconds, true, false, Some(port), Some(profile), false)
+}
+pub fn guided(path: &Path, port: u16, profile: &Path) -> Result<(), Box<dyn Error>> {
+    run_mode(path, 120, false, false, Some(port), Some(profile), true)
 }
 fn write_absolute(
     output: &mut Option<std::process::ChildStdin>,
@@ -330,11 +335,12 @@ fn run_mode(
     touch: bool,
     preview_port: Option<u16>,
     profile_path: Option<&Path>,
+    guided: bool,
 ) -> Result<(), Box<dyn Error>> {
     if !(1..=120).contains(&seconds) {
         return Err("session duration must be 1..120 seconds".into());
     }
-    if preview_port.is_some() && seconds > 90 {
+    if preview_port.is_some() && seconds > 90 && !guided {
         return Err(
             "preview test duration must be 1..90 seconds (up to 30 seconds preparation)".into(),
         );
@@ -354,6 +360,17 @@ fn run_mode(
     if config.prayer_enabled && calibration.is_none() {
         return Err("prayer entry requires run-calibrated mode".into());
     }
+    if guided {
+        if inject || touch || config.prayer_enabled {
+            return Err("guided calibration requires camera-only single-hand mode".into());
+        }
+        calibration
+            .as_mut()
+            .ok_or("guided mode requires a profile")?
+            .control(crate::calibration::Control::StartDiagonal)
+            .map_err(io::Error::other)?;
+    }
+    let mut guide = guided.then(crate::guided_calibration::Guide::default);
     ort::init_from(&config.runtime).commit()?;
     let mut perception = Perception::new(Path::new(&config.models))?;
     let stop = Arc::new(AtomicBool::new(false));
@@ -364,12 +381,19 @@ fn run_mode(
         .transpose()?;
     if calibration.is_some() {
         if let Some(preview) = &preview {
-            preview.enable_calibration_controls();
+            if guided {
+                preview.enable_guided();
+            } else {
+                preview.enable_calibration_controls();
+            }
         }
     }
     // Start the session deadline before spawning its independently finite writer.
     let start = Instant::now();
     let mut preview_clock = preview.as_ref().map(|_| PreviewClock::new(start, seconds));
+    if guided {
+        preview_clock.as_mut().unwrap().maximum = Duration::from_secs(150);
+    }
     let mut preview_press_baseline = 0;
     let writer_seconds = if preview.is_some() {
         seconds + 30
@@ -424,7 +448,10 @@ fn run_mode(
             && !stop.load(Ordering::Relaxed)
         {
             if let (Some(preview), Some(clock)) = (&preview, &mut preview_clock) {
-                if clock.update(preview.view_ready(), Instant::now()) {
+                if clock.update(
+                    preview.view_ready() && (!guided || preview.guided_ready(0)),
+                    Instant::now(),
+                ) {
                     engine.stop();
                     engine.start();
                     preview_press_baseline = summary.button_down_intents;
@@ -587,6 +614,12 @@ fn run_mode(
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
                 let events = engine.observe(now, observation);
+                if let (Some(guide), Some(preview)) = (&mut guide, &preview) {
+                    if preview.guided_ready(guide.step()) {
+                        guide.acknowledge(now);
+                    }
+                }
+                let collecting = guide.as_ref().is_none_or(|g| g.collecting(now));
                 let (target, events) = if let Some(calibration) = &mut calibration {
                     calibration.frame(
                         interpreted
@@ -597,6 +630,7 @@ fn run_mode(
                                         detected.in_view(image.width(), image.height())
                                     })
                             })
+                            .filter(|_| collecting)
                             .map(|h| h.cursor),
                         engine.cursor_position(),
                         frame.source_us,
@@ -606,6 +640,9 @@ fn run_mode(
                 } else {
                     (None, events)
                 };
+                if let (Some(guide), Some(calibration)) = (&mut guide, &mut calibration) {
+                    guide.update(calibration, now);
+                }
                 let output_enabled = preview_clock.as_ref().is_none_or(|c| c.started.is_some());
                 summary.button_down_intents += if output_enabled {
                     if let Some(target) = target {
@@ -644,6 +681,7 @@ fn run_mode(
                         engine.pinch_block_reason()
                     };
                     let data = serde_json::json!({
+                        "guided":guide.as_ref().map(|g|g.state(now)),
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
                         "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
@@ -663,9 +701,15 @@ fn run_mode(
                         "presses":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {summary.button_down_intents.saturating_sub(preview_press_baseline)} else {0},
                         "test_phase":if preview_clock.as_ref().is_some_and(|c|c.started.is_some()) {"testing"} else {"preparing"},
                         "test_duration_seconds":seconds,
-                        "remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))
+                        "remaining_ms":if guide.as_ref().is_some_and(|g|g.finished()) {Some(0)} else {preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))}
                     });
                     preview.publish(frame.bytes, data)?;
+                }
+                if guide.as_ref().is_some_and(|g| g.finished()) {
+                    // Give the metadata-only UI a bounded opportunity to paint
+                    // terminal evidence before closing acquisition/transport.
+                    thread::sleep(Duration::from_millis(200));
+                    stop.store(true, Ordering::Relaxed);
                 }
             }
             let age = now.saturating_sub(frame.source_us);

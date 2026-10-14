@@ -5,6 +5,8 @@ use serde_json::Value;
 struct Controls {
     enabled: bool,
     pending: Option<Control>,
+    guided: bool,
+    painted_step: Option<usize>,
 }
 use std::{
     io::{self, Read, Write},
@@ -20,13 +22,20 @@ struct Snapshot {
     jpeg: Vec<u8>,
     metadata: String,
     expires: Option<Instant>,
+    guided_expires: Option<Instant>,
 }
 impl Snapshot {
     fn metadata_at(&self, now: Instant) -> io::Result<String> {
-        if let Some(expires) = self.expires {
+        if self.expires.is_some() || self.guided_expires.is_some() {
             let mut metadata: Value = serde_json::from_str(&self.metadata)?;
-            metadata["remaining_ms"] =
-                Value::from(expires.saturating_duration_since(now).as_millis() as u64);
+            if let Some(expires) = self.expires {
+                metadata["remaining_ms"] =
+                    Value::from(expires.saturating_duration_since(now).as_millis() as u64);
+            }
+            if let Some(expires) = self.guided_expires {
+                metadata["guided"]["remaining_ms"] =
+                    Value::from(expires.saturating_duration_since(now).as_millis() as u64);
+            }
             Ok(serde_json::to_string(&metadata)?)
         } else {
             Ok(self.metadata.clone())
@@ -86,6 +95,12 @@ impl Preview {
     pub fn enable_calibration_controls(&self) {
         self.controls.lock().unwrap().enabled = true;
     }
+    pub fn enable_guided(&self) {
+        self.controls.lock().unwrap().guided = true;
+    }
+    pub fn guided_ready(&self, step: usize) -> bool {
+        self.controls.lock().unwrap().painted_step == Some(step)
+    }
     pub fn take_control(&self) -> Option<Control> {
         self.controls.lock().unwrap().pending.take()
     }
@@ -108,6 +123,11 @@ impl Preview {
             jpeg,
             metadata,
             expires,
+            guided_expires: data
+                .get("guided")
+                .and_then(|g| g.get("remaining_ms"))
+                .and_then(Value::as_u64)
+                .map(|ms| Instant::now() + Duration::from_millis(ms.min(20_000))),
         }));
         Ok(())
     }
@@ -222,6 +242,12 @@ fn serve(
         }
         "POST /stop HTTP/1.1"
         | "POST /ready HTTP/1.1"
+        | "POST /guided-ready/0 HTTP/1.1"
+        | "POST /guided-ready/1 HTTP/1.1"
+        | "POST /guided-ready/2 HTTP/1.1"
+        | "POST /guided-ready/3 HTTP/1.1"
+        | "POST /guided-ready/4 HTTP/1.1"
+        | "POST /guided-ready/5 HTTP/1.1"
         | "POST /calibration/start HTTP/1.1"
         | "POST /calibration/diagonal HTTP/1.1"
         | "POST /calibration/next HTTP/1.1"
@@ -238,6 +264,40 @@ fn serve(
                     "403 Forbidden",
                     "text/plain",
                     b"Same origin required",
+                    "",
+                );
+            }
+            if let Some(tail) = first.strip_prefix("POST /guided-ready/") {
+                let step: usize = tail
+                    .split(' ')
+                    .next()
+                    .unwrap()
+                    .parse()
+                    .map_err(io::Error::other)?;
+                let snapshot = slot.lock().unwrap().clone();
+                let matches = snapshot
+                    .as_ref()
+                    .and_then(|s| serde_json::from_str::<Value>(&s.metadata).ok())
+                    .is_some_and(|s| {
+                        s["guided"]["step"] == serde_json::json!(step)
+                            && s["guided"]["phase"] == "waiting"
+                    });
+                let mut control = controls.lock().unwrap();
+                if !control.guided || !matches {
+                    return respond(
+                        stream,
+                        "409 Conflict",
+                        "text/plain",
+                        b"Guided step is not awaiting paint",
+                        "",
+                    );
+                }
+                control.painted_step = Some(step);
+                return respond(
+                    stream,
+                    "200 OK",
+                    "text/plain",
+                    b"Step paint acknowledged",
                     "",
                 );
             }
@@ -294,12 +354,67 @@ fn serve(
 mod tests {
     use super::*;
     #[test]
+    fn guided_paint_ack_requires_selected_current_step_and_same_origin() {
+        let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();
+        preview
+            .publish(
+                vec![],
+                serde_json::json!({"guided":{"step":0,"phase":"waiting"}}),
+            )
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /guided-ready/0", true))
+                .starts_with("HTTP/1.1 409")
+        );
+        preview.enable_guided();
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /guided-ready/0", false))
+                .starts_with("HTTP/1.1 403")
+        );
+        assert!(!preview.guided_ready(0));
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /guided-ready/0", true))
+                .starts_with("HTTP/1.1 200")
+        );
+        assert!(preview.guided_ready(0));
+        assert!(!preview.guided_ready(1));
+        preview
+            .publish(
+                vec![],
+                serde_json::json!({"guided":{"step":1,"phase":"waiting"}}),
+            )
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /guided-ready/0", true))
+                .starts_with("HTTP/1.1 409")
+        );
+        assert!(
+            String::from_utf8_lossy(&request(preview.port, "POST /calibration/next", true))
+                .starts_with("HTTP/1.1 403")
+        );
+    }
+    #[test]
+    fn cached_guided_countdown_ages_without_new_frames() {
+        let at = Instant::now();
+        let snapshot = Snapshot {
+            jpeg: vec![],
+            metadata: "{\"guided\":{\"remaining_ms\":20000}}".into(),
+            expires: None,
+            guided_expires: Some(at + Duration::from_secs(20)),
+        };
+        let state: Value =
+            serde_json::from_str(&snapshot.metadata_at(at + Duration::from_secs(3)).unwrap())
+                .unwrap();
+        assert_eq!(state["guided"]["remaining_ms"], 17000);
+    }
+    #[test]
     fn cached_frame_does_not_extend_the_session_deadline() {
         let now = Instant::now();
         let snapshot = Snapshot {
             jpeg: vec![],
             metadata: "{\"remaining_ms\":1000}".into(),
             expires: Some(now + Duration::from_secs(1)),
+            guided_expires: None,
         };
         let remaining = |at| {
             serde_json::from_str::<Value>(&snapshot.metadata_at(at).unwrap()).unwrap()

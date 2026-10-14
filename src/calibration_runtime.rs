@@ -122,6 +122,9 @@ impl Runtime {
             review_saved: false,
         })
     }
+    pub fn verification_saved(&self) -> bool {
+        self.review_saved
+    }
     pub fn is_sampling_or_reviewing(&self) -> bool {
         self.sampling.is_some() || self.review.is_some()
     }

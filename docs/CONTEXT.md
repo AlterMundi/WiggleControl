@@ -363,3 +363,27 @@ or full-hand in-view status. Native calibration feedback now distinguishes delay
 frame, no detected hand, low confidence, partially out-of-view landmarks and
 visible stable sampling, separately from ordinary pinch engine diagnostics.
 Next finite human trial must inspect that actual reason rather than guessing.
+
+## One-pass guided calibration — 2026-10-14
+
+Nicolás requested one continuous guided interaction rather than chat confirmations
+per pose, with twenty seconds per step and setup excluded. New explicit
+calibrate-guided CONFIG PORT PROFILE is camera-only: no uinput writer, no clicks,
+no prayer activation. Each pose gives fifteen seconds to move and five to hold;
+only the hold interval enters robust sampling. Four corners each allow up to
+twenty seconds and advance after the existing fresh dwell requirement. Every new
+step waits for the native UI's actual painted, fresh, full-hand feedback and output
+dimension match before its clock starts. Setup initially waits up to thirty
+seconds; total capture is bounded at 150 seconds. The global writer/normal preview
+limits remain unchanged. Failed/insufficient samples stop with a retry result;
+completed review saves evidence but never automatically adopts. Old accepted
+profile remains intact. Stop remains available, manual stage controls disabled.
+
+Source tests cover per-step acknowledgment, setup exclusion, move/hold gating,
+invalid-step same-origin refusal, countdown aging, insufficient-sample refusal,
+all-corner completion and saved-proof-only outcome. Guided physical acceptance
+still pending. Overlay lifetime is independently finite up to 180 seconds.
+Native feedback also now accepts null blocked_reason when pinch is pressed;
+previous parser expected text and could discard that valid metadata. Its regression
+preserves input freshness and rejects invalid guidance. This is a source finding,
+not measured physical pinpoint accuracy or completion of the larger goal.

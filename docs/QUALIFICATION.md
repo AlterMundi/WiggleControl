@@ -781,3 +781,18 @@ receiving coordinates/access remain private. This establishes one physically
 completed calibration/adoption, not click/drag accuracy or broad seated comfort.
 Pinch, drag, hand loss, Stop during held input, fluidity and prayer remain pending.
 The old camera-position draft is evidence only and is not the new active profile.
+
+## Guided preparation and native display check
+
+Guided camera-only source ef9af5b / native UI 8722e69 built on receiving ARM64 Rust
+1.85.1 and were installed as reversible user-local releases, preserving original
+production executables/services and the accepted profile. A ten-second fictional
+metadata fixture on actual Wayland TV produced separate native PAINT_ACK 0 and
+PAINT_ACK 1 receipts. Compositor capture showed HOLD STILL, its step countdown,
+position guide, insensitive manual controls and the independent compact panel
+within 1920x1080. Fixture time was shortened solely for this camera-free UI check;
+real producer timing remains 15 seconds move + 5 hold per pose, up to 20 per corner.
+Camera/microphone observed inactive afterward. These receipts qualify UI routing
+and layout only, not actual camera startup, guided comfort or physical accuracy.
+Thirty-two native library tests, full native suite, and all-target Clippy passed.
+Guided physical acceptance awaits Nicolás's fresh ready acknowledgment.

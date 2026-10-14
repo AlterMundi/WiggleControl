@@ -820,3 +820,22 @@ reported camera/microphone inactive afterward. Human completion plus retained
 fresh all-corner proof and successful exact adoption establish one physical guided
 calibration. User-perceived timing, pinch/drag precision, held-input Stop, tracking
 loss, visual continuity and prayer remain pending; no broad goal completion claim.
+
+## Calibrated pinch/drag trial: application delivery observed, drag pending
+
+Nicolás acknowledged a finite 90-second calibrated native-input trial with the
+accepted larger workspace, requesting three orange-button clicks and one pink
+block drag. Task-owned qualification page was reloaded and observed at zero
+moves/down/up/click/drag/wheel counters before acquisition, 1920x1080. Producer
+reported active profile, testing, fresh age118.2ms at startup. Human said completed;
+by final control read the listener was closed, and observer showed camera/mic off.
+
+Application readback: 758 pointer moves, seven trusted target clicks, seven downs
+and seven ups, zero completed drags and wheels. All retained button pairs occurred
+inside the orange target; no down was observed over the pink block. Final pointer
+was inside the block, which remained at its initial rectangle. No held-button
+state remained in retained events. These are application observations, not seven
+confirmed intentional pinches: requested count was three, human extra attempts vs
+unintended repetitions still needs clarification. No producer terminal metrics
+were recovered in this turn. Drag is not qualified by this test; no additional
+capture started. Keep pinch stability/drag/loss/Stop/visual/prayer gates open.

@@ -893,3 +893,14 @@ state/block counts do not retain release chronology. Retain per-release reasons
 and timing before choosing a gesture or freshness change; do not hide actual
 release by keeping visual green. The previous trial's 72 invalid-hand frames
 cannot be retroactively assigned to palm_width from this later trial's two.
+
+Baseline comparison correction: the earlier WiggleControl web camera preview
+(tools/preview.html, introduced at 5cdf9e6) consumes Rust-produced pinch_state;
+JavaScript draws state and never recognizes gestures. Comparing that revision
+with bb3026b shows unchanged pinch entry/hold/release predicates and perception
+eligibility, with diagnostics/accessors added. Thus replacing native gestures
+with this page's logic would not recover another recognizer. Investigate runtime
+and configuration regression against that baseline. ProyectoRPi/Barehands is a
+separate browser recognizer; do not conflate its implementation or model pipeline
+with the user-qualified WiggleControl preview. No new capture or parameter change
+occurred during this comparison.

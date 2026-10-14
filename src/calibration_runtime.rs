@@ -23,6 +23,36 @@ fn draft_path(path: &Path) -> PathBuf {
     name.push(".draft");
     PathBuf::from(name)
 }
+fn verified_path(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".verified");
+    PathBuf::from(name)
+}
+/// Explicit operator adoption after finite expiry, without acquisition.
+/// The completed verification must match the unchanged confirmed draft.
+pub fn accept_saved(path: &Path) -> io::Result<()> {
+    let draft: Draft = profile_store::load_value(&draft_path(path))?;
+    if draft.version != 1 {
+        return Err(io::Error::other("invalid draft version"));
+    }
+    let cal = if draft.diagonal {
+        Calibration::from_diagonal_bounds(draft.bounds)
+    } else {
+        Calibration::from_bounds(draft.bounds)
+    }
+    .map_err(io::Error::other)?;
+    let candidate = cal.candidate(draft.output).map_err(io::Error::other)?;
+    let verified = profile_store::load(&verified_path(path))?;
+    if serde_json::to_value(candidate)? != serde_json::to_value(verified)? {
+        return Err(io::Error::other(
+            "saved verification does not match current draft",
+        ));
+    }
+    profile_store::adopt(path, verified)?;
+    std::fs::remove_file(draft_path(path))?;
+    std::fs::remove_file(verified_path(path))?;
+    Ok(())
+}
 pub struct Runtime {
     path: PathBuf,
     output: [u32; 2],
@@ -31,6 +61,7 @@ pub struct Runtime {
     review: Option<Review>,
     pub last_target: Option<Point>,
     message: String,
+    review_saved: bool,
 }
 impl Runtime {
     pub fn new(path: &Path, output: [u32; 2]) -> io::Result<Self> {
@@ -88,6 +119,7 @@ impl Runtime {
             review,
             last_target: None,
             message,
+            review_saved: false,
         })
     }
     pub fn gesture_entry_available(&self) -> bool {
@@ -114,6 +146,7 @@ impl Runtime {
                         Calibration::default()
                     });
                     self.review = None;
+                    self.review_saved = false;
                 }
                 Control::Next => {
                     let mut cal = self
@@ -177,11 +210,14 @@ impl Runtime {
         result
     }
     fn clear_draft(&self) -> Result<(), String> {
-        match std::fs::remove_file(draft_path(&self.path)) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.to_string()),
+        for path in [draft_path(&self.path), verified_path(&self.path)] {
+            match std::fs::remove_file(path) {
+                Ok(()) => (),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => (),
+                Err(e) => return Err(e.to_string()),
+            }
         }
+        Ok(())
     }
     pub fn frame(
         &mut self,
@@ -210,6 +246,19 @@ impl Runtime {
                 review.tracking_lost();
                 None
             };
+            if review.verified() && !self.review_saved {
+                match profile_store::atomic_value(
+                    &verified_path(&self.path),
+                    &review.accepted().unwrap(),
+                ) {
+                    Ok(()) => {
+                        self.review_saved = true;
+                        self.message =
+                            "Corners verified and saved; awaiting explicit acceptance".into();
+                    }
+                    Err(e) => self.message = format!("Cannot save verification: {e}"),
+                }
+            }
             return (target, Vec::new());
         }
         let target = if fresh {
@@ -310,6 +359,7 @@ mod tests {
         assert_eq!(runtime.state()["samples"], 12);
         runtime.control(Control::Next).unwrap();
         assert!(!path.exists());
+        assert!(accept_saved(&path).is_err());
         drop(runtime);
         let mut resumed = Runtime::new(&path, [1920, 1080]).unwrap();
         assert_eq!(resumed.state()["stage"], "right");
@@ -395,7 +445,25 @@ mod tests {
             }
         }
         assert_eq!(runtime.state()["corners_verified"], true);
-        runtime.control(Control::Accept).unwrap();
+        assert!(verified_path(&path).exists());
+        let original_draft: Draft = profile_store::load_value(&draft_path(&path)).unwrap();
+        let changed = Draft {
+            version: 1,
+            output: original_draft.output,
+            bounds: [Some(0.21), Some(0.8), Some(0.3), Some(0.7)],
+            diagonal: false,
+        };
+        profile_store::atomic_value(&draft_path(&path), &changed).unwrap();
+        assert!(accept_saved(&path).is_err());
+        assert_eq!(profile_store::load(&path).unwrap().workspace.min.x, 0.0);
+        profile_store::atomic_value(&draft_path(&path), &original_draft).unwrap();
+        // Finite-session expiry does not adopt. Explicit camera-free acceptance
+        // uses the exact completed candidate and removes its pending evidence.
+        drop(runtime);
+        assert_eq!(profile_store::load(&path).unwrap().workspace.min.x, 0.0);
+        accept_saved(&path).unwrap();
+        assert!(!verified_path(&path).exists());
+        let mut runtime = Runtime::new(&path, [1920, 1080]).unwrap();
         assert_eq!(profile_store::load(&path).unwrap().workspace.min.x, 0.2);
         let p = Point { x: 0.8, y: 0.7 };
         let (target, events) = runtime.frame(

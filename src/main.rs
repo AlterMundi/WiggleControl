@@ -7,6 +7,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_help();
         return Ok(());
     }
+    if args.first().is_some_and(|a| a == "accept-calibration") && args.len() == 2 {
+        wigglecontrol::calibration_runtime::accept_saved(std::path::Path::new(&args[1]))?;
+        println!("Saved corner verification accepted; no acquisition started");
+        return Ok(());
+    }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
         Some("run-calibrated") if args.len() == 5 => {
@@ -228,7 +233,7 @@ fn print_help() {
     #[cfg(target_os = "linux")]
     println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN\n       wigglecontrol absolute-stream SECONDS\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]
-    println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol image-check IMAGE CONFIG [TILE]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
+    println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol image-check IMAGE CONFIG [TILE]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
     println!(
         "Replay and help open no camera/device or models. Sessions are finite (1..120 seconds)."
     );

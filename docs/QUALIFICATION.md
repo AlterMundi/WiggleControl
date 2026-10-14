@@ -751,3 +751,15 @@ confidence and age only and could collect a clamped palm position while some
 landmarks were outside the image. This is a source finding, not proof of the cause
 of the reported corner barrier. In-view/out-of-view reference geometry is covered
 by the existing native vision test; no new camera trial was opened.
+
+## Saved review acceptance independent of camera lifetime
+
+The camera-free runtime regression now verifies that completing all four fresh
+corner dwells persists its candidate without adopting it, survives Runtime drop,
+refuses an altered confirmed draft, and accepts explicitly through the saved
+verification path with previous-profile rollback preserved. Missing completion
+proof is rejected. Saved candidate equality includes output and full validated
+workspace. Adoption is an operator action, not a sensor event. This prevents the
+operator chat round-trip from requiring a running camera after the corners finish.
+The completed human-reported receiving trial predates this persistence; it does
+not establish a saved producer result or an accepted physical profile.

@@ -328,3 +328,21 @@ four-bound evidence. The human must not chase screen edges during raw-coordinate
 sampling. Position the whole hand comfortably within the camera view; any tracking
 failure invalidates pending samples. Camera-exit-based auto-calibration and frozen
 last-hand visual feedback are deferred, not implemented by this change.
+
+## Retain completed review across finite expiry — 2026-10-14
+
+The human confirmed both diagonal poses and subsequently reported completing
+corner review. By the time the operator read state, the finite listener had
+closed and no accepted profile existed. The old runtime retained neither final
+review metadata nor completed corner evidence on disk. Keep the human report;
+do not invent a producer completion receipt. The confirmed diagonal draft stays.
+
+Completed fresh corner review now writes an owner-only atomic `.verified`
+candidate before expiry. It remains distinct from accepted profile and input
+activation. Explicit camera-free `accept-calibration PROFILE` validates that the
+saved candidate matches the unchanged confirmed draft, adopts with the existing
+rollback store, and removes pending draft/verification. Start/Cancel remove pending
+verification too; a changed draft, missing proof or malformed proof cannot adopt.
+No camera restart or automatic acceptance occurs. Older trials cannot retroactively
+produce this evidence. Physical replay of review is still needed once the prepared
+release is installed; the two measured poses do not need repeating.

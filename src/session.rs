@@ -215,6 +215,8 @@ struct Summary {
     tracked: u64,
     detected: u64,
     button_down_intents: u64,
+    gesture_state_frames: std::collections::BTreeMap<String, u64>,
+    gesture_block_frames: std::collections::BTreeMap<String, u64>,
     dropped: u64,
     stale: u64,
     elapsed_seconds: f64,
@@ -614,6 +616,16 @@ fn run_mode(
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
                 let events = engine.observe(now, observation);
+                *summary
+                    .gesture_state_frames
+                    .entry(engine.pinch_state().into())
+                    .or_default() += 1;
+                if let Some(reason) = engine.pinch_block_reason() {
+                    *summary
+                        .gesture_block_frames
+                        .entry(reason.into())
+                        .or_default() += 1;
+                }
                 if let (Some(guide), Some(preview)) = (&mut guide, &preview) {
                     if preview.guided_ready(guide.step()) {
                         guide.acknowledge(now);
@@ -682,12 +694,16 @@ fn run_mode(
                     };
                     let data = serde_json::json!({
                         "guided":guide.as_ref().map(|g|g.state(now)),
+                        "input_enabled":inject && output_enabled,
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
                         "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
                         "sequence": frame.sequence, "width":image.width(), "height":image.height(),
                         "landmarks":hand.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),
                         "confidence":hand.as_ref().map(|h|h.confidence),
+                        "handedness_score":hand.as_ref().map(|h|h.handedness),
+                        "hand_id":hand.as_ref().map(|h|h.id),
+                        "hand_in_view":hand.as_ref().is_some_and(|h|h.in_view(image.width(),image.height())),
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
                         "pinch_state":engine.pinch_state(), "close_ratio":config.pinch_close_ratio,

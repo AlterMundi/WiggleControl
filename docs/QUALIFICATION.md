@@ -839,3 +839,18 @@ confirmed intentional pinches: requested count was three, human extra attempts v
 unintended repetitions still needs clarification. No producer terminal metrics
 were recovered in this turn. Drag is not qualified by this test; no additional
 capture started. Keep pinch stability/drag/loss/Stop/visual/prayer gates open.
+
+Human acceptance correction for the preceding click/drag trial: Nicolás explicitly
+reported pinch/drag unusable, only a few visible pinches after switching to the
+left hand, and much better previous web behavior (informal estimate ~90%). The
+seven application clicks are delivery evidence only, not intentional accuracy or
+functional acceptance. Keep the human feedback and zero completed drags together.
+The native skeleton repeatedly switched colors; source UI ties whole-hand color
+to the consumer's 150 ms input-freshness threshold, independently of actual
+recognition. This establishes its rendering rule, not the cause of gesture failure.
+
+Next diagnostics add bounded aggregate processed-frame counts by gesture state
+and block reason, plus existing hand ID/handedness estimate/in-view metadata. No
+raw recording, threshold change, model change or camera activation. Next human
+trial should isolate perception/gesture state camera-only before another OS drag
+qualification, retain terminal summary on the receiving host, and wait fresh ready.

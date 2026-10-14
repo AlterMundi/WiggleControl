@@ -32,6 +32,14 @@ pub struct SessionConfig {
     #[serde(default = "default_freshness_ms")]
     pub freshness_ms: u64,
     #[serde(default)]
+    pub pinch_3d: bool,
+    #[serde(default = "default_close_m")]
+    pub pinch_close_m: f64,
+    #[serde(default = "default_open_m")]
+    pub pinch_open_m: f64,
+    #[serde(default)]
+    pub recording_directory: Option<String>,
+    #[serde(default)]
     pub pointer_output: Option<[u32; 2]>,
     #[serde(default)]
     pub prayer_enabled: bool,
@@ -41,6 +49,12 @@ pub struct SessionConfig {
     pub pinch_close_ratio: f64,
     #[serde(default = "default_open_ratio")]
     pub pinch_open_ratio: f64,
+}
+fn default_close_m() -> f64 {
+    0.02
+}
+fn default_open_m() -> f64 {
+    0.03
 }
 fn default_freshness_ms() -> u64 {
     150
@@ -55,6 +69,8 @@ impl SessionConfig {
     pub fn gestures(&self) -> Config {
         Config {
             stale_us: self.freshness_ms * 1000,
+            close_m: self.pinch_close_m,
+            open_m: self.pinch_open_m,
             close_ratio: self.pinch_close_ratio,
             open_ratio: self.pinch_open_ratio,
             ..Config::default()
@@ -87,6 +103,13 @@ impl SessionConfig {
             || !(1.0..=10000.0).contains(&config.gain)
         {
             return Err("fps 10..20; gain 1..10000".into());
+        }
+        if config
+            .recording_directory
+            .as_ref()
+            .is_some_and(|p| !Path::new(p).is_absolute())
+        {
+            return Err("recording_directory must be absolute".into());
         }
         for p in [&config.camera, &config.models, &config.runtime] {
             if !Path::new(p).is_absolute() {
@@ -158,6 +181,7 @@ fn camera(
     config: &SessionConfig,
     stop: Arc<AtomicBool>,
     mailbox: Arc<Mutex<Mailbox>>,
+    mut recording: Option<crate::recording::Frames>,
 ) -> thread::JoinHandle<()> {
     let path = config.camera.clone();
     thread::spawn(move || {
@@ -199,6 +223,9 @@ fn camera(
                         + metadata.timestamp.usec as u64,
                     sequence: metadata.sequence,
                 };
+                if let Some(recording) = &mut recording {
+                    recording.append(&frame.bytes, frame.source_us, frame.sequence)?;
+                }
                 let mut slot = mailbox.lock().unwrap();
                 slot.frames += 1;
                 slot.source_kind = Some(if metadata.flags.contains(Flags::TSTAMP_SRC_SOE) {
@@ -412,6 +439,22 @@ fn run_mode(
     } else {
         seconds
     };
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let (recording_frames, mut recording_observations) =
+        if let Some((frames, observations, dir)) = recording {
+            fs::write(
+                Path::new(config.recording_directory.as_ref().unwrap()).join("last-recording.path"),
+                dir.as_os_str().as_encoded_bytes(),
+            )?;
+            (Some(frames), Some(observations))
+        } else {
+            (None, None)
+        };
+    if let Some(base) = &config.recording_directory {
+        let marker = fs::read_to_string(Path::new(base).join("last-recording.path"))?;
+        crate::recording::private_file(&Path::new(marker.trim()).join("config.json"))?
+            .write_all(&fs::read(path)?)?;
+    }
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
@@ -444,7 +487,7 @@ fn run_mode(
     };
     let mut output = writer.as_mut().and_then(|w| w.stdin.take());
     let mailbox = Arc::new(Mutex::new(Mailbox::default()));
-    let camera = camera(&config, stop.clone(), mailbox.clone());
+    let camera = camera(&config, stop.clone(), mailbox.clone(), recording_frames);
     let period = Duration::from_secs_f64(1.0 / config.fps as f64);
     let mut due = Instant::now();
     let mut engine = Engine::new(config.gestures())?;
@@ -624,7 +667,7 @@ fn run_mode(
                         summary.tracked += 1;
                     }
                 }
-                let observation = hand
+                let mut observation = hand
                     .as_ref()
                     .map(|h| h.observation(image.width(), image.height(), frame.source_us))
                     .unwrap_or(Observation {
@@ -632,6 +675,14 @@ fn run_mode(
                         source_us: frame.source_us,
                         hand: None,
                     });
+                if config.pinch_3d {
+                    if let (Some(observed), Some(detected)) = (&mut observation.hand, &hand) {
+                        observed.pinch_distance_m = Some(detected.world_pinch_distance_m());
+                        // Scroll is a separate legacy 2D gesture; avoid ambiguous
+                        // pointer-mode switching during the isolated 3D trial.
+                        observed.scrolling = false;
+                    }
+                }
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
                 if let Some(reason) = interpreted.as_ref().and_then(|h| h.invalid_reason()) {
@@ -723,6 +774,9 @@ fn run_mode(
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
                         "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
+                        "source_us":frame.source_us,"consumer_us":now,"recording":config.recording_directory.is_some(),
+                        "world_landmarks":hand.as_ref().map(|h|h.world_landmarks),
+                        "world_pinch_distance_m":hand.as_ref().map(|h|h.world_pinch_distance_m()),
                         "sequence": frame.sequence, "width":image.width(), "height":image.height(),
                         "landmarks":hand.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),
                         "confidence":hand.as_ref().map(|h|h.confidence),
@@ -732,6 +786,8 @@ fn run_mode(
                         "hand_in_view":hand.as_ref().is_some_and(|h|h.in_view(image.width(),image.height())),
                         "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
                         "cursor":interpreted.as_ref().map(|h|h.cursor), "pinch_ratio":ratio,
+                        "pinch_distance_m":interpreted.as_ref().and_then(|h|h.pinch_distance_m),
+                        "pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,
                         "pinch_state":engine.pinch_state(), "close_ratio":config.pinch_close_ratio,
                         "blocked_reason":feedback_reason,
                         "confirmation_elapsed_ms":engine.confirmation_elapsed_us()/1000,
@@ -746,6 +802,10 @@ fn run_mode(
                         "test_duration_seconds":seconds,
                         "remaining_ms":if guide.as_ref().is_some_and(|g|g.finished()) {Some(0)} else {preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))}
                     });
+                    if let Some(file) = &mut recording_observations {
+                        serde_json::to_writer(&mut *file, &data)?;
+                        writeln!(file)?;
+                    }
                     preview.publish(frame.bytes, data)?;
                 }
                 if guide.as_ref().is_some_and(|g| g.finished()) {

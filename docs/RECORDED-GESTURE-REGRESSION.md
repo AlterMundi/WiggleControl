@@ -1,8 +1,9 @@
 # Recorded gesture regression proposal — 2026-10-14
 
 Nicolás proposed recording repeated pinches/holds and iterating offline toward
-correct recognition of every labeled gesture. This is a proposed workflow, not
-an implemented recording/replay command or consent to start acquisition now.
+correct recognition of every labeled gesture. The recording and camera-free annotation paths are now implemented; full
+offline video-to-inference comparison remains separate work. This does not
+authorize starting acquisition without the current human-ready protocol.
 Physical recording still waits for fresh human ready after receiving preparation.
 
 ## Public references
@@ -51,3 +52,28 @@ untouched takes and a fresh live OS-input trial. Perfect performance on a finite
 corpus is useful regression evidence, not proof of universal 100% accuracy.
 Change gesture code first when landmarks are correct; inference failure needs
 its own correction and possibly additional model data. Retraining is not assumed.
+
+## Implemented trial capture and annotation
+
+Selected human trial configurations set recording_directory to receiving-local
+storage. Every raw valid640x480 MJPEG camera frame is appended before the latest
+mailbox can drop it, with source timestamp, sequence, offset and byte length.
+Each processed preview observation retains screen/world landmarks, metric gap,
+engine state, source/consumer times and rejection details separately. Snapshot
+config and manifest accompany the take. Camera-only capture records no microphone
+and sends no OS input. Recording write/clock errors stop the session; each take
+is bounded at512 MiB in addition to the existing finite capture deadline.
+
+`review-recording DIRECTORY PORT SECONDS` serves a finite1..3600-second loopback
+player over indexed JPEG frames, requiring the same local Host/Origin for label
+writes. Its timeline uses original source timestamps, not assumed FPS. Hold the
+on-screen button or SPACE during pinch/hold, then release; pause/step frames and
+edit onset/release seconds to refine. Save independent intervals in labels.json
+with retained timestamped revisions. Invalid/reversed/out-of-video intervals are
+rejected. Playback opens no sensor and predictions are not label ground truth.
+
+These annotations are a human-reviewed reference, not intrinsically exact contact
+measurements: initial playback button timing can include reaction delay. Frame
+stepping and correction are part of establishing usable labels. Empty/synthetic
+fixtures never count as a human dataset. No actual recording has been acquired
+while preparing this increment. Raw evidence stays private, outside source Git.

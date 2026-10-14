@@ -17,6 +17,7 @@ fn hand(id: u64, x: f64, closed: bool) -> Hand {
             y: 0.5,
         },
         palm_width: 0.2,
+        pinch_distance_m: None,
     }
 }
 fn frame(t: u64, hands: Vec<Hand>) -> Frame {

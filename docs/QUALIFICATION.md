@@ -967,3 +967,21 @@ a measured physical contact; qualify output order/units before adoption. No
 new model inference is intrinsically needed to retain existing outputs. Keep
 hysteresis and loss/Stop release; do not change multiple gates without replay
 evidence. No geometry change or recording was started in this turn.
+
+## Experimental metric3D pinch and recorded trials
+
+Human selected direct estimated3D thumb/index tip distance. The exact pinned
+model already emits worldXYZ as its fourth output; Rust now retains/validates
+that63-float output and computes Euclidean distance without projected palm width.
+Opt-in session pinch_3d attaches that measurement to the shared gesture engine.
+Selected receiving close/open thresholds are10/30 mm (user correction);300 ms
+freshness and40 ms confirmation remain. The legacy2D mode remains available.
+Confidence, full-hand visibility and existing posture eligibility still apply;
+legacy2D scroll interpretation is disabled during isolated3D trials. Estimated
+world units follow the pinned upstream adapter, not measured physical distance.
+
+Replay tests cover metric entry/hold/release independent of tiny projected palm
+width, invalid metric rejection and hysteresis. Perception test covers depth
+separation and rotated-axis invariance. Indexed capture and label-validation
+regressions are camera-free. Physical orientation/metric accuracy, continuous
+recording under load and human annotation usability still need acceptance.

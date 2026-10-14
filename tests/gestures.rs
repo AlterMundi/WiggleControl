@@ -16,6 +16,7 @@ fn frame(t: u64, id: u64, ratio: f64, x: f64) -> Observation {
                 y: 0.5,
             },
             palm_width: 0.2,
+            pinch_distance_m: None,
         }),
     }
 }
@@ -290,4 +291,31 @@ fn selected_300ms_window_preserves_delayed_hold_and_releases_at_deadline() {
     assert!(!e
         .observe(800_001, frame(700_001, 1, 0.1, 0.6))
         .contains(&Event::Button { down: true }));
+}
+
+#[test]
+fn metric_pinch_uses_depth_distance_not_projected_palm_and_preserves_hold_hysteresis() {
+    let mut e = engine();
+    let metric = |t, d| {
+        let mut f = frame(t, 1, 0.1, 0.5);
+        let h = f.hand.as_mut().unwrap();
+        h.pinch_distance_m = Some(d);
+        h.palm_width = 0.001;
+        f
+    };
+    e.observe(1, metric(1, 0.04));
+    e.observe(50_001, metric(50_001, 0.01));
+    assert!(e
+        .observe(100_001, metric(100_001, 0.01))
+        .contains(&Event::Button { down: true }));
+    assert!(!e
+        .observe(150_001, metric(150_001, 0.025))
+        .contains(&Event::Button { down: false }));
+    assert!(e
+        .observe(200_001, metric(200_001, 0.031))
+        .contains(&Event::Button { down: false }));
+    let mut invalid = metric(250_001, 0.01);
+    invalid.hand.as_mut().unwrap().pinch_distance_m = Some(f64::NAN);
+    e.observe(250_001, invalid);
+    assert_eq!(e.pinch_block_reason(), Some("invalid_hand"));
 }

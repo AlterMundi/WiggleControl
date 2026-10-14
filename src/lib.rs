@@ -5,6 +5,11 @@ use serde::{Deserialize, Serialize};
 pub mod input;
 
 #[cfg(target_os = "linux")]
+pub mod recording;
+#[cfg(target_os = "linux")]
+pub mod review;
+
+#[cfg(target_os = "linux")]
 pub mod touch;
 
 #[cfg(target_os = "linux")]
@@ -75,6 +80,8 @@ pub struct Hand {
     pub thumb_tip: Point,
     pub index_tip: Point,
     pub palm_width: f64,
+    #[serde(default)]
+    pub pinch_distance_m: Option<f64>,
 }
 impl Hand {
     pub(crate) fn invalid_reason(&self) -> Option<&'static str> {
@@ -86,7 +93,14 @@ impl Hand {
             Some("thumb_tip")
         } else if !self.index_tip.valid() {
             Some("index_tip")
-        } else if !self.palm_width.is_finite() || !(0.01..=1.0).contains(&self.palm_width) {
+        } else if self
+            .pinch_distance_m
+            .is_some_and(|d| !d.is_finite() || !(0.0..=1.0).contains(&d))
+        {
+            Some("pinch_distance_m")
+        } else if self.pinch_distance_m.is_none()
+            && (!self.palm_width.is_finite() || !(0.01..=1.0).contains(&self.palm_width))
+        {
             Some("palm_width")
         } else {
             None
@@ -130,6 +144,8 @@ pub struct Config {
     pub min_confidence: f64,
     pub close_ratio: f64,
     pub open_ratio: f64,
+    pub close_m: f64,
+    pub open_m: f64,
     pub confirm_us: u64,
     pub stale_us: u64,
     pub smoothing_us: f64,
@@ -141,6 +157,8 @@ impl Default for Config {
             min_confidence: 0.7,
             close_ratio: 0.25,
             open_ratio: 0.4,
+            close_m: 0.02,
+            open_m: 0.03,
             confirm_us: 40_000,
             stale_us: 150_000,
             smoothing_us: 30_000.0,
@@ -173,6 +191,11 @@ impl Engine {
             || !config.open_ratio.is_finite()
             || config.close_ratio <= 0.0
             || config.open_ratio <= config.close_ratio
+            || !config.close_m.is_finite()
+            || !config.open_m.is_finite()
+            || config.close_m <= 0.0
+            || config.open_m <= config.close_m
+            || config.open_m > 1.0
             || config.confirm_us == 0
             || config.stale_us <= config.confirm_us
             || !config.smoothing_us.is_finite()
@@ -379,15 +402,24 @@ impl Engine {
             self.candidate = None;
             return events;
         }
-        let ratio = hand.thumb_tip.distance(hand.index_tip) / hand.palm_width;
-        if ratio >= self.config.open_ratio {
+        let (distance, close, open) = hand
+            .pinch_distance_m
+            .map(|d| (d, self.config.close_m, self.config.open_m))
+            .unwrap_or_else(|| {
+                (
+                    hand.thumb_tip.distance(hand.index_tip) / hand.palm_width,
+                    self.config.close_ratio,
+                    self.config.open_ratio,
+                )
+            });
+        if distance >= open {
             if self.held {
                 events.push(Event::Button { down: false });
             }
             self.held = false;
             self.armed = true;
             self.candidate = None;
-        } else if ratio <= self.config.close_ratio && self.armed && !self.held {
+        } else if distance <= close && self.armed && !self.held {
             let since = *self.candidate.get_or_insert(observation.source_us);
             if observation.source_us - since >= self.config.confirm_us {
                 self.held = true;

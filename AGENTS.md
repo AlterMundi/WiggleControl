@@ -53,3 +53,9 @@ ready acknowledgment. The human may be attending another session; do not ask
 for readiness while still building or leave them waiting after they reply.
 Timed trials must show a conspicuous running indicator and producer-tied
 countdown, with terminal state and retained result on completion.
+
+Nicolás requested on2026-10-14 that every human gesture trial retain video for
+offline iteration. Use the selected private recording-enabled trial config;
+keep raw frames/timestamps, predictions and human labels separate. This does
+not authorize startup capture or waive fresh human ready for a finite trial.
+Recordings stay outside Git; do not substitute predicted states for annotation.

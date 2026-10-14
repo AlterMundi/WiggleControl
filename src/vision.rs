@@ -141,6 +141,7 @@ fn crop(image: &RgbImage, roi: Roi, side: usize) -> Vec<f32> {
 pub struct DetectedHand {
     pub id: u64,
     pub landmarks: [XY; 21],
+    pub world_landmarks: [[f64; 3]; 21],
     pub confidence: f64,
     pub handedness: f64,
     pub tracked: bool,
@@ -319,9 +320,15 @@ impl Perception {
         let (_, landmarks) = outputs[0].try_extract_tensor::<f32>()?;
         let (_, confidence) = outputs[1].try_extract_tensor::<f32>()?;
         let (_, handedness) = outputs[2].try_extract_tensor::<f32>()?;
+        let (_, world) = outputs[3].try_extract_tensor::<f32>()?;
         self.hand_score = confidence.first().map(|n| f64::from(*n));
         self.side_score = handedness.first().map(|n| f64::from(*n));
-        if landmarks.len() != 63 || confidence.len() != 1 || handedness.len() != 1 {
+        if landmarks.len() != 63
+            || world.len() != 63
+            || world.iter().any(|n| !n.is_finite())
+            || confidence.len() != 1
+            || handedness.len() != 1
+        {
             return Err("unexpected hand model output contract".into());
         }
         if !handedness[0].is_finite()
@@ -342,6 +349,9 @@ impl Perception {
         Ok(Some(DetectedHand {
             id,
             landmarks: points,
+            world_landmarks: std::array::from_fn(|i| {
+                std::array::from_fn(|j| f64::from(world[i * 3 + j]))
+            }),
             confidence: confidence[0] as f64,
             handedness: handedness[0] as f64,
             tracked,
@@ -413,6 +423,15 @@ impl Perception {
     }
 }
 impl DetectedHand {
+    pub fn world_pinch_distance_m(&self) -> f64 {
+        self.world_landmarks[4]
+            .iter()
+            .zip(self.world_landmarks[8])
+            .map(|(a, b)| (a - b).powi(2))
+            .sum::<f64>()
+            .sqrt()
+    }
+
     pub fn in_view(&self, width: u32, height: u32) -> bool {
         self.landmarks
             .iter()
@@ -455,6 +474,7 @@ impl DetectedHand {
                 thumb_tip: normalized(points[4]),
                 index_tip: normalized(points[8]),
                 palm_width: points[5].distance(points[17]) / metric,
+                pinch_distance_m: None,
             }),
         }
     }
@@ -469,6 +489,7 @@ mod tests {
         let mut a = DetectedHand {
             id: 1,
             landmarks: [XY { x: 100.0, y: 100.0 }; 21],
+            world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,
             tracked: true,
@@ -521,6 +542,7 @@ mod tests {
         let mut hand = DetectedHand {
             id: 1,
             landmarks: [XY { x: 200.0, y: 300.0 }; 21],
+            world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,
             tracked: false,
@@ -532,6 +554,12 @@ mod tests {
         hand.landmarks[6] = XY { x: 180.0, y: 280.0 };
         hand.landmarks[8] = XY { x: 180.0, y: 180.0 };
         hand.landmarks[4] = XY { x: 186.0, y: 180.0 };
+        hand.world_landmarks[4] = [0.0, 0.0, 0.01];
+        hand.world_landmarks[8] = [0.0, 0.0, 0.035];
+        assert!((hand.world_pinch_distance_m() - 0.025).abs() < 1e-12);
+        hand.world_landmarks[4] = [0.01, 0.0, 0.0];
+        hand.world_landmarks[8] = [0.035, 0.0, 0.0];
+        assert!((hand.world_pinch_distance_m() - 0.025).abs() < 1e-12);
         assert!(hand.in_view(640, 480));
         let observed = hand.observation(640, 480, 1).hand.unwrap();
         assert!(observed.engaged);

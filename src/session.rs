@@ -591,7 +591,12 @@ fn run_mode(
                     calibration.frame(
                         interpreted
                             .as_ref()
-                            .filter(|h| h.confidence >= config.gestures().min_confidence)
+                            .filter(|h| {
+                                h.confidence >= config.gestures().min_confidence
+                                    && hand.as_ref().is_some_and(|detected| {
+                                        detected.in_view(image.width(), image.height())
+                                    })
+                            })
                             .map(|h| h.cursor),
                         engine.cursor_position(),
                         frame.source_us,

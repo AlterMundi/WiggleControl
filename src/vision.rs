@@ -413,12 +413,15 @@ impl Perception {
     }
 }
 impl DetectedHand {
+    pub fn in_view(&self, width: u32, height: u32) -> bool {
+        self.landmarks
+            .iter()
+            .all(|p| p.x >= 0.0 && p.y >= 0.0 && p.x < width as f64 && p.y < height as f64)
+    }
     pub fn observation(&self, width: u32, height: u32, source_us: u64) -> crate::Observation {
         let points = &self.landmarks;
         let metric = width.max(height) as f64;
-        let in_view = points
-            .iter()
-            .all(|p| p.x >= 0.0 && p.y >= 0.0 && p.x < width as f64 && p.y < height as f64);
+        let in_view = self.in_view(width, height);
         let extended = |tip: usize, pip: usize| {
             points[0].distance(points[tip]) > points[0].distance(points[pip]) * 1.05
         };
@@ -529,6 +532,7 @@ mod tests {
         hand.landmarks[6] = XY { x: 180.0, y: 280.0 };
         hand.landmarks[8] = XY { x: 180.0, y: 180.0 };
         hand.landmarks[4] = XY { x: 186.0, y: 180.0 };
+        assert!(hand.in_view(640, 480));
         let observed = hand.observation(640, 480, 1).hand.unwrap();
         assert!(observed.engaged);
         assert!(
@@ -536,6 +540,7 @@ mod tests {
                 < 1e-8
         );
         hand.landmarks[8].x = -1.0;
+        assert!(!hand.in_view(640, 480));
         assert!(!hand.observation(640, 480, 1).hand.unwrap().pinch_eligible);
     }
     #[test]

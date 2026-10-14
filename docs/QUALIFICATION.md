@@ -744,3 +744,10 @@ existing single-command queueing. Twenty-eight native library tests and all-targ
 Clippy passed; the rest of the native suite also passed before adding these two
 new library regressions. Real diagonal comfort, precision and all-corner reach
 remain unqualified until the next acknowledged physical trial.
+
+Sampling/review now also require the native detector's existing all-landmarks-in-view
+geometry check, independently of pinch eligibility. Previously calibration checked
+confidence and age only and could collect a clamped palm position while some
+landmarks were outside the image. This is a source finding, not proof of the cause
+of the reported corner barrier. In-view/out-of-view reference geometry is covered
+by the existing native vision test; no new camera trial was opened.

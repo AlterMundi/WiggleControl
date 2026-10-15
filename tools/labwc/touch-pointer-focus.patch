@@ -1,0 +1,16 @@
+--- a/src/input/cursor.c
++++ b/src/input/cursor.c
+@@ -1295,6 +1295,13 @@
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	/* Touch clears pointer focus; a stationary press still needs an enter. */
++	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED
++			&& wl_list_empty(&seat->touch_points)
++			&& !seat->wlr_seat->pointer_state.focused_surface) {
++		cursor_update_focus();
++	}
++
+ 	bool notify;
+ 	switch (event->state) {
+ 	case WL_POINTER_BUTTON_STATE_PRESSED:

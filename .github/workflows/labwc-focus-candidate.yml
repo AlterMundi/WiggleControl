@@ -1,0 +1,42 @@
+name: Labwc focus candidate
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/labwc/**', '.github/workflows/labwc-focus-candidate.yml']
+  pull_request:
+    paths: ['tools/labwc/**', '.github/workflows/labwc-focus-candidate.yml']
+jobs:
+  arm64:
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Matching distribution build dependencies
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg python3
+          curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key -o /tmp/raspberrypi.key
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          expected=json.loads(Path('tools/labwc/source.json').read_text())['raspberrypi_key_sha256']
+          assert hashlib.sha256(Path('/tmp/raspberrypi.key').read_bytes()).hexdigest()==expected
+          PY
+          gpg --batch --dearmor --output /usr/share/keyrings/raspberrypi-candidate.gpg /tmp/raspberrypi.key
+          printf 'deb [signed-by=/usr/share/keyrings/raspberrypi-candidate.gpg] https://archive.raspberrypi.com/debian/ trixie main\n' > /etc/apt/sources.list.d/raspberrypi-candidate.list
+          apt-get update
+          apt-get install -y gcc-14 meson ninja-build pkgconf patch git libcmocka-dev \
+            libxml2-dev liblzma-dev libglib2.0-dev libcairo2-dev libpango1.0-dev \
+            libinput-dev libpng-dev librsvg2-dev wayland-protocols libxkbcommon-dev \
+            libdrm-dev gettext libwlroots-0.20-dev libsfdo-dev xwayland \
+            libxcb-ewmh-dev libxcb-icccm4-dev
+      - run: tools/labwc/build_candidate.sh target/labwc-focus
+      - uses: actions/upload-artifact@v4
+        with:
+          name: labwc-focus-arm64-candidate
+          path: target/labwc-focus/labwc-focus-candidate.tar.gz
+          if-no-files-found: error
+          retention-days: 14

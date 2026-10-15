@@ -176,3 +176,41 @@ stationary handoff, absolute precision, participant routing, visual macros or
 comfort. The candidate is opt-in and incomplete, with no startup service.
 To retire it, remove its versioned candidate directory/archive and test artifacts;
 there is no active process to disable and the selected original runtime remains.
+
+
+## Input preparation and handoff investigation —2026-10-15
+
+[8ffe587](https://github.com/AlterMundi/WiggleControl/commit/8ffe587) adds the
+maintained `tools/prepare_input.sh` helper and installer integration. Isolated
+install/upgrade/interruption/rollback passed, including a pre-existing module file
+and an older manifest without that path. [CI38713826229](https://github.com/AlterMundi/WiggleControl/actions/runs/38713826229)
+passed all jobs. The helper was adopted independently of runtime binaries.
+
+A controlled receiving test verified no existing uinput users before unloading
+only that module. The kernel's own static-node description recreated a0600 node:
+operator open failed with EACCES and no driver registered. Running the helper
+loaded the module, retained its boot dependency in the original rollback and
+made normal-user open succeed. No virtual device or sensor session was created.
+Production/calibration executables and the original configuration/profile retained
+identical hashes. This reproduces the bootstrap gap and verifies preparation;
+an actual reboot remains unobserved, so#4 retains that acceptance item. See
+[INSTALL.md](INSTALL.md#permissions-and-original-baseline) for the supported route.
+
+The stationary handoff was then isolated with read-only observation of only the
+finite test writer's two evdev devices. All five stationary presses reached the
+kernel but produced no mouse pointerdown in Chromium. Fresh pointer movement
+before the repeated press produced one in all five. Cases: two contacts with
+0/200/600ms pause; one contact with0/600ms pause. Native and client traces are
+retained separately. The generator uses monotonic time and full explicit synthetic
+contact frames; it captures no camera, microphone or unrelated input device.
+
+Installed versions: labwc0.20.2/wlroots0.20.2/libinput1.28.1. The pinned labwc
+[handling of touch](https://github.com/labwc/labwc/blob/97f28877a343e062f3178d201f0248cd9c2610cf/src/input/touch.c)
+clears pointer focus; its button handler makes the cursor visible without an
+explicit missing-focus re-entry. Inspected upstream master9998771 retains that
+path. This is a source-grounded explanation to qualify further, not proof that
+an untested compositor patch works. The [local candidate](../tools/labwc/README.md)
+adds re-entry before a stationary press when contacts have ended and focus is
+missing. A separate off-host workflow builds baseline and patched ARM64 binaries;
+there is no automatic desktop activation or compositor restart. Physical camera
+control and the full roadmap remain unfinished.

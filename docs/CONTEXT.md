@@ -73,6 +73,15 @@ the workbench restored and sensors observed inactive after the test. Selected
 production/calibration binaries and original profile/config remain unchanged.
 Live native hand control, absolute precision, participants and visual macros remain open.
 
+Latest receiving follow-up: source8ffe587 now prepares the kernel module and named
+input grant through the maintained installer/upgrade helper, with original boot
+config enrolled in rollback. Controlled unloaded/static-node EACCES→normal-user
+open qualification passed; a real reboot is still pending in#4. No original
+binary/config/profile changed. Five handoff cases now retain actual kernel button
+events but no stationary client press until motion. A source-pinned local labwc
+focus candidate is being built for#5; current desktop compositor remains selected.
+See CONTROLLER-NATIVE.md and tools/labwc/README.md for exact evidence and limits.
+
 Older dated checkpoints below preserve history; they do not override this roadmap.
 
 Latest visible-research checkpoint (2026-10-15): the offline workbench on

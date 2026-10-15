@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/labwc/labwc",
+  "release": "0.20.2",
+  "commit": "97f28877a343e062f3178d201f0248cd9c2610cf",
+  "archive_sha256": "022676dbcbf6b6206b97d7bac8a339c8a0203e3e99693107c15b5a6183e4b0ea",
+  "gcc_version": "14.2.0",
+  "raspberrypi_key_sha256": "76603890d82a492175caf17aba68dc73acb1189c9fd58ec0c19145dfa3866d56"
+}

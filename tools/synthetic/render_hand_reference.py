@@ -52,6 +52,8 @@ def main():
         help='Reuse a controlled rigid view for the entire articulated sequence')
     parser.add_argument('--skin-check', action='store_true',
                         help='Measure selected distal skin patches using optional pinned python-fcl')
+    parser.add_argument('--measure-only', action='store_true',
+                        help='Evaluate closing geometry/skin without rendering images or an image sequence')
     parser.add_argument('--pair-motion', action='store_true',
                         help='Two independently transformed mirrored open hands approach and cross')
     parser.add_argument('--pair-closing', action='store_true',
@@ -92,6 +94,8 @@ def main():
         parser.error('--finger-spread requires0..1 and --gesture victory')
     if args.skin_check:
         from skin_clearance import distal_skin_clearance
+    if args.measure_only and not (args.skin_check and args.closing_steps):
+        parser.error('--measure-only requires --skin-check and --closing-steps')
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.fbx(filepath=str(args.fbx.resolve()), use_anim=False)
@@ -322,7 +326,7 @@ def main():
         camera_points = [camera.matrix_world.inverted() @ p for p in points]
         projected = [world_to_camera_view(scene, camera, p) for p in points]
         file = f'{index:03d}-{name}.png'
-        labels.append({'frame': index, 'case': name, 'image': file,
+        labels.append({'frame': index, 'case': name, 'image': None if args.measure_only else file,
                        'world_m': [list(p) for p in points],
                        'camera_m': [list(p) for p in camera_points],
                        'image_px': [[p.x * 640, (1-p.y) * 480] for p in projected],
@@ -396,8 +400,9 @@ def main():
                   'reference_mm': labels[-1]['rig_tip_gap_m'] * 1000,
                   'depth_cm': [min(-p.z for p in camera_points) * 100,
                                max(-p.z for p in camera_points) * 100]}), flush=True)
-        scene.render.filepath = str((args.output/file).resolve())
-        bpy.ops.render.render(write_still=True)
+        if not args.measure_only:
+            scene.render.filepath = str((args.output/file).resolve())
+            bpy.ops.render.render(write_still=True)
         if args.yaw_steps or args.motion_steps or args.closing_steps:
             print('WIGGLECONTROL_FRAME ' + json.dumps(labels[-1], separators=(',', ':')), flush=True)
     gaps = [entry['rig_tip_gap_m'] for entry in labels]
@@ -406,7 +411,8 @@ def main():
     rig.matrix_world = base
     bpy.context.view_layer.update()
     scene.render.filepath = str((args.output/'source-preview.png').resolve())
-    bpy.ops.wm.save_as_mainfile(filepath=str((args.output/'source.blend').resolve()))
+    if not args.measure_only:
+        bpy.ops.wm.save_as_mainfile(filepath=str((args.output/'source.blend').resolve()))
     report = {'schema': 'wigglecontrol.synthetic-rig/v1', 'blender': bpy.app.version_string,
               'asset_sha256': hashlib.sha256(args.fbx.read_bytes()).hexdigest(),
               'units': 'meters, imported FBX world coordinates', 'landmark_names': names,
@@ -418,6 +424,7 @@ def main():
               'articulation_sequence': bool(args.closing_steps),
               'closing_view': args.closing_view if args.closing_steps else None,
               'skin_clearance_measured': args.skin_check,
+              'images_rendered': not args.measure_only,
               'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
               'reference_hand_count': 2 if paired else 1,
               'paired_closure': args.pair_closing,
@@ -433,7 +440,7 @@ def main():
               'pose_qualification': 'Forward branch checked; selected distal skin clearance is separate from joint-limit, whole-hand collision and human acceptance',
               'camera_opened': False, 'rig_marker_gap_invariant_tolerance_m': None if args.closing_steps else 1e-6}
     (args.output/'labels.json').write_text(json.dumps(report, indent=2)+'\n')
-    if args.motion_steps or args.closing_steps:
+    if (args.motion_steps or args.closing_steps) and not args.measure_only:
         (args.output/'sequence.json').write_text(json.dumps({'version': 1, 'frames': [
             {'source_us': f['source_us'], 'image': f['image']} for f in labels]}, indent=2)+'\n')
     print('Generated and geometrically checked', len(labels), 'controlled frames')

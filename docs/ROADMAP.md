@@ -12,6 +12,13 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+Latest#7 evidence: full-trajectory skin measurements and285 matched controller
+replays reject the tested palm-length/dwell grid as an adopted fix. No candidate
+both removes separated-skin contacts and preserves baseline near-hold coverage
+at20Hz and both10Hz phases. Continue geometry/perception comparisons before
+changing the receiving thresholds; see the
+[complete comparison](research/native-visual-macros-2026-10.md#full-trajectory-interpretation-comparison).
+
 ## Outcome and today's goal
 
 Two moving hands should comfortably manipulate ordinary applications as deliberate

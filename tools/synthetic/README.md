@@ -369,3 +369,31 @@ an offset alone does not establish collision-free geometry. Frame labels retain
 both values. The measured near-separated/deeper-crossing extension is in the
 evolution report. Use immutable binary/config copies for comparison: the visible
 runner records launch digests and rejects changes detected during inference.
+
+### Geometry-only and matched temporal pinch comparisons
+
+`render_hand_reference.py --measure-only --skin-check --closing-steps N` evaluates
+the same articulation, framing and selected distal skin surfaces without rendering
+images. It requires the optional contact environment and produces only
+`labels.json`, with `images_rendered:false`, null image names and no image-sequence
+manifest. Use the original asset, closure, gesture, view and spread arguments;
+do not substitute a different geometry as truth for retained images.
+
+`compare_pinch_interpretations.py RESULTS... --binary BINARY --settings SETTINGS
+--output NEW_JSON` reuses retained raw predictions through the actual Rust
+`mode-replay` controller, without inference or input devices. It compares raw
+estimated meters with six exploratory world-gap/wrist-to-middle-MCP ratios,
+three confirmation durations and20Hz/each10Hz phase. The ratio probe encodes
+unitless values into the existing replay field; those are explicitly not
+corrected physical meters. No runtime setting is adopted. It verifies complete
+ordered predictions, reproduces baseline contact presence, checks Stop/EOF and
+pins unchanged input/binary digests. Scores retain all contact frames, onset skin
+distances, independent near/open holds and contacts at>=50mm selected separation.
+
+Optional `--geometry LABELS` applies to one results file and requires matching
+asset/recipe/target articulation/camera, source times and full world-marker
+trajectory within1µm. This permits measuring the entire original trajectory
+without repeating rendering/inference. A successful marker match is not full
+anatomical or unseen-view validation. See the
+[matched comparison](../../docs/research/native-visual-macros-2026-10.md#full-trajectory-interpretation-comparison)
+for the rejected candidates and actual limits.

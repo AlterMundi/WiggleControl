@@ -165,3 +165,65 @@ running; that unavailable observation is retained. Fresh health/document/search/
 snapshot reads passed, followed by the distinct `after-reader-ready` publication
 observation. No restart was inferred from the timeout. This follow-up is newer
 owning-project evidence beyond the selected snapshot, not another being's adoption.
+
+## Full-trajectory interpretation comparison
+
+CompAII,2026-10-15, continuing[#7](https://github.com/AlterMundi/WiggleControl/issues/7).
+The first hold-only feature probe suggested wrist-to-middle-MCP normalization
+might separate pinches from the tilted macro. Complete temporal replay rejects
+that as an accepted correction: removing false contacts trades away valid held
+coverage, and the apparent result depends on input cadence/phase.
+
+The renderer's new `--measure-only --skin-check` evaluates all61 original macro
+poses without rendering images. Same pinned MHR asset, forward-victory-v2,
+spread1, closure1 and pitch−25°; all1281 world markers match the retained image
+reference exactly (maximum difference0m), with identical camera/recipe metadata.
+FCL selected distal skin separation is77.236–87.520mm across the full trajectory,
+without selected-patch intersections. The first baseline contact, frame20, has
+79.640mm skin separation. This expands the previous nine-point probe; joint
+limits, whole-hand collisions and human intent are still not certified.
+
+`compare_pinch_interpretations.py` replays identical predictions through the
+actual source-bounddcee493 Rust controller. It reproduces original20Hz contact
+presence on all five sequences before comparing alternatives, and verifies
+explicit Stop/EOF release. Four41-frame corrected pinches supply independent
+approximately2mm near holds and positive open holds. The61-frame tilted macro
+supplies a continuously separated negative.20Hz and both source-time-preserving
+10Hz decimation phases are separate trials. There is no new inference/capture.
+
+The grid contains19 configurations: original45/65mm with40ms confirmation, and
+six unitless world-gap/palm-length close ratios0.30/0.35/0.38/0.40/0.42/0.45,
+each with open ratio1.5×close and40/80/120ms confirmation. The replay-only ratio
+encoding is not physical meters or a new runtime metric.285 controller runs
+cover five controls and three cadence/phase variants. All are development
+controls; no held-out selection is claimed.
+
+| Interpretation / confirmation |20Hz near contact frames /36; negative contact frames |10Hz phase0 near /20; negative |10Hz phase1 near /16; negative |
+| --- | --- | --- | --- |
+| Original45/65mm,40ms |35;26 |18;12 |15;13 |
+| Palm-length0.40/0.60,40ms |32;0 |16;0 |13;0 |
+| Palm-length0.42/0.63,40ms |35;23 |17;0 |15;0 |
+| Palm-length0.42/0.63,80ms |32;0 |17;0 |15;0 |
+
+Zero tested configurations both eliminate negative contacts and retain at least
+baseline near-hold coverage at every cadence/phase. Ordinary open-hold contacts
+remain zero. The0.42/40ms result demonstrates why passing one10Hz phase cannot
+establish robustness:20Hz still produces23 false-contact frames. Longer dwell
+reduces that failure at the cost of useful coverage/onset. Counts are frames,
+not independent successful human clicks or a real false-action rate.
+
+No correction/default/candidate was selected. A simple2D veto also lacks support:
+the earlier image-gap/palm-width ranges overlap genuine pinches. Next work must
+test additional geometry/perception features or alternative inference, with
+coverage, onset/release and cadence scored together. Keep the old45/65 receiving
+profile and prepared human trial intact; paired ownership and physical comfort
+remain separate gates. The TV retains the measured counterexample with87.5mm
+skin separation,44.5mm model gap and one contact, clearly marked as saved replay.
+Actual owned-browser inspection observed1920×1080, no document overflow and a
+loaded input image; no sensor or system input session was started.
+
+Private evidence retains the full geometry,57 cases per control, per-frame
+outputs/scores, digests and observed display. Source tools and this report carry
+portable methods/results; raw assets and local topology stay outside Git.
+This section extends the owning research beyond the immutable index9 snapshot;
+that earlier selected contribution remains unchanged.

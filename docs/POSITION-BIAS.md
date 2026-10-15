@@ -208,3 +208,14 @@ display actual render/inference stages and retain completed/error state. A stati
 or replayed result must not be described as ongoing processing. Human observation
 is part of experimental validation: inspect the actual image, visibility and
 occlusion before interpreting metric landmarks or missed detections.
+
+
+## Human review rejects the old closure direction —2026-10-15
+
+Nicolás observed dorsal index bending in the first articulated closure sequence.
+It used the same frozen solver recipe as the older intermediate/near sweeps.
+Those records retain exact geometric/model observations, but their poses must
+not be treated as valid natural-pinch references. Skin clearance alone did not
+validate the direction of flexion. The corrected forward-flex recipe, signed
+negative control and separate skin/model/contact measurements are documented in
+[the evolution report](research/controller-evolution-2026-10.md#articulated-skin-reference-and-human-correction).

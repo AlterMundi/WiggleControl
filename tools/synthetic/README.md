@@ -51,11 +51,13 @@ inside the image. A detector accepted an initial rendered hand at confidence0.99
 Actual aggregate model measurements belong in `docs/POSITION-BIAS.md`.
 This controls geometry, not photorealism or a physical camera's optics. Joint
 markers require independent anatomical/skin-tip mapping before contact claims.
-The default keeps an open pose. Optional `--closure VALUE` in the range0..1 interpolates toward a frozen geometric-solver candidate;
-`--closure 1` was also rendered at all eleven views. Applied joint angles and
-actual marker coordinates are retained. Joint limits, skin penetration and
-physical contact are unqualified, so do not turn this candidate into a pinch
-label. This tool does not qualify a live correction or change45/65 mm thresholds.
+The default keeps an open pose. Optional `--closure VALUE` in the range0..1 now
+uses the forward-flex recipe described below. The original frozen solver candidate
+was rendered at eleven views but was later rejected for dorsal index bending.
+Retain its dated numerical outputs as diagnostic history, not valid pinch labels.
+Applied joint angles and actual marker coordinates remain explicit. Neither the
+new geometric guards nor this tool qualify a live correction or change45/65mm
+thresholds.
 
 ## Visible experiments
 
@@ -172,3 +174,38 @@ failure separately; it never adopts settings. The workbench builder includes tha
 selection and shows its trace and budget outcome. The current calibrated grid
 fails the fixed gates; see the owning evolution report. No sensor or OS output is
 needed for these commands.
+
+### Articulated closure and independent skin clearance
+
+Use the optional pinned `contact-requirements.lock` environment for mesh distance:
+
+```sh
+uv run --no-build --no-project --python 3.11 --with-requirements tools/synthetic/contact-requirements.lock \
+  python tools/synthetic/test_skin_clearance.py
+uv run --no-build --no-project --python 3.11 --with-requirements tools/synthetic/contact-requirements.lock \
+  python tools/synthetic/render_hand_reference.py PATH_TO_LOD1.fbx NEW_DIRECTORY \
+  --hand-only --closure 1 --closing-steps 41 --skin-check
+```
+
+This uses the renderer's native Blender API and FCL's supported triangle-distance
+API; neither is installed in the Rust controller or on the display host. The
+qualified optional package is python-fcl0.7.0.11 (CPython3.11/x86_64 Linux wheel).
+`--closing-steps9..121` is separate from rigid/yaw/pair trajectories. Source time
+is20Hz; the open/near holds and per-frame articulation are retained explicitly.
+`--skin-check` currently measures a single reference hand. It selects distal
+thumb/index skin triangles, records witnesses/intersections and does not certify
+whole-hand collision, anatomical limits or intended input.
+
+The old frozen recipe permitted dorsal index flexion and was rejected by human
+TV review. `forward-flex-v2` instead uses retained positive-flex bounds and a
+signed displacement check against the rest palm plane. The previous pose fails
+that check. Every exported frame records its signed displacements and optional
+skin clearance. Static/rigid transforms still check marker-gap invariance;
+articulated sequences retain changing gaps instead. They need human plausibility
+and independent acceptance beyond these geometric guards.
+
+The existing visible-motion runner consumes the new manifest without sensors or
+OS output. Use an explicit offline config matching the intended2D/3D mode;
+legacy configs default to2D. The view shows selected skin gap, estimated model
+joint gap and emitted contact count separately. The corrected central41-frame
+result and its limits are in the owning evolution report.

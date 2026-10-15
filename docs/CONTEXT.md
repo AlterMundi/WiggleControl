@@ -38,6 +38,15 @@ rest/fast/fine budgets. The TV retains the calibrated scores and explicit failur
 No runtime/configuration adoption follows from that ranking. See the evolution
 report's calibrated-workspace and direct-touch sections for evidence and limits.
 
+Current articulated reference: Nicolás rejected the old solver's dorsal index
+bend. The old intermediate/near poses and first41-frame closure remain diagnostic
+history, not natural-pinch evidence. The corrected forward-flex recipe rejects
+that branch, measures distal skin clearance and completed41/41 detections with
+one ID and one contact interval in offline45/65mm replay. Selected skin surfaces
+stay separated by at least approximately2mm; full anatomy, views and real human
+intent remain unqualified. The TV retains this corrected sequence. See the
+[articulated reference correction](research/controller-evolution-2026-10.md#articulated-skin-reference-and-human-correction).
+
 Older dated checkpoints below preserve history; they do not override this roadmap.
 
 Latest visible-research checkpoint (2026-10-15): the offline workbench on

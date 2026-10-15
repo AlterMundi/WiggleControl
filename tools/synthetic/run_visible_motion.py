@@ -73,6 +73,7 @@ def main():
                     publish(status='running', phase='render', frame=len(images)-2, **picture(last_image))
                 time.sleep(0.5)
             manifest = json.loads((args.render_dir/'sequence.json').read_text())
+            labels = json.loads((args.render_dir/'labels.json').read_text())
             if len(manifest['frames']) != args.frames:
                 raise RuntimeError('Unexpected render frame count')
             publish(status='running', phase='inference', frame=0)
@@ -97,22 +98,32 @@ def main():
                         continue
                     rows.append(row)
                     last_image = args.render_dir/row['image']
+                    reference = labels['frames'][row['frame']]
+                    gap = reference.get('distal_skin', {}).get('surface_gap_m')
                     publish(status='running', phase='inference', frame=row['frame'],
+                            skin_gap_m=gap, closure=reference.get('closure_interpolation'),
+                            model_gap_m=row['hands'][0].get('pinch_distance_m') if row['hands'] else None,
+                            contacts=len(row['contacts']) if row.get('contacts') is not None else None,
                             hands=len(row['hands']), ambiguous=row['ambiguous'], **picture(last_image))
                 if process.wait(timeout=10) or len(rows) != args.frames:
                     raise RuntimeError('Incomplete sequence inference; inspect model.stderr')
-            labels = json.loads((args.render_dir/'labels.json').read_text())
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
                           backend='mediapipe-1.1.1-cpu' if args.mediapipe_model else 'rust-onnx-cpu',
                           binary_sha256=None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                           model_sha256=args.model_sha256,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
                           reference=labels, predictions=rows,
-                          limits='Rigid open-hand movement only; no qualified contact intent or anatomical fingertips')
+                          limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
+                          if labels.get('skin_clearance_measured') else
+                          'Rigid open-hand movement only; no qualified contact intent or anatomical fingertips')
             (args.output/'results.json').write_text(json.dumps(result, indent=2)+'\n')
             # Publish a small replay projection; raw predictions/reference stay in the report.
             replay = dict(frames=[dict(frame=r['frame'], image='near/'+r['image'],
-                                      hands=len(r['hands']), ambiguous=r['ambiguous']) for r in rows])
+                                      hands=len(r['hands']), ambiguous=r['ambiguous'],
+                                      skin_gap_m=labels['frames'][r['frame']].get('distal_skin', {}).get('surface_gap_m', None),
+                                      closure=labels['frames'][r['frame']].get('closure_interpolation'),
+                                      model_gap_m=r['hands'][0].get('pinch_distance_m') if r['hands'] else None,
+                                      contacts=len(r['contacts']) if r.get('contacts') is not None else None) for r in rows])
             js = 'window.receiveSequenceResults('+json.dumps(replay, separators=(',', ':'))+');\n'
             remote = shlex.join(['python3', '-c',
                 'import pathlib,sys,os;p=pathlib.Path(sys.argv[1]);t=p.with_suffix(".pending");t.write_bytes(sys.stdin.buffer.read());os.replace(t,p)',
@@ -125,7 +136,9 @@ def main():
                     ambiguousFrames=None if args.mediapipe_model else sum(r['ambiguous'] for r in rows),
                     identityCount=None if args.mediapipe_model else len(ids),
                     processingMedianMs=statistics.median(r['processing_ms'] for r in rows),
-                    result=result, hands=len(rows[-1]['hands']), **picture(last_image))
+                    result=result, hands=len(rows[-1]['hands']),
+                    **{k: replay['frames'][-1][k] for k in ('skin_gap_m', 'closure', 'model_gap_m', 'contacts')},
+                    **picture(last_image))
             print('Completed sequence:', len(rows), 'frames,',
                   'stable IDs unavailable' if args.mediapipe_model else str(len(ids))+' observed IDs', flush=True)
         except Exception as error:

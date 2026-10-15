@@ -18,6 +18,16 @@ from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Matrix, Quaternion, Vector
 
 
+
+def forward_flexion(rest, posed, normal, unit_scale):
+    """Reject the dorsal solver branch; this alone does not certify anatomy."""
+    displacement = {name: (posed[name]-point).dot(normal)*unit_scale
+                    for name, point in rest.items()}
+    if any(not math.isfinite(d) or d < -1e-6 for d in displacement.values()):
+        raise ValueError('Index flexion moved behind the rest palm plane; invalid reference pose')
+    return displacement
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('fbx', type=Path)
@@ -30,6 +40,10 @@ def main():
                         help='Mask the rest of the body using right-hand skinning weights')
     parser.add_argument('--motion-steps', type=int, default=0,
                         help='Optional 9..121-frame rigid hand trajectory, 20 Hz source time')
+    parser.add_argument('--closing-steps', type=int, default=0,
+                        help='9..121-frame opening/closing sequence toward --closure; requires --hand-only')
+    parser.add_argument('--skin-check', action='store_true',
+                        help='Measure selected distal skin patches using optional pinned python-fcl')
     parser.add_argument('--pair-motion', action='store_true',
                         help='Two independently transformed mirrored open hands approach and cross')
     args = parser.parse_args()
@@ -41,6 +55,13 @@ def main():
         parser.error('--motion-steps requires9..121, --hand-only and no --yaw-steps')
     if args.pair_motion and (not args.motion_steps or args.closure != 0):
         parser.error('--pair-motion requires --motion-steps and open --closure0')
+    if args.closing_steps and (not 9 <= args.closing_steps <= 121 or not args.hand_only
+                               or args.motion_steps or args.yaw_steps or args.pair_motion or args.closure <= 0):
+        parser.error('--closing-steps requires9..121, --hand-only, positive --closure and no other sequence')
+    if args.skin_check and args.pair_motion:
+        parser.error('--skin-check currently supports a single reference hand')
+    if args.skin_check:
+        from skin_clearance import distal_skin_clearance
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.fbx(filepath=str(args.fbx.resolve()), use_anim=False)
@@ -78,13 +99,25 @@ def main():
     side = (point('r_index1') - point('r_pinky1')).normalized()
     normal = side.cross(up).normalized()
     center = wrist + (middle - wrist) * 1.05
-    # A frozen geometric-solver candidate, not a biomechanically qualified pose
-    # or a physical skin-contact label. Retain exact applied angles for review.
+    # Forward-flex recipe v2. The previous unconstrained endpoint solver chose
+    # dorsal index bending, rejected by Nicolás's actual TV review. Positive
+    # flexion and a signed rest-plane check reject that branch. Distal skin
+    # clearance is measured separately; these bounds do not certify anatomy.
     parameters = {
-        'r_index1': -1.4403919155978504, 'r_index2': -1.7, 'r_index3': -1.7,
-        'r_thumb0': 0.39951653963086003, 'r_thumb1': -0.1086158339027759,
-        'r_thumb2': -1.0, 'r_thumb3': -1.0,
+        'r_index1': 0.5780913844963557, 'r_index2': 0.9080790178234996,
+        'r_index3': 0.6839674325177723, 'r_thumb0': 0.4828462042455118,
+        'r_thumb1': -0.06196422713524768, 'r_thumb2': 0.21760893089706515,
+        'r_thumb3': 0.0,
     }
+    limits = {'r_index1': [0, 1.0], 'r_index2': [0, 1.2], 'r_index3': [0, 1.0],
+              'r_thumb0': [-1.0, 1.0], 'r_thumb1': [-0.5, 0.5],
+              'r_thumb2': [0, 1.0], 'r_thumb3': [0, 1.0]}
+    if any(not limits[n][0] <= value <= limits[n][1] for n, value in parameters.items()):
+        raise ValueError('Forward pose exceeds the retained recipe bounds')
+    index_rest = {n: rig.pose.bones[n].head.copy()
+                  for n in ('r_index2', 'r_index3', 'r_index_null')}
+    normal_local = (rig.matrix_world.to_3x3().inverted() @ normal).normalized()
+    unit_scale = rig.matrix_world.to_scale().x
     children = {'r_index1': 'r_index2', 'r_index2': 'r_index3',
                 'r_index3': 'r_index_null', 'r_thumb2': 'r_thumb3',
                 'r_thumb3': 'r_thumb_null'}
@@ -99,6 +132,7 @@ def main():
         bone.rotation_mode = 'QUATERNION'
         bone.rotation_quaternion = Quaternion(axes[name], angle * args.closure)
     bpy.context.view_layer.update()
+    forward_flexion(index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
     camera_data = bpy.data.cameras.new('CalibrationCamera')
     camera = bpy.data.objects.new('CalibrationCamera', camera_data)
     scene.collection.objects.link(camera)
@@ -190,8 +224,20 @@ def main():
         cases = [(f'motion-{i:03d}', right * (0.10 * math.sin(i * 2 * math.pi / (args.motion_steps - 1))),
                   Matrix.Rotation(math.radians(20 * math.sin(i * 2 * math.pi / (args.motion_steps - 1))), 4, vertical))
                  for i in range(args.motion_steps)]
+    if args.closing_steps:
+        cases = [(f'motion-closing-{i:03d}', Vector(), Matrix.Identity(4))
+                 for i in range(args.closing_steps)]
     labels = []
     for index, (name, translation, turn) in enumerate(cases):
+        closure = args.closure
+        if args.closing_steps:
+            phase = index / (args.closing_steps - 1)
+            # Positive open/near holds surround the transition; geometry, not
+            # model output, defines the independently retained articulation.
+            closure *= max(0.0, min(1.0, (phase - 0.2) / 0.2, (0.8 - phase) / 0.2))
+            for bone, angle in parameters.items():
+                rig.pose.bones[bone].rotation_quaternion = Quaternion(axes[bone], angle * closure)
+
         if args.pair_motion:
             phase = index / (args.motion_steps - 1)
             # Distinct references cross in image space; no detector output defines identity.
@@ -212,8 +258,14 @@ def main():
                        'markers_in_frame': all(0 <= p.x <= 1 and 0 <= p.y <= 1 and p.z > 0 for p in projected),
                        'rig_tip_gap_m': (points[4]-points[8]).length,
                        'rig_world_matrix': list(map(list, rig.matrix_world))})
-        if args.motion_steps:
+        if args.motion_steps or args.closing_steps:
             labels[-1]['source_us'] = 1 + index * 50_000
+        if args.closing_steps:
+            labels[-1]['closure_interpolation'] = closure
+        labels[-1]['index_forward_displacement_m'] = forward_flexion(
+            index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
+        if args.skin_check:
+            labels[-1]['distal_skin'] = distal_skin_clearance(mesh, bpy.context.evaluated_depsgraph_get())
         if args.pair_motion:
             inverse_camera = camera.matrix_world.inverted()
             graph = bpy.context.evaluated_depsgraph_get()
@@ -244,10 +296,10 @@ def main():
                                max(-p.z for p in camera_points) * 100]}), flush=True)
         scene.render.filepath = str((args.output/file).resolve())
         bpy.ops.render.render(write_still=True)
-        if args.yaw_steps or args.motion_steps:
+        if args.yaw_steps or args.motion_steps or args.closing_steps:
             print('WIGGLECONTROL_FRAME ' + json.dumps(labels[-1], separators=(',', ':')), flush=True)
     gaps = [entry['rig_tip_gap_m'] for entry in labels]
-    if max(gaps)-min(gaps) > 1e-6:
+    if not args.closing_steps and max(gaps)-min(gaps) > 1e-6:
         raise RuntimeError('Rigid camera/pose control changed the reference marker distance')
     rig.matrix_world = base
     bpy.context.view_layer.update()
@@ -260,14 +312,18 @@ def main():
               'camera_world_matrix': list(map(list, camera.matrix_world)),
               'camera_projection_matrix': list(map(list, projection)),
               'image_size': [640, 480], 'render_seed': 0, 'frames': labels,
-              'closure_interpolation': args.closure,
+              'closure_interpolation': None if args.closing_steps else args.closure,
+              'articulation_sequence': bool(args.closing_steps),
+              'skin_clearance_measured': args.skin_check,
               'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
               'reference_hand_count': 2 if args.pair_motion else 1,
-              'applied_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
-              'pose_qualification': 'geometric candidate, anatomical limits/skin contact not validated',
-              'camera_opened': False, 'rig_marker_gap_invariant_tolerance_m': 1e-6}
+              'applied_joint_angles_rad': {n: v * closure for n, v in parameters.items()},
+              'target_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
+              'pose_recipe': 'forward-flex-v2', 'joint_recipe_bounds_rad': limits,
+              'pose_qualification': 'Forward branch checked; selected distal skin clearance is separate from joint-limit, whole-hand collision and human acceptance',
+              'camera_opened': False, 'rig_marker_gap_invariant_tolerance_m': None if args.closing_steps else 1e-6}
     (args.output/'labels.json').write_text(json.dumps(report, indent=2)+'\n')
-    if args.motion_steps:
+    if args.motion_steps or args.closing_steps:
         (args.output/'sequence.json').write_text(json.dumps({'version': 1, 'frames': [
             {'source_us': f['source_us'], 'image': f['image']} for f in labels]}, indent=2)+'\n')
     print('Generated and geometrically checked', len(labels), 'controlled frames')

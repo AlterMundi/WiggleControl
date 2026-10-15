@@ -258,10 +258,64 @@ according to the configured metric. It covers both modes and absent detections.
 This fixes source integration; it does not improve landmark accuracy, deploy a
 new receiving runtime or establish physical multitouch acceptance.
 
+## Articulated skin reference and human correction
+
+The optional geometry probe uses [python-fcl](https://github.com/BerkeleyAutomation/python-fcl)
+0.7.0.11 to measure the minimum triangle-surface distance between explicitly
+selected distal thumb/index skin patches. The patches contain302/312 triangles,
+selected from the corresponding third-phalanx/null skinning weights with a0.5
+threshold. Witness points, patch definitions and package version are retained.
+This measures a defined mesh region; it does not certify anatomical tip labels,
+soft tissue, whole-hand collision or human intent. Intersections are recorded
+separately; FCL's negative collision sentinel is not a signed penetration depth.
+Analytic parallel/edge-separated/intersecting triangles and rigid transforms
+qualify the distance adapter; malformed/degenerate inputs are rejected.
+
+The first41-frame closure sequence used the old frozen solver recipe. Its
+near pose had17.568mm marker separation but7.882mm distal skin clearance.
+Nicolás observed that its index bent roughly90 degrees toward the back of the
+hand before returning to normal extension. **That motion is an invalid human
+pinch reference.** Its41/41 detections and one contact interval remain diagnostic
+outputs, not natural-gesture accuracy evidence. The same recipe generated the
+older intermediate/near sweeps; their numerical geometry/model records remain,
+but they do not validate a natural pinch. A selected nonintersecting skin patch
+and a small IK endpoint residual had failed to catch the wrong bending branch.
+
+The renderer now uses `forward-flex-v2`, with positive index flexion, retained
+recipe bounds, a signed rest-palm-plane check and a separate skin-distance probe.
+The signed check rejects the retained old pose as a negative control. The new
+index joints/tip move20.53/43.96/65.16mm toward the palm side at the near pose.
+These are geometric safeguards, not a certificate of complete biomechanics.
+
+The corrected41-frame open/closing/hold/opening sequence runs at simulated20Hz.
+Its distal skin gap spans81.211mm to approximately2.000mm, with no selected-patch
+intersections in any frame. Actual native optimized inference detected41/41,
+kept one ID, declared no ambiguity and emitted one contact interval (frames16..28)
+using the offline45/65mm configuration. Processing median was23.37ms on the VPS;
+this is not a Pi or camera-to-screen latency measurement.
+
+| Corrected reference stage | Skin gap mm | Rig-marker gap mm | Model joint-gap estimate mm | Contact |
+| --- | --- | --- | --- | --- |
+| Initial open /frame0 | 81.21 | 113.18 | 85.29 | No |
+| Half closure /frame12 | 44.84 | 65.47 | 62.35 | No |
+| First emitted contact /frame16 | 2.00 | 16.50 | 32.43 | Yes |
+| Near hold /frame20 | 2.00 | 16.50 | 34.43 | Yes |
+| Released while opening /frame29 | 54.46 | 78.51 | 68.31 | No |
+| Final open /frame40 | 81.21 | 113.18 | 85.63 | No |
+
+The TV followed the actual finite render and inference, and retains the corrected
+sequence/replay with skin clearance, estimated model gap and contact count.
+Raw output and the rejected sequence's human review stay private. No camera,
+microphone, OS injection, receiving binary/configuration or live calibration
+changed. Human plausibility/comfort, different views, self-occlusion, whole-hand
+collision and real intended actions remain independent acceptance work. This
+single successful synthetic contact interval does not prove the full controller.
+
 ## Reuse and research curation
 
-The portable finding and methodology are candidates for collective research once
-the temporal/contact comparison is coherent. Keep this owning repository as the
+The distinction between marker distance, selected skin clearance and plausible
+motion merits a collective-research record with the retained human correction.
+The owning report is its entry point; ingestion is not claimed here. Keep this owning repository as the
 canonical technical source. A curated research record should link source/version,
 independent labels, selected aggregate results, failure corrections and limits;
 private footage, receiving routes and native conversation history stay private.

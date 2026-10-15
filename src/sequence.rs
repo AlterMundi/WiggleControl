@@ -61,9 +61,13 @@ pub fn check(
     manifest: &Path,
     config: &Path,
     rediscovery_interval: u32,
+    pair_separation_widths: f64,
 ) -> Result<(), Box<dyn Error>> {
     if !(1..=30).contains(&rediscovery_interval) {
         return Err("rediscovery interval must be 1..30 frames".into());
+    }
+    if !(0.8..=2.0).contains(&pair_separation_widths) {
+        return Err("pair separation must be finite and0.8..2.0 palm widths".into());
     }
     let sequence = Sequence::load(manifest)?;
     let config = SessionConfig::load(config)?;
@@ -73,14 +77,17 @@ pub fn check(
         .parent()
         .ok_or("missing sequence root")?
         .to_path_buf();
-    let mut model =
-        Perception::with_rediscovery_interval(Path::new(&config.models), rediscovery_interval)?;
+    let mut model = Perception::with_replay_options(
+        Path::new(&config.models),
+        rediscovery_interval,
+        pair_separation_widths,
+    )?;
     let mut gestures = Gestures::new(config.gestures(), config.touch_workspace)?;
     gestures.start();
     let mut out = io::stdout().lock();
     for (index, frame) in sequence.frames.iter().enumerate() {
         let started = Instant::now();
-        let (hands, ambiguous, raw) = if let Some(name) = &frame.image {
+        let (hands, ambiguous, raw, ambiguity_reason) = if let Some(name) = &frame.image {
             let path = root.join(name).canonicalize()?;
             if !path.starts_with(&root) {
                 return Err("sequence image symlink escapes root".into());
@@ -107,9 +114,9 @@ pub fn check(
                         .hand
                 })
                 .collect();
-            (hands, found.ambiguous, raw)
+            (hands, found.ambiguous, raw, found.ambiguity_reason)
         } else {
-            (Vec::new(), false, Vec::new())
+            (Vec::new(), false, Vec::new(), None)
         };
         let observation = Frame {
             version: 1,
@@ -125,7 +132,9 @@ pub fn check(
             "source_us":frame.source_us,"image":frame.image,"camera_opened":false,"system_input":false,
             "offline_now_equals_source":true,"processing_ms":started.elapsed().as_secs_f64()*1000.0,
             "rediscovery_interval":rediscovery_interval,
-            "ambiguous":ambiguous,"perception":raw,"hands":hands,"contacts":contacts})
+            "pair_separation_widths":pair_separation_widths,
+            "ambiguous":ambiguous,"ambiguity_reason":ambiguity_reason,
+            "perception":raw,"hands":hands,"contacts":contacts})
         )?;
         out.flush()?;
     }

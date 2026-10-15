@@ -170,6 +170,8 @@ struct TrackedHand {
 pub struct MultiHands {
     pub hands: Vec<DetectedHand>,
     pub ambiguous: bool,
+    /// Diagnostic cause of an explicitly rejected identity set.
+    pub ambiguity_reason: Option<&'static str>,
 }
 pub struct Perception {
     palm: Session,
@@ -180,6 +182,7 @@ pub struct Perception {
     tracks: Vec<TrackedHand>,
     search_frames: u32,
     rediscovery_interval: u32,
+    pair_separation_widths: f64,
     pub palm_score: Option<f64>,
     pub hand_score: Option<f64>,
     pub side_score: Option<f64>,
@@ -199,11 +202,11 @@ fn center(hand: &DetectedHand) -> XY {
         y: (hand.landmarks[5].y + hand.landmarks[17].y) / 2.0,
     }
 }
-fn pair_uncertain(a: &DetectedHand, b: &DetectedHand) -> bool {
+fn pair_uncertain(a: &DetectedHand, b: &DetectedHand, minimum_widths: f64) -> bool {
     let width = a.landmarks[5]
         .distance(a.landmarks[17])
         .max(b.landmarks[5].distance(b.landmarks[17]));
-    center(a).distance(center(b)) < 0.8 * width
+    center(a).distance(center(b)) < minimum_widths * width
 }
 fn identity_uncertain(a: &DetectedHand, b: &DetectedHand, side: f64) -> bool {
     center(a).distance(center(b)) > 0.5 * side
@@ -227,6 +230,7 @@ impl Perception {
             tracks: Vec::new(),
             search_frames: 0,
             rediscovery_interval: 5,
+            pair_separation_widths: 0.8,
             palm_score: None,
             hand_score: None,
             side_score: None,
@@ -237,11 +241,23 @@ impl Perception {
     }
     /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
     pub fn with_rediscovery_interval(models: &Path, interval: u32) -> Result<Self, Box<dyn Error>> {
+        Self::with_replay_options(models, interval, 0.8)
+    }
+    /// Offline comparison controls; ordinary runtime retains its existing policy.
+    pub fn with_replay_options(
+        models: &Path,
+        interval: u32,
+        pair_separation_widths: f64,
+    ) -> Result<Self, Box<dyn Error>> {
         if !(1..=30).contains(&interval) {
             return Err("rediscovery interval must be 1..30 frames".into());
         }
+        if !(0.8..=2.0).contains(&pair_separation_widths) {
+            return Err("pair separation must be finite and0.8..2.0 palm widths".into());
+        }
         let mut model = Self::new(models)?;
         model.rediscovery_interval = interval;
+        model.pair_separation_widths = pair_separation_widths;
         Ok(model)
     }
     fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<Roi>, Box<dyn Error>> {
@@ -394,6 +410,7 @@ impl Perception {
                     return Ok(MultiHands {
                         hands: Vec::new(),
                         ambiguous: true,
+                        ambiguity_reason: Some("track_identity"),
                     });
                 }
                 if let Some(roi) = roi_from(
@@ -437,10 +454,13 @@ impl Perception {
                 }
             }
         }
-        if next.len() == 2 && pair_uncertain(&next[0].hand, &next[1].hand) {
+        if next.len() == 2
+            && pair_uncertain(&next[0].hand, &next[1].hand, self.pair_separation_widths)
+        {
             return Ok(MultiHands {
                 hands: Vec::new(),
                 ambiguous: true,
+                ambiguity_reason: Some("pair_overlap"),
             });
         }
         let hands = next.iter().map(|t| t.hand.clone()).collect();
@@ -448,6 +468,7 @@ impl Perception {
         Ok(MultiHands {
             hands,
             ambiguous: false,
+            ambiguity_reason: None,
         })
     }
 }
@@ -678,11 +699,17 @@ mod tests {
         a.landmarks[17].x = 120.0;
         let mut b = a.clone();
         b.id = 2;
-        assert!(pair_uncertain(&a, &b));
+        assert!(pair_uncertain(&a, &b, 0.8));
         for p in &mut b.landmarks {
             p.x += 100.0;
         }
-        assert!(!pair_uncertain(&a, &b));
+        assert!(!pair_uncertain(&a, &b, 0.8));
+        let mut crowded = a.clone();
+        for point in &mut crowded.landmarks {
+            point.x += 38.0;
+        }
+        assert!(!pair_uncertain(&a, &crowded, 0.8));
+        assert!(pair_uncertain(&a, &crowded, 1.0));
         assert!(!identity_uncertain(&a, &b, 300.0));
         assert!(identity_uncertain(&a, &b, 100.0));
         b = a.clone();

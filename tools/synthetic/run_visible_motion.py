@@ -14,6 +14,24 @@ import uuid
 from run_visible_probe import SINK
 
 
+def frame_projection(reference, row):
+    paired = len(reference.get('reference_hands', [])) == 2
+    result = dict(skin_gap_m=None if paired else reference.get('distal_skin', {}).get('surface_gap_m'),
+                  closure=reference.get('closure_interpolation'),
+                  model_gap_m=row['hands'][0].get('pinch_distance_m') if row['hands'] and not paired else None,
+                  contacts=len(row['contacts']) if row.get('contacts') is not None else None,
+                  hands=len(row['hands']), ambiguous=row['ambiguous'],
+                  ambiguity_reason=row.get('ambiguity_reason'))
+    if paired:
+        result['references'] = [dict(id=h['id'], closure=h.get('closure_interpolation'),
+                                     skin_gap_m=h.get('distal_skin', {}).get('surface_gap_m'))
+                                 for h in reference['reference_hands']]
+        result['model_hands'] = [dict(id=h.get('id'),
+                                      gap_m=h.get('pinch_distance_m', h.get('world_pinch_distance_m')))
+                                 for h in row['hands']]
+    return result
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('render_dir', type=Path)
@@ -30,6 +48,8 @@ def main():
     p.add_argument('--model-sha256')
     p.add_argument('--rediscovery', type=int, default=5,
                    help='Controlled native missing-hand detector interval in frames, default5')
+    p.add_argument('--pair-separation', type=float, default=0.8,
+                   help='Offline native overlap guard in palm widths, default0.8; no live adoption')
     args = p.parse_args()
     if not 9 <= args.frames <= 121:
         p.error('--frames must be9..121')
@@ -37,6 +57,8 @@ def main():
         p.error('--mediapipe-model requires --model-sha256')
     if not 1 <= args.rediscovery <= 30 or (args.mediapipe_model and args.rediscovery != 5):
         p.error('--rediscovery must be1..30 and is a native-only option')
+    if not 0.8 <= args.pair_separation <= 2 or (args.mediapipe_model and args.pair_separation != 0.8):
+        p.error('--pair-separation must be0.8..2 and is a native-only option')
     args.output.mkdir(mode=0o700, exist_ok=False)
     # Same atomic receiving writer as the retained static/yaw probes.
     command = shlex.join(['python3', '-u', '-c', SINK, args.display_dir])
@@ -62,7 +84,8 @@ def main():
         process = None
         try:
             deadline = time.monotonic() + 600
-            publish(status='running', phase='render', frame=0)
+            publish(status='running', phase='inference' if (args.render_dir/'sequence.json').is_file()
+                    else 'render', frame=0)
             while not (args.render_dir/'sequence.json').is_file():
                 if time.monotonic() > deadline:
                     raise RuntimeError('Render did not complete within ten-minute observer bound')
@@ -83,6 +106,8 @@ def main():
                              str(args.render_dir/'sequence.json'), str(args.config)]
                 if args.rediscovery != 5:
                     inference += ['--rediscovery', str(args.rediscovery)]
+                if args.pair_separation != 0.8:
+                    inference += ['--pair-separation', str(args.pair_separation)]
                 if args.mediapipe_model:
                     inference = ['uv', 'run', '--offline', '--no-project', '--python', '3.11',
                         '--with-requirements', str(Path(__file__).with_name('mediapipe-requirements.lock')), 'python',
@@ -100,12 +125,8 @@ def main():
                     rows.append(row)
                     last_image = args.render_dir/row['image']
                     reference = labels['frames'][row['frame']]
-                    gap = reference.get('distal_skin', {}).get('surface_gap_m')
                     publish(status='running', phase='inference', frame=row['frame'],
-                            skin_gap_m=gap, closure=reference.get('closure_interpolation'),
-                            model_gap_m=row['hands'][0].get('pinch_distance_m') if row['hands'] else None,
-                            contacts=len(row['contacts']) if row.get('contacts') is not None else None,
-                            hands=len(row['hands']), ambiguous=row['ambiguous'], **picture(last_image))
+                            **frame_projection(reference, row), **picture(last_image))
                 if process.wait(timeout=10) or len(rows) != args.frames:
                     raise RuntimeError('Incomplete sequence inference; inspect model.stderr')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
@@ -115,6 +136,7 @@ def main():
                           binary_sha256=None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                           model_sha256=args.model_sha256,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
+                          pair_separation_widths=None if args.mediapipe_model else args.pair_separation,
                           reference=labels, predictions=rows,
                           limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
                           if labels.get('skin_clearance_measured') else
@@ -123,11 +145,7 @@ def main():
             # Publish a small replay projection; raw predictions/reference stay in the report.
             replay = dict(frames=[dict(frame=r['frame'], image='near/'+r['image'],
                                       label=args.label,
-                                      hands=len(r['hands']), ambiguous=r['ambiguous'],
-                                      skin_gap_m=labels['frames'][r['frame']].get('distal_skin', {}).get('surface_gap_m', None),
-                                      closure=labels['frames'][r['frame']].get('closure_interpolation'),
-                                      model_gap_m=r['hands'][0].get('pinch_distance_m') if r['hands'] else None,
-                                      contacts=len(r['contacts']) if r.get('contacts') is not None else None) for r in rows])
+                                      **frame_projection(labels['frames'][r['frame']], r)) for r in rows])
             js = 'window.receiveSequenceResults('+json.dumps(replay, separators=(',', ':'))+');\n'
             remote = shlex.join(['python3', '-c',
                 'import pathlib,sys,os;p=pathlib.Path(sys.argv[1]);t=p.with_suffix(".pending");t.write_bytes(sys.stdin.buffer.read());os.replace(t,p)',
@@ -136,12 +154,13 @@ def main():
             ids = {h['id'] for row in rows for h in row['hands'] if 'id' in h}
             publish(status='complete', phase='retained', frame=args.frames-1,
                     detectedFrames=sum(bool(r['hands']) for r in rows),
+                    referenceHands=labels.get('reference_hand_count'),
+                    twoHandFrames=sum(len(r['hands']) == 2 for r in rows),
                     backend=result['backend'],
                     ambiguousFrames=None if args.mediapipe_model else sum(r['ambiguous'] for r in rows),
                     identityCount=None if args.mediapipe_model else len(ids),
                     processingMedianMs=statistics.median(r['processing_ms'] for r in rows),
-                    result=result, hands=len(rows[-1]['hands']),
-                    **{k: replay['frames'][-1][k] for k in ('skin_gap_m', 'closure', 'model_gap_m', 'contacts')},
+                    result=result, **frame_projection(labels['frames'][-1], rows[-1]),
                     **picture(last_image))
             print('Completed sequence:', len(rows), 'frames,',
                   'stable IDs unavailable' if args.mediapipe_model else str(len(ids))+' observed IDs', flush=True)

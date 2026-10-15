@@ -59,6 +59,18 @@ The TV retains the actual last2D comparison. Live thresholds/config/profile and
 selected controller binaries remain unchanged; physical and two-hand articulated
 qualification remain open.
 
+Independent paired closure now has61-frame separated/crossing references, per-hand
+geometry and guarded ownership scoring. Separated hands retain two tracks in61/61
+frames and correct counts in all41 fully open/near hold frames. Crossing drops
+dual-hand coverage to36/61, cancels for `pair_overlap` at frame24 and reacquires new
+IDs; it also emits a premature second contact at frame23 while that reference's
+distal skin gap is57.60mm. Offline separation guards1.0/1.2/1.4 prevent that onset,
+with earlier cancellation rather than repaired continuity. Default/live policy
+remains0.8; no new controller runtime/config was adopted.10Hz phases and retained
+open-hand controls are tested separately. See the
+[paired comparison](research/controller-evolution-2026-10.md#paired-closure-overlap-and-input-cadence-2026-10-15)
+for exact scope, failed coverage and the remaining implementation work in#3.
+
 Current mode increment: an exclusive arbiter now reuses pointer/contact/macro
 engines for pointer, relative precision, explicit scroll, one contact and two
 contacts. Replay verifies neutral mode transitions, open-before-move/repress,

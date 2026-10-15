@@ -14,13 +14,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
-        Some("sequence-check")
-            if args.len() == 3 || (args.len() == 5 && args[3] == "--rediscovery") =>
-        {
+        Some("sequence-check") if args.len() >= 3 => {
+            let mut rediscovery = None;
+            let mut separation = None;
+            let mut options = args[3..].chunks_exact(2);
+            for option in options.by_ref() {
+                match option[0].as_str() {
+                    "--rediscovery" if rediscovery.is_none() => {
+                        rediscovery = Some(option[1].parse()?)
+                    }
+                    "--pair-separation" if separation.is_none() => {
+                        separation = Some(option[1].parse()?)
+                    }
+                    _ => return Err("unknown or duplicate sequence-check option".into()),
+                }
+            }
+            if !options.remainder().is_empty() {
+                return Err("sequence-check option requires a value".into());
+            }
             return wigglecontrol::sequence::check(
                 std::path::Path::new(&args[1]),
                 std::path::Path::new(&args[2]),
-                args.get(4).map(|n| n.parse()).transpose()?.unwrap_or(5),
+                rediscovery.unwrap_or(5),
+                separation.unwrap_or(0.8),
             );
         }
         Some("position-sweep") if args.len() == 4 => {

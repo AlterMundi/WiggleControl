@@ -50,6 +50,10 @@ def main():
                         help='Measure selected distal skin patches using optional pinned python-fcl')
     parser.add_argument('--pair-motion', action='store_true',
                         help='Two independently transformed mirrored open hands approach and cross')
+    parser.add_argument('--pair-closing', action='store_true',
+                        help='Two mirrored hands close/open at independent phases; requires --closing-steps')
+    parser.add_argument('--pair-layout', choices=['separated', 'crossing'], default='separated',
+                        help='Fixed separated hands or a controlled crossing during paired closure')
     args = parser.parse_args()
     if not 0 <= args.closure <= 1:
         parser.error('--closure must be in0..1')
@@ -62,8 +66,10 @@ def main():
     if args.closing_steps and (not 9 <= args.closing_steps <= 121 or not args.hand_only
                                or args.motion_steps or args.yaw_steps or args.pair_motion or args.closure <= 0):
         parser.error('--closing-steps requires9..121, --hand-only, positive --closure and no other sequence')
-    if args.skin_check and args.pair_motion:
-        parser.error('--skin-check currently supports a single reference hand')
+    if args.pair_closing and (not args.closing_steps or args.closing_view != 'reference'):
+        parser.error('--pair-closing requires --closing-steps and reference --closing-view')
+    if args.pair_layout != 'separated' and not args.pair_closing:
+        parser.error('--pair-layout requires --pair-closing')
     if args.closing_view != 'reference' and not args.closing_steps:
         parser.error('--closing-view requires --closing-steps')
     if args.skin_check:
@@ -195,8 +201,9 @@ def main():
     vertical = camera_rotation @ Vector((0, 1, 0))
     forward = camera_rotation @ Vector((0, 0, -1))
     base = rig.matrix_world.copy()
+    paired = args.pair_motion or args.pair_closing
     second_rig = None
-    if args.pair_motion:
+    if paired:
         second_rig = rig.copy()
         second_rig.data = rig.data.copy()
         second_rig.name = 'ReferenceHandB'
@@ -237,11 +244,19 @@ def main():
     labels = []
     for index, (name, translation, turn) in enumerate(cases):
         closure = args.closure
+        second_closure = 0.0
         if args.closing_steps:
             phase = index / (args.closing_steps - 1)
             # Positive open/near holds surround the transition; geometry, not
             # model output, defines the independently retained articulation.
-            closure *= max(0.0, min(1.0, (phase - 0.2) / 0.2, (0.8 - phase) / 0.2))
+            if args.pair_closing:
+                closure *= max(0.0, min(1.0, (phase - 0.15) / 0.1, (0.75 - phase) / 0.1))
+                second_closure = args.closure * max(0.0, min(1.0, (phase - 0.35) / 0.1,
+                                                           (0.90 - phase) / 0.1))
+                for bone, angle in parameters.items():
+                    second_rig.pose.bones[bone].rotation_quaternion = Quaternion(axes[bone], angle * second_closure)
+            else:
+                closure *= max(0.0, min(1.0, (phase - 0.2) / 0.2, (0.8 - phase) / 0.2))
             for bone, angle in parameters.items():
                 rig.pose.bones[bone].rotation_quaternion = Quaternion(axes[bone], angle * closure)
 
@@ -249,6 +264,11 @@ def main():
             phase = index / (args.motion_steps - 1)
             # Distinct references cross in image space; no detector output defines identity.
             offset = -0.10 + phase * 0.20
+            translation = right * offset
+            turn = Matrix.Identity(4)
+            second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * 0.14) @ reflection @ Matrix.Translation(-center) @ base
+        if args.pair_closing:
+            offset = -0.105 + (phase * 0.210 if args.pair_layout == 'crossing' else 0.0)
             translation = right * offset
             turn = Matrix.Identity(4)
             second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * 0.14) @ reflection @ Matrix.Translation(-center) @ base
@@ -274,7 +294,7 @@ def main():
             index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
         if args.skin_check:
             labels[-1]['distal_skin'] = distal_skin_clearance(mesh, bpy.context.evaluated_depsgraph_get())
-        if args.hand_only and not args.pair_motion:
+        if args.hand_only and not paired:
             evaluated = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
             skin_points = [evaluated.matrix_world @ v.co for v in evaluated.data.vertices]
             inverse_camera = camera.matrix_world.inverted()
@@ -286,15 +306,19 @@ def main():
                 max(p.x for p in skin_projected)*640, (1-min(p.y for p in skin_projected))*480]
             labels[-1]['skin_in_frame'] = all(0 <= p.x <= 1 and 0 <= p.y <= 1 and p.z > 0
                                               for p in skin_projected)
-        if args.pair_motion:
+        if paired:
             inverse_camera = camera.matrix_world.inverted()
             graph = bpy.context.evaluated_depsgraph_get()
-            depth_ranges = []
+            depth_ranges, skin_in_frame = [], []
             for obj in (mesh, second_mesh):
                 evaluated = obj.evaluated_get(graph)
                 depths = [-(inverse_camera @ evaluated.matrix_world @ v.co).z
                           for v in evaluated.data.vertices]
                 depth_ranges.append([min(depths), max(depths)])
+                skin_projection = [world_to_camera_view(scene, camera, evaluated.matrix_world @ v.co)
+                                   for v in evaluated.data.vertices]
+                skin_in_frame.append(all(0 <= p.x <= 1 and 0 <= p.y <= 1 and p.z > 0
+                                         for p in skin_projection))
             if depth_ranges[0][1] >= depth_ranges[1][0]:
                 raise RuntimeError('Paired visible skin depth ranges overlap; collision-free reference not established')
             # Same marker definition in each independent rig's local coordinate frame.
@@ -307,6 +331,17 @@ def main():
                  'image_px': [[p.x * 640, (1-p.y) * 480] for p in second_projected]}]
             labels[-1]['skin_camera_depth_ranges_m'] = depth_ranges
             labels[-1]['separated_skin_depth_ranges'] = True
+            labels[-1]['skin_in_frame'] = all(skin_in_frame)
+            for hand_index, (hand, hand_rig, hand_mesh, articulation) in enumerate(zip(
+                    labels[-1]['reference_hands'], (rig, second_rig), (mesh, second_mesh),
+                    (closure, second_closure))):
+                hand['closure_interpolation'] = articulation
+                hand['skin_in_frame'] = skin_in_frame[hand_index]
+                hand['index_forward_displacement_m'] = forward_flexion(
+                    index_rest, {n: hand_rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
+                if args.skin_check:
+                    hand['distal_skin'] = (labels[-1]['distal_skin'] if hand_rig == rig else
+                                           distal_skin_clearance(hand_mesh, graph))
         if args.yaw_steps:
             labels[-1]['yaw_degrees'] = -35 + index * 70 / (args.yaw_steps - 1)
             print('WIGGLECONTROL_STAGE ' + json.dumps({'phase': 'render',
@@ -337,7 +372,9 @@ def main():
               'closing_view': args.closing_view if args.closing_steps else None,
               'skin_clearance_measured': args.skin_check,
               'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
-              'reference_hand_count': 2 if args.pair_motion else 1,
+              'reference_hand_count': 2 if paired else 1,
+              'paired_closure': args.pair_closing,
+              'pair_layout': args.pair_layout if args.pair_closing else None,
               'applied_joint_angles_rad': {n: v * closure for n, v in parameters.items()},
               'target_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
               'pose_recipe': 'forward-flex-v2', 'joint_recipe_bounds_rad': limits,

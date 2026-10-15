@@ -192,7 +192,7 @@ API; neither is installed in the Rust controller or on the display host. The
 qualified optional package is python-fcl0.7.0.11 (CPython3.11/x86_64 Linux wheel).
 `--closing-steps9..121` is separate from rigid/yaw/pair trajectories. Source time
 is20Hz; the open/near holds and per-frame articulation are retained explicitly.
-`--skin-check` currently measures a single reference hand. It selects distal
+`--skin-check` measures each reference hand separately. It selects distal
 thumb/index skin triangles, records witnesses/intersections and does not certify
 whole-hand collision, anatomical limits or intended input.
 
@@ -233,3 +233,43 @@ model's contacts during the renderer's open/maximum-closure holds, track IDs,
 geometry/framing and estimated gaps. Holds are defined by articulation, not
 predicted contact state; they are not human intent labels. Source report digests
 allow the aggregate to be traced back to full private predictions and references.
+
+### Independent paired pinches and overlap probes
+
+`--pair-closing` with `--closing-steps 61 --closure 1 --hand-only --skin-check`
+renders two mirrored reference hands with independent articulation phases. Use
+ordinary separated hands or `--pair-layout crossing`:
+
+```sh
+uv run --offline --no-build --no-project --python 3.11 --with-requirements tools/synthetic/contact-requirements.lock \
+  python tools/synthetic/render_hand_reference.py ASSET NEW_DIRECTORY \
+  --hand-only --closure 1 --closing-steps 61 --skin-check --pair-closing --pair-layout separated
+python3 tools/synthetic/summarize_pair_closure.py RESULTS.json --config EXACT_OFFLINE_CONFIG.json
+python3 tools/synthetic/test_pair_closure.py
+```
+
+The first hand closes during normalized sequence phase0.15–0.25 and opens during
+0.65–0.75; the second closes during0.35–0.45 and opens during0.80–0.90.
+Each frame retains both reference IDs, marker projections, forward-flex checks,
+optional distal skin distances and full-skin framing. The existing14cm camera-
+depth offset must keep evaluated skin depth intervals disjoint. This establishes
+separation of the two meshes, not per-finger visibility through screen overlap.
+
+The paired summary checks the exact configuration digest and accepts only the
+full uncalibrated workspace. Contacts use the native mirrored-X convention.
+Counts during open/near holds are distinct from observable ownership. Palm-center
+matching has explicit distance/margin guards; overlapping or uncertain associations
+are unscored. The independent scorer controls include stable counts/IDs attached
+to the wrong physical hands across overlap, so constant ID counts cannot pass an
+ownership swap. Onsets retain independently measured skin gaps, including failures
+that occur during transitions rather than a fully open/closed hold.
+
+`sequence-check` now emits `ambiguity_reason` (`pair_overlap`, `track_identity`
+or null). Its optional `--pair-separation WIDTHS` accepts0.8..2.0 palm widths;
+the ordinary runtime and offline default remain0.8. It can be combined with
+`--rediscovery N`; repeated/unknown options and nonfinite/out-of-range values fail.
+The visible runner exposes the same native-only probe and retains its value.
+This controls rejection of a crowded pair, not pinch thresholds or identity
+recovery. Raising it can cancel sooner; fewer contacts alone do not prove a better
+controller. No probe changes the live policy. See the owning evolution report
+for the early-contact failure, measured coverage and unchanged receiving state.

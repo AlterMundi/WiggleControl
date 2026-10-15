@@ -34,12 +34,12 @@ with explicit uncertainty over a plausible but unqualified 3D reconstruction.
 
 | Layer | Implemented / observed | Unfinished |
 | --- | --- | --- |
-| Perception | Native ONNX CPU palm/hand inference; ROI tracking; up to two tracks; confidence/ambiguity; source-linked models and ARM64 measurements | Temporal model accuracy, crossing/occlusion, varying hands/backgrounds; pinching pose bias remains |
+| Perception | Native ONNX CPU palm/hand inference; ROI tracking; up to two tracks; confidence/ambiguity and offline rejection reasons; source-linked models and ARM64 measurements | Crossing/occlusion loses continuity and can briefly start a premature second contact before rejection; varying hands/backgrounds and pinching pose bias remain |
 | Gesture meaning | Open-before-press; hysteresis/confirmation; drag/scroll; loss/stale/Stop release; independent contacts; replayable named macro hold/rearm/cooldown | Comfortable precision/latency balance; receiving mode-arbiter/writer qualification, visual macro classification and actual action adapters |
 | Mapping | Shared diagonal calibration, guided review, saved profile/rollback, matching native overlay target | Complete corners/comfort acceptance; participant-specific workspaces |
 | Delivery | Real virtual mouse on Chromium Wayland/VLC XWayland; type-B two-contact writer and touch-aware client scale/rotation; selected local compositor patch restores all five scripted stationary touch→mouse cases in owned Wayland Chromium | Camera-driven multitouch acceptance; other clients/locks/grabs and wheel-only handoff (#5); actual fallback per application |
 | Operation | Finite and selected until-stop controls, private rolling recordings, existing local panel, independent physical input | Final receiving configuration, actual reboot qualification of the prepared input grant (#4) and sustained accepted-hand resources |
-| Simulation | Static MHR controls; hand-only yaw;2016 full-workspace /5760 calibrated analytic cases;25-frame single/paired rendered trajectories through actual perception/gestures; pinned Tasks CPU comparison;41-frame forward-flex skin-clearance/closure replay; TV progress/results | Full anatomy/contact intent, diverse articulated views, held-contact ownership, participants and broader coverage |
+| Simulation | Static MHR controls; hand-only yaw;2016 full-workspace /5760 calibrated analytic cases;25-frame single/paired motion;41-frame closures across four additional views;61-frame independent paired pinches/crossing with geometry/ownership scoring and10/20Hz comparisons; pinned Tasks CPU comparison; TV progress/results | Full anatomy/human intent, robust held-contact ownership through occlusion, participants and broader coverage |
 
 Implementation and deployment are distinct. The adaptive filter and new simulation
 tools are source experiments; the selected receiving 45/65mm live pinch thresholds,

@@ -469,5 +469,107 @@ disables its saved replay until new measurements finish. Final2D results remain
 at1920x1080 with no page overflow and complete images. All producers/transports
 ended; no camera, microphone, OS input, saved calibration or live controller
 configuration changed. The collective-research correction source remains the
-broader evidence-method entry point; this detailed view increment stays in its
-owning technical report pending the next coherent shared synthesis.
+broader evidence-method entry point. Detailed increments stay in this owning
+technical report; shared syntheses retain their own source versions and scope.
+
+## Paired closure, overlap and input cadence —2026-10-15
+
+Two61-frame references now use independently articulated, mirrored hands. A closes
+during phase0.15–0.25 and opens during0.65–0.75; B closes during0.35–0.45 and opens
+during0.80–0.90. One case keeps their positions separated; the other crosses them
+in image space. Both keep the14cm depth offset, disjoint evaluated skin-depth
+intervals, per-hand forward-flex guards and distal skin clearances. All skin is
+in frame and neither hand's selected patches intersect. Inter-hand separation
+does not make the rear hand's occluded fingers observable, nor does this rig
+qualify human joint limits or participant identity.
+
+The same native binary/configuration used for the view comparison processed
+both scenes with45/65mm estimated3D hysteresis and the existing0.8-palm-width
+pair-overlap guard. References are independent of predictions. The scorer uses
+projected palm-center distance and margin to associate observable tracks/contacts;
+ambiguous screen geometry remains unscored. It verifies the exact config digest
+and requires the full uncalibrated workspace with native mirrored X.
+
+| Reference hold | Expected contacts | Separated count matches | Crossing count matches |
+| --- | --- | --- | --- |
+| open/open |0 |17/17 |17/17 |
+| near/open |1 |7/7 |7/7 |
+| near/near |2 |13/13 |0/13 |
+| open/near |1 |4/4 |0/4 |
+
+Separated:61/61 frames have two detected hands, IDs1/2 and no observable track or
+contact-owner changes. Contact onsets occur at frames15/26, with approximately
+2.00/17.15mm distal skin gaps. All associations are scorable. This demonstrates
+independent closure/release in that synthetic layout, not anatomical contact or
+physical acceptance.
+
+Crossing: dual-hand coverage is36/61. Both contacts cancel at frame24; reacquired
+tracks become IDs3/4, requiring open rearm rather than continuing a closed hold.
+Sixteen frames have unscorable track association. No observable contact-owner
+transfer occurred, which does not certify identity during hidden frames.
+Importantly, the baseline had already emitted a second contact at frame23:
+B's selected distal skin gap was57.60mm while its model joint estimate was35.8mm.
+Fully open/near hold counts alone would miss this transition failure. The summary
+therefore retains onset geometry as well as hold coverage and ownership.
+
+### Diagnostic and guard experiment
+
+Offline sequence rows now distinguish `pair_overlap` from `track_identity`
+rejection. The diagnostic replay reproduced all61 original model/meaning rows
+exactly, excluding processing time/new metadata, and identified `pair_overlap`
+at frame24. The ordinary inference/gesture behavior was preserved.
+
+A bounded native-only `--pair-separation` probe accepts0.8..2.0 palm widths and
+can be combined with the existing rediscovery control. The new probe binary
+SHA256 is `eb0521d1c506795db32a43401dd13c0aed2e73dd04385e866ffddeb3d1a0b1f7`.
+The0.8 replay again exactly preserved the61 baseline model/meaning rows.
+In the crossing case,1.0 and1.2 reject the pair at frame23;1.4 rejects at frame22.
+All three prevent the observed second onset and preserve the seven near/open
+hold counts, but none restores the13 dual-contact hold frames. Dual-hand
+coverage becomes35/61,35/61 and34/61 respectively. Cancellation is earlier,
+not improved hand visibility or continuous multitouch.
+
+At1.2, the separated scene still has61/61 dual-hand detections and all41 stable
+hold counts match. The separately retained25-frame rigid open-hand crossing
+remains15/25 dual-hand frames with zero contacts at both0.8 and1.2. This is an
+additional negative control, not broad validation across people or gestures.
+The guard summary SHA256 is
+`b1ae4bfe954db5c21d7ae28fb170de98395fa32351973409e14cc11b11a43270`.
+These are exploration settings; ordinary runtime/offline defaults remain0.8.
+Broader qualification and useful crowding feedback are required before choosing
+a live policy. A larger rejection region cannot substitute for ownership quality.
+
+### Sampling and alternative backend
+
+Existing images were subsampled to10Hz with preserved source times and reference
+geometry, including both0/50ms sampling offsets for the crossing scene. The
+31-frame separated sequence retains31/31 dual-hand detections, two independent
+contacts and correct counts in all20 stable holds. Crossing at0.8 gives19/31
+dual-hand frames for offset0 and18/30 for offset50ms;1.2 gives18/31 and17/30.
+Neither10Hz phase produces the premature B onset; neither preserves the closed
+contacts through overlap. Sampling away the failing20Hz onset does not fix it.
+These are offline cadences, not measured Pi camera rates or latency.
+
+The pinned MediaPipe Tasks1.1.1 CPU comparison processed the same61 crossing
+images:38/61 dual-hand frames versus native36/61. Sequential VPS medians were
+58.99ms versus29.58ms. These are different stacks/confidence policies (Tasks
+0.5 detection/presence/tracking; native0.5 palm and0.8 hand presence), not a
+controlled Pi performance ranking. Tasks supplies no stable IDs, ambiguity
+classification or our contact meaning; those fields remain unavailable. Two
+additional detected frames do not establish an ownership/interaction improvement.
+
+The paired scorer's independent controls explicitly simulate constant counts/IDs
+attached to the wrong hands across overlap and require both owner changes to be
+reported. They also reject outlier/ambiguous matching and calibrated coordinates.
+Those stdlib controls run in CI; optional FCL/forward-flex checks also passed.
+Native tests, Clippy and release build passed. Invalid, duplicate, missing-value
+and nonfinite probe options fail before loading resources.
+
+Actual render/inference/probe stages were shown on the owned TV. Reference hands
+and predicted track IDs are labelled separately, including unassigned Tasks
+arrays; pair completion reports dual-hand coverage rather than just any-hand
+detection. Producers are finite, with source/config/binary hashes and full private
+traces retained. No camera, microphone, OS input or receiving controller/profile
+adoption follows from these experiments. Parent#3 retains the early-onset and
+occlusion continuity work; real interaction, macros and participant modes remain
+unfinished.

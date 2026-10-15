@@ -21,7 +21,11 @@ review/qualification before ordinary adoption. Wheel-only handoff is separate.
 `source.json` pins labwc0.20.2's commit/archive, GCC14.2.0 and the public vendor
 archive key. The dedicated ARM64 workflow builds baseline and patched binaries
 in a Debian trixie container with the receiving distribution's public Raspberry Pi
-package source. It does not change a host package or start a compositor. Actual
+package source. The public keyring is extracted from the pinned2025.1+rpt1
+release, matching the receiving distribution. The older standalone key URL was
+rejected by the build container's OpenPGP policy (SHA1 self-certification); package
+and extracted key hashes are verified while repository signature checks remain
+enabled. It does not change a host package or start a compositor. Actual
 compiler/package versions, hashes and original source are retained with both
 binaries for comparison and reversal. Artifact retention is14days.
 

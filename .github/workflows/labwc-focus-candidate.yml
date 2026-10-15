@@ -17,16 +17,25 @@ jobs:
       - name: Matching distribution build dependencies
         run: |
           apt-get update
-          apt-get install -y ca-certificates curl gnupg python3
-          curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key -o /tmp/raspberrypi.key
-          python3 - <<'PY'
+          apt-get install -y ca-certificates curl python3
+          python3 - <<'PYTHON'
+          import hashlib,json,urllib.request
+          from pathlib import Path
+          source=json.loads(Path('tools/labwc/source.json').read_text())
+          data=urllib.request.urlopen(source['raspberrypi_keyring_url'],timeout=60).read()
+          assert hashlib.sha256(data).hexdigest()==source['raspberrypi_keyring_sha256']
+          Path('/tmp/raspberrypi-keyring.deb').write_bytes(data)
+          PYTHON
+          dpkg-deb --extract /tmp/raspberrypi-keyring.deb /tmp/raspberrypi-keyring
+          python3 - <<'PYTHON'
           import hashlib,json
           from pathlib import Path
+          data=Path('/tmp/raspberrypi-keyring/usr/share/keyrings/raspberrypi-archive-keyring.pgp').read_bytes()
           expected=json.loads(Path('tools/labwc/source.json').read_text())['raspberrypi_key_sha256']
-          assert hashlib.sha256(Path('/tmp/raspberrypi.key').read_bytes()).hexdigest()==expected
-          PY
-          gpg --batch --dearmor --output /usr/share/keyrings/raspberrypi-candidate.gpg /tmp/raspberrypi.key
-          printf 'deb [signed-by=/usr/share/keyrings/raspberrypi-candidate.gpg] https://archive.raspberrypi.com/debian/ trixie main\n' > /etc/apt/sources.list.d/raspberrypi-candidate.list
+          assert hashlib.sha256(data).hexdigest()==expected
+          Path('/usr/share/keyrings/raspberrypi-candidate.pgp').write_bytes(data)
+          PYTHON
+          printf 'deb [signed-by=/usr/share/keyrings/raspberrypi-candidate.pgp] https://archive.raspberrypi.com/debian/ trixie main\n' > /etc/apt/sources.list.d/raspberrypi-candidate.list
           apt-get update
           apt-get install -y gcc-14 meson ninja-build pkgconf patch git libcmocka-dev \
             libxml2-dev liblzma-dev libglib2.0-dev libcairo2-dev libpango1.0-dev \

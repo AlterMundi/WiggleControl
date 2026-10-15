@@ -1,5 +1,16 @@
 # Project context — 2026-10-13
 
+Latest visible-research checkpoint (2026-10-15): the offline workbench on
+Cuevanico now follows actual VPS rendering/inference and retains completion or
+delayed/error state, without sensors or a Pi model runtime. Nicolás's TV review
+identified the negative-pitch fixture as body-occluded; the near scene's visible
+surface was3.718cm away while the wrist marker was61.852cm away. Those three
+inputs are not valid detector-failure evidence. A hand-only nine-angle yaw sweep
+and a separate60-frame convergence comparison completed; see
+[POSITION-BIAS.md](POSITION-BIAS.md#human-visible-review-corrects-the-render-interpretation--2026-10-15)
+and [visible tools](../tools/synthetic/README.md#visible-experiments). This does
+not deploy a pinch correction or resume the old physical-acceptance goal.
+
 Nicolás selected the name **WiggleControl**, executable `wigglecontrol`, after
 checking naming collisions. He requests a lightweight Rust camera-driven input
 device usable over existing software as a mouse and later a multitouch screen.

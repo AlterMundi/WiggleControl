@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiggleControl · Synthetic hand experiment</title>
+<style>
+:root{color-scheme:dark;--bg:#080e16;--panel:#111c29;--ink:#f3f1e9;--muted:#b8c7d7;--cyan:#8fdcf1;--gold:#f4bf82;--green:#b0e2ab;--pink:#e1a7c5;font:22px/1.35 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+*{box-sizing:border-box}body{margin:0;padding:22px 32px 18px;border-left:18px solid var(--gold)}
+header{min-height:105px;padding:10px 320px 8px 22px;border-top:8px solid var(--pink);border-radius:32px 0 0 0;position:relative}
+h1{font-size:32px;letter-spacing:.04em;margin:0 0 4px}p{margin:4px 0}.eyebrow{font-size:18px;letter-spacing:.12em;color:var(--cyan)}
+.status{color:var(--green);font-size:21px}.dim{color:var(--muted)}button,select{font:inherit;min-height:48px;border:0;border-radius:16px 0;background:var(--gold);color:var(--bg);padding:8px 16px;cursor:pointer}select{max-width:340px}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}button[aria-pressed=true]{background:var(--green)}button:disabled{opacity:.5;cursor:default}
+nav{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:12px 0 16px}nav label{display:flex;align-items:center;gap:10px}.spacer{flex:1}.case-caption{font-size:22px;color:var(--muted);margin-bottom:14px;min-height:30px}
+main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.card{background:var(--panel);border-radius:26px 0 16px 0;border-top:5px solid var(--cyan);overflow:hidden}.card h2{font-size:22px;font-weight:650;letter-spacing:.04em;margin:12px 16px 4px}.image{position:relative;margin:10px 14px 0;background:#080e16}.image canvas{display:block;width:100%;aspect-ratio:4/3}.missing{position:absolute;bottom:12px;left:12px;background:var(--bg);border-left:6px solid var(--pink);color:var(--pink);padding:8px 12px;font-weight:650;display:none}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 18px 4px}.metric span{display:block;font-size:18px;color:var(--muted)}.metric strong{font-size:36px;line-height:1.2;font-weight:600;font-variant-numeric:tabular-nums}.metric:first-child strong{color:var(--green)}.metric:nth-child(2) strong{color:var(--cyan)}.unit{font-size:20px;font-weight:400}.delta{margin:8px 18px;color:var(--muted);font-size:19px}.trace{height:67px;margin:0 18px}.trace svg{width:100%;height:100%;display:block}.trace-label{font-size:18px;color:var(--muted);margin:2px 18px 14px}
+footer{margin-top:18px;display:grid;grid-template-columns:1.5fr 1fr;gap:24px;border-top:3px solid var(--pink);padding-top:14px}.finding{font-size:23px;color:var(--gold)}.note{font-size:19px;color:var(--muted)}a{color:var(--cyan)}.legend{display:flex;gap:18px;align-items:center;font-size:19px}.swatch{display:inline-block;width:28px;height:4px;vertical-align:middle;margin-right:6px}.rig{background:var(--green)}.model{background:var(--cyan)}#tour-state{color:var(--green);font-size:19px;min-height:28px}.progress{height:5px;background:#293649;margin-top:9px}.progress>div{height:100%;background:var(--gold);width:0;transition:width .15s linear}
+details{margin-top:16px;font-size:18px}summary{cursor:pointer;min-height:40px}details[open]{padding-bottom:20px}#sources{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}#sources a{padding:8px;border:1px solid #42566b}#fatal{color:var(--pink);padding:24px;display:none}
+@media(min-width:1500px) and (max-height:1100px){header{min-height:95px}h1{font-size:30px}nav{margin:8px 0 12px}.image{max-height:280px}.image canvas{height:280px;object-fit:contain}.metrics{margin-top:10px}.trace{height:56px}footer{margin-top:12px;padding-top:10px}details{margin-top:8px}}
+@media(max-width:1100px){body{padding:16px;border-left-width:8px}header{padding-right:10px;min-height:120px}main{grid-template-columns:1fr}.card{max-width:760px;width:100%;margin:auto}footer{grid-template-columns:1fr}h1{font-size:27px}.spacer{display:none}.image canvas{max-height:480px}nav label{flex-wrap:wrap}select{max-width:100%}}
+@media(prefers-reduced-motion:reduce){.progress>div{transition:none}}
+body.single main{grid-template-columns:1fr}body.single nav label,body.single #prev,body.single #next{display:none}body.single .card:not(#near){display:none}body.single #near{display:grid;grid-template-columns:1.6fr 1fr;column-gap:24px}body.single #near h2{grid-column:1/-1}body.single #near .image{grid-column:1;grid-row:2/6;max-height:450px}body.single #near canvas{height:450px;object-fit:contain}body.single #near .metrics,body.single #near .delta,body.single #near .trace,body.single #near .trace-label{grid-column:2}body.single #near .metrics{align-self:center}body.single #near .trace{height:90px}body.single #near strong{font-size:50px}body.single #near .trace-label{align-self:start}
+</style>
+</head>
+<body>
+<header><div class="eyebrow">WIGGLECONTROL // EXPERIMENT 01</div><h1>SAME HAND POSE · DIFFERENT MODEL ESTIMATE</h1><p class="status">RETAINED RESULTS · 33 renders · <span id="detection-count"></span> · VPS experiment</p><p class="dim">Synthetic geometry + recorded model inference · 15 OCT 2026</p></header>
+<nav aria-label="Experiment controls">
+<label for="view">VIEW <select id="view"></select></label>
+<button id="prev" aria-label="Previous view">←</button><button id="next" aria-label="Next view">→</button>
+<button id="tour">GUIDED COMPARISON</button><span class="spacer"></span>
+<button id="rig" aria-pressed="true">RIG MARKERS</button><button id="model" aria-pressed="true">MODEL POINTS</button>
+</nav>
+<p id="caption" class="case-caption"></p>
+<main id="cards" aria-label="Three articulations at the same camera view"></main>
+<footer>
+<section><p id="finding" class="finding"></p><p class="note">Each column keeps its rig-marker gap fixed across views. Columns use different articulations.</p><p class="note">Rig joints are geometric references; skin contact and anatomical fingertip mapping remain unqualified.</p></section>
+<section><div class="legend"><span><i class="swatch rig"></i>Rig reference</span><span><i class="swatch model"></i>Model estimate</span></div><p class="note">Trace: 10 repeated inferences of the same image, cold → tracked. No corrected values are shown.</p><p id="tour-state" role="status">Inspection ready · camera and system input are not used by this view.</p><div class="progress" aria-hidden="true"><div id="progress"></div></div></section>
+</footer>
+<details><summary>Sources, raw measurements and limits</summary><p>This is a completed offline experiment, not live model processing or physical gesture acceptance. Missed detections stay visible. No correction or 45/65 mm threshold change has been deployed.</p><p>Renderer: Blender 4.5.3 / public MHR v1.0.1. Reference: declared rig-joint markers. All 33 retained frames are reachable through the view selector.</p><div id="sources"></div><p><a href="data.json">View data + source SHA-256 manifest</a> · <a href="MHR-LICENSE.txt">MHR asset license</a></p></details>
+<p id="fatal" role="alert"></p>
+<script id="experiment-data" type="application/json">__WORKBENCH_DATA__</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('experiment-data').textContent),$=id=>document.getElementById(id);
+const caseInfo={reference:['CENTRAL REFERENCE','One camera view, three fixed articulations. Compare reference and model distances.'],
+'horizontal--1':['HORIZONTAL −','Only horizontal position changes; each articulation and its true marker gap remain fixed.'],
+'horizontal-1':['HORIZONTAL +','Same rigid translation in the opposite direction; the model gap changes.'],
+'vertical--1':['VERTICAL −','Vertical translation control in the rendered scene; this is not a real-camera vertical test.'],
+'vertical-1':['VERTICAL +','Vertical translation control in the opposite direction.'],
+'depth--1':['DISTANCE −','Camera-relative distance changes; the physical rig-marker gap stays fixed.'],
+'depth-1':['DISTANCE +','Opposite distance control, with the same articulation.'],
+'yaw--1':['YAW −','Rotation changes visibility and appearance while the declared 3D marker gap is constant.'],
+'yaw-1':['YAW +','Opposite yaw; compare the three articulations without assuming one correction fits all.'],
+'pitch--1':['PITCH − · INVALID RENDER','The body occludes the hand. These three inputs are invalid hand-visibility tests, not evidence of a detector failure.'],
+'pitch-1':['PITCH +','Opposite pitch; detection does not establish physical contact accuracy.']};
+const edges=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]];
+const cases=data.poses[0].frames.map(f=>f.case),images=new Map();let selected='reference',showRig=true,showModel=true,renderVersion=0,timer=null,tourAt=0,tourStart=0;
+const tourCases=['reference','horizontal--1','horizontal-1','yaw--1','pitch--1'];const dwell=10000;
+data.poses.forEach(p=>p.frames.forEach(f=>{const image=new Image();image.src=f.image;images.set(f.image,image)}));
+$('detection-count').textContent=data.poses.reduce((n,p)=>n+p.frames.filter(f=>f.trace.at(-1).detected).length,0)+' / 33 detected';
+cases.forEach(c=>{const option=document.createElement('option');option.value=c;option.textContent=caseInfo[c]?.[0]||c;$('view').append(option)});
+data.poses.forEach(p=>{const card=document.createElement('article');card.className='card';card.id=p.id;card.innerHTML='<h2></h2><div class="image"><canvas width="640" height="480" role="img"></canvas><div class="missing">NO DETECTION</div></div><div class="metrics"><div class="metric"><span>RIG REFERENCE</span><strong class="reference"></strong></div><div class="metric"><span>MODEL · FRAME 10</span><strong class="estimate"></strong></div></div><p class="delta"></p><div class="trace"></div><p class="trace-label"></p>';card.querySelector('h2').textContent=p.title;$('cards').append(card)});
+function skeleton(ctx,points,color,dashed=false){if(!points)return;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash(dashed?[5,4]:[]);ctx.beginPath();edges.forEach(([a,b])=>{ctx.moveTo(...points[a]);ctx.lineTo(...points[b])});ctx.stroke();ctx.setLineDash([]);[4,8].forEach(i=>{ctx.beginPath();ctx.arc(points[i][0],points[i][1],5,0,Math.PI*2);ctx.stroke()});ctx.lineWidth=3;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(...points[4]);ctx.lineTo(...points[8]);ctx.stroke();ctx.setLineDash([])}
+function traceSVG(frame){const values=frame.trace.map(t=>t.gapMm).filter(v=>v!==null),max=Math.max(frame.referenceMm,...values,1)*1.15,scale=v=>54-v/max*48;const line=frame.trace.map((t,i)=>t.gapMm===null?'':`${i*100/Math.max(1,frame.trace.length-1)},${scale(t.gapMm)}`).filter(Boolean).join(' ');return `<svg viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 ${scale(frame.referenceMm)}H100" stroke="${showRig?'#b0e2ab':'#42566b'}" stroke-width="1" stroke-dasharray="3 2" fill="none" vector-effect="non-scaling-stroke"/>${values.length?`<polyline points="${line}" stroke="#8fdcf1" stroke-width="2.5" fill="none" vector-effect="non-scaling-stroke"/>`:''}</svg>`}
+async function render(){const version=++renderVersion;$('view').value=selected;document.body.dataset.case=selected;$('caption').textContent=caseInfo[selected]?.[1]||selected;
+const currentFrames=data.poses.map(p=>p.frames.find(f=>f.case===selected)),estimate=f=>f.trace.at(-1).gapMm?.toFixed(1)||'unavailable';
+let finding='Model estimates change even when the reference geometry is held constant.';if(selected==='reference')finding='Central view: '+currentFrames.map(f=>f.referenceMm.toFixed(1)).join(' / ')+' mm references → '+currentFrames.map(estimate).join(' / ')+' mm model estimates.';if(selected==='yaw--1')finding='Yaw −: the 17.6 mm near-finger reference is estimated at '+estimate(currentFrames[2])+' mm; the open pose at '+estimate(currentFrames[0])+' mm.';if(selected==='pitch--1')finding='Three missed detections are retained. This view does not yield a distance estimate.';$('finding').textContent=finding;
+for(const p of data.poses){const f=p.frames.find(x=>x.case===selected),last=f.trace.at(-1),card=$(p.id),ctx=card.querySelector('canvas').getContext('2d'),image=images.get(f.image);if(!image.complete)await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject});if(!image.naturalWidth)throw Error('Missing render: '+f.image);if(version!==renderVersion)return;ctx.clearRect(0,0,640,480);ctx.drawImage(image,0,0,640,480);if(showRig)skeleton(ctx,f.referencePoints,'#b0e2ab',true);if(showModel&&last.detected)skeleton(ctx,last.points,'#8fdcf1');card.querySelector('canvas').setAttribute('aria-label',p.title+', '+selected+', rig reference '+f.referenceMm.toFixed(1)+' mm; model '+(last.detected?last.gapMm.toFixed(1)+' mm':'not detected'));card.querySelector('.reference').innerHTML=f.referenceMm.toFixed(1)+' <small class="unit">mm</small>';card.querySelector('.estimate').innerHTML=last.detected?last.gapMm.toFixed(1)+' <small class="unit">mm</small>':'—';card.querySelector('.missing').style.display=last.detected?'none':'block';card.querySelector('.delta').textContent=last.detected?'Estimate − reference: '+(last.gapMm-f.referenceMm).toFixed(1)+' mm':'Unavailable · retained detection miss';card.querySelector('.trace').innerHTML=traceSVG(f);card.querySelector('.trace-label').textContent=last.detected?'Cold '+f.trace[0].gapMm.toFixed(1)+' → tracked '+last.gapMm.toFixed(1)+' mm':'10 attempts · no accepted hand';}
+data.poses.forEach(p=>{const frame=p.frames.find(f=>f.case===selected),card=$(p.id);card.querySelector('.metric:nth-child(2) span').textContent=frame.pending?'MODEL · PENDING':'MODEL · FRAME '+frame.trace.length;card.querySelector('.missing').textContent=frame.pending?'INFERENCE PENDING':'NO DETECTION';if(frame.pending){card.querySelector('.delta').textContent='Awaiting the actual model result';card.querySelector('.trace-label').textContent='New render ready · not evaluated yet'}});
+$('sources').replaceChildren();data.sources.forEach(s=>{const a=document.createElement('a');a.href=s.file;a.textContent=s.file;$('sources').append(a)});window.workbench.ready=true;window.workbench.selected=selected;if(typeof showYawSeries==='function')showYawSeries();}
+function update(){window.workbench.ready=false;render().catch(e=>{$('fatal').style.display='block';$('fatal').textContent='Unable to show experiment: '+e.message})}
+function stopTour(message='Comparison paused · showing retained results.'){clearInterval(timer);timer=null;$('tour').textContent='GUIDED COMPARISON';$('tour-state').textContent=message}
+function selectCase(value){if(!cases.includes(value))throw Error('Unknown view');selected=value;update()}
+function startTour(){stopTour();tourAt=0;tourStart=performance.now();selectCase(tourCases[0]);$('tour').textContent='PAUSE COMPARISON';timer=setInterval(()=>{const elapsed=performance.now()-tourStart;const index=Math.floor(elapsed/dwell);$('progress').style.width=Math.min(100,elapsed/(dwell*tourCases.length)*100)+'%';if(index>=tourCases.length){stopTour('Comparison complete · all five stages retained · inspect any of the 11 views.');return}if(index!==tourAt){tourAt=index;selectCase(tourCases[index])}$('tour-state').textContent=`RECORDED COMPARISON · ${index+1}/${tourCases.length} · next view in ${Math.ceil((dwell-elapsed%dwell)/1000)}s`},150)}
+$('view').onchange=e=>{stopTour();selectCase(e.target.value)};['prev','next'].forEach((id,i)=>$(id).onclick=()=>{stopTour();selectCase(cases[(cases.indexOf(selected)+(i?1:-1)+cases.length)%cases.length])});
+$('rig').onclick=()=>{showRig=!showRig;$('rig').setAttribute('aria-pressed',showRig);update()};$('model').onclick=()=>{showModel=!showModel;$('model').setAttribute('aria-pressed',showModel);update()};$('tour').onclick=()=>timer?stopTour():startTour();
+window.workbench={data,ready:false,selected,selectCase,startTour,stopTour};update();
+// A local script projection follows the actual VPS producer. No server, sensors or input.
+let runSeq=-1,lastRunUpdate=0,runStatus='ready',runId=null;
+let yawSeries=[];
+function showYawSeries(){if(!document.body.classList.contains('single')||!yawSeries.length)return;const reference=data.poses.find(p=>p.id==='near').frames.find(f=>f.case==='yaw--1').referenceMm,values=yawSeries.filter(v=>v.gapMm!==null),max=Math.max(reference,...values.map(v=>v.gapMm),1)*1.15,y=v=>54-v/max*48;const points=values.map(v=>((v.angle+35)/70*100)+','+y(v.gapMm)).join(' ');$('near').querySelector('.trace').innerHTML=`<svg viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 ${y(reference)}H100" stroke="#b0e2ab" stroke-dasharray="3 2" fill="none" vector-effect="non-scaling-stroke"/><polyline points="${points}" stroke="#8fdcf1" stroke-width="3" fill="none" vector-effect="non-scaling-stroke"/></svg>`;$('near').querySelector('.trace-label').textContent='Yaw −35° → +35° · '+yawSeries.length+'/9 measured · model '+Math.min(...values.map(v=>v.gapMm)).toFixed(1)+'–'+Math.max(...values.map(v=>v.gapMm)).toFixed(1)+' mm';}
+window.receiveRunState=state=>{
+ if(state.runId&&state.runId!==runId){runId=state.runId;runSeq=-1}
+ if(state.seq<=runSeq)return;runSeq=state.seq;lastRunUpdate=performance.now();runStatus=state.status;
+ if(state.status==='ready')return;
+ if(state.kind==='yaw-sweep'){
+  if(state.series)yawSeries=state.series;
+  $('tour').hidden=true;
+  document.body.classList.add('single');const angle=Number.isFinite(state.angle)?state.angle.toFixed(2)+'°':'unavailable';$('near').querySelector('h2').textContent=state.status==='error'?'EXPERIMENT INTERRUPTED':state.phase==='prepare'?'LOADING THE HAND RIG':state.phase==='render'?'RETAINED VIEW · RENDERING NEXT YAW '+angle:(state.phase==='review'?'RETAINED RENDER':'NEW RENDER')+' · NEAR-FINGER · YAW '+angle;
+  if(state.image){const f=data.poses.find(p=>p.id==='near').frames.find(f=>f.case==='yaw--1');f.image=state.image;f.referencePoints=state.referencePoints;f.referenceMm=state.referenceMm;if(!state.trace?.length){f.pending=true;f.trace=[{detected:false,gapMm:null,points:null}]}const image=new Image();image.src=state.image;images.set(state.image,image);}
+ }
+ if(state.frames)state.frames.forEach(row=>{const frame=data.poses.find(p=>p.id===row.pose)?.frames.find(f=>f.case===row.case);if(frame){frame.trace=row.trace;frame.pending=false}});
+ if(state.case&&state.trace?.length){const pose=data.poses.find(p=>p.id===state.pose),frame=pose?.frames.find(f=>f.case===state.case);if(frame){frame.trace=state.trace;frame.pending=false}selectCase(state.case)}
+ const count=state.completed||0,total=state.total||6,iteration=state.iteration||0,repeat=state.repeat||60;
+ $('tour-state').textContent=state.status==='complete'?'EXPERIMENT COMPLETE · '+count+'/'+total+' cases · results retained':state.status==='error'?'EXPERIMENT STOPPED · '+state.message:'RUNNING ON VPS · '+Math.min(count+1,total)+'/'+total+' · '+(state.phase==='prepare'?'LOADING SCENE':state.phase==='render'?'RENDERING NEXT ANGLE':state.pose+' · frame '+iteration+'/'+repeat);
+ $('progress').style.width=(state.status==='complete'?100:Math.min(100,(count+iteration/repeat)/total*100))+'%';
+ document.querySelector('.status').textContent=state.status==='complete'?'VPS EXPERIMENT COMPLETE · 6 cases × 60 identical inputs':state.status==='error'?'VPS EXPERIMENT STOPPED':'VPS EXPERIMENT RUNNING · testing tracking convergence';
+ document.querySelector('.trace-label')?.setAttribute('data-live','true');
+ data.poses.forEach(p=>{const card=$(p.id),frame=p.frames.find(f=>f.case===selected);card.querySelector('.metric:nth-child(2) span').textContent='MODEL · FRAME '+frame.trace.length;});
+ document.querySelector('footer .note:nth-of-type(1)').textContent='Each column keeps its rig-marker gap fixed across views. Columns use different articulations.';
+ document.querySelectorAll('footer section')[1].querySelector('.note').textContent='Trace: repeated identical input, cold → tracked. Updated from actual inference; no correction applied.';
+ if(state.kind==='yaw-sweep'){
+  document.querySelector('.status').textContent=state.status==='error'?'YAW SWEEP INTERRUPTED':state.status==='complete'?'YAW SWEEP COMPLETE · 9 rendered angles + model inference':'VPS YAW SWEEP · '+(state.phase==='prepare'?'LOADING SCENE':state.phase==='render'?'RENDERING':state.phase==='review'?'RETAINED RESULTS':'MODEL INFERENCE')+(Number.isFinite(state.angle)?' · angle '+state.angle.toFixed(2)+'°':'');
+  $('caption').textContent='New rendered views · same articulation · fixed camera · only hand yaw changes';
+  document.querySelector('footer section:first-child .note').textContent='Only yaw changes; the reference marker gap stays fixed. Body geometry is masked in this run.';
+  document.querySelectorAll('footer section')[1].querySelector('.note').textContent='Curve: model gap across yaw views. Each value follows 10 identical inputs at that view; no correction applied.';
+  $('finding').textContent=state.depthCm?'Rig marker gap '+state.referenceMm.toFixed(1)+' mm · camera depth '+state.depthCm.map(v=>v.toFixed(0)).join('–')+' cm. Image size on the TV is a viewing scale.':'Preparing a new hand-only sweep. The previous body-occluded pitch inputs are invalid.';
+  showYawSeries();
+ }
+};
+setInterval(()=>{const script=document.createElement('script');script.src='run-state.js?t='+Date.now();script.onload=script.onerror=()=>script.remove();document.body.append(script);if(runStatus==='running'&&performance.now()-lastRunUpdate>7000)$('tour-state').textContent='DISPLAY UPDATE DELAYED · last inference update '+Math.floor((performance.now()-lastRunUpdate)/1000)+'s ago';},600);
+</script>
+</body>
+</html>

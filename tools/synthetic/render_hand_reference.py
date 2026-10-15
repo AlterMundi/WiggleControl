@@ -24,9 +24,15 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--closure', type=float, default=0.0,
                         help='0..1 interpolation toward a research-only near-finger pose')
+    parser.add_argument('--yaw-steps', type=int, default=0,
+                        help='Optional 3..31 equally spaced yaw views from -35 to +35 degrees')
+    parser.add_argument('--hand-only', action='store_true',
+                        help='Mask the rest of the body using right-hand skinning weights')
     args = parser.parse_args()
     if not 0 <= args.closure <= 1:
         parser.error('--closure must be in0..1')
+    if args.yaw_steps and not 3 <= args.yaw_steps <= 31:
+        parser.error('--yaw-steps must be0 or3..31')
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.fbx(filepath=str(args.fbx.resolve()), use_anim=False)
@@ -36,6 +42,22 @@ def main():
     for obj in list(scene.objects):
         if obj.type == 'EMPTY':
             bpy.data.objects.remove(obj, do_unlink=True)
+    if args.hand_only:
+        # The whole body can otherwise rotate between the camera and hand.
+        selected = {g.index for g in mesh.vertex_groups if
+                    g.name == 'r_wrist' or any(g.name.startswith('r_' + finger)
+                    for finger in ('thumb', 'index', 'middle', 'ring', 'pinky'))}
+        if not selected:
+            raise ValueError('Right-hand skinning groups unavailable; cannot isolate the hand')
+        visible = mesh.vertex_groups.new(name='CalibrationVisibleHand')
+        vertices = [v.index for v in mesh.data.vertices
+                    if sum(g.weight for g in v.groups if g.group in selected) >= 0.5]
+        if not vertices:
+            raise ValueError('No hand vertices selected')
+        visible.add(vertices, 1, 'REPLACE')
+        mask = mesh.modifiers.new(name='CalibrationHandOnly', type='MASK')
+        mask.vertex_group = visible.name
+        mask.threshold = 0.5
     bpy.context.view_layer.update()
     names = ['r_wrist', 'r_thumb1', 'r_thumb2', 'r_thumb3', 'r_thumb_null']
     names += [f'r_{finger}{joint}' for finger in ['index', 'middle', 'ring', 'pinky']
@@ -132,6 +154,10 @@ def main():
                   (f'depth-{sign}', forward * (sign * 0.10), Matrix.Identity(4)),
                   (f'yaw-{sign}', Vector(), Matrix.Rotation(math.radians(sign * 35), 4, vertical)),
                   (f'pitch-{sign}', Vector(), Matrix.Rotation(math.radians(sign * 25), 4, right))]
+    if args.yaw_steps:
+        cases = [(f'yaw-sweep-{i:02d}', Vector(),
+                  Matrix.Rotation(math.radians(-35 + i * 70 / (args.yaw_steps - 1)), 4, vertical))
+                 for i in range(args.yaw_steps)]
     labels = []
     for index, (name, translation, turn) in enumerate(cases):
         rig.matrix_world = Matrix.Translation(center + translation) @ turn @ Matrix.Translation(-center) @ base
@@ -147,8 +173,17 @@ def main():
                        'markers_in_frame': all(0 <= p.x <= 1 and 0 <= p.y <= 1 and p.z > 0 for p in projected),
                        'rig_tip_gap_m': (points[4]-points[8]).length,
                        'rig_world_matrix': list(map(list, rig.matrix_world))})
+        if args.yaw_steps:
+            labels[-1]['yaw_degrees'] = -35 + index * 70 / (args.yaw_steps - 1)
+            print('WIGGLECONTROL_STAGE ' + json.dumps({'phase': 'render',
+                  'frame': index, 'yaw_degrees': labels[-1]['yaw_degrees'],
+                  'reference_mm': labels[-1]['rig_tip_gap_m'] * 1000,
+                  'depth_cm': [min(-p.z for p in camera_points) * 100,
+                               max(-p.z for p in camera_points) * 100]}), flush=True)
         scene.render.filepath = str((args.output/file).resolve())
         bpy.ops.render.render(write_still=True)
+        if args.yaw_steps:
+            print('WIGGLECONTROL_FRAME ' + json.dumps(labels[-1], separators=(',', ':')), flush=True)
     gaps = [entry['rig_tip_gap_m'] for entry in labels]
     if max(gaps)-min(gaps) > 1e-6:
         raise RuntimeError('Rigid camera/pose control changed the reference marker distance')
@@ -164,6 +199,7 @@ def main():
               'camera_projection_matrix': list(map(list, projection)),
               'image_size': [640, 480], 'render_seed': 0, 'frames': labels,
               'closure_interpolation': args.closure,
+              'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
               'applied_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
               'pose_qualification': 'geometric candidate, anatomical limits/skin contact not validated',
               'camera_opened': False, 'rig_marker_gap_invariant_tolerance_m': 1e-6}

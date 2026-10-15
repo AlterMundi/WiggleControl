@@ -56,3 +56,40 @@ The default keeps an open pose. Optional `--closure VALUE` in the range0..1 inte
 actual marker coordinates are retained. Joint limits, skin penetration and
 physical contact are unqualified, so do not turn this candidate into a pinch
 label. This tool does not qualify a live correction or change45/65 mm thresholds.
+
+## Visible experiments
+
+The TV view accompanies actual work; it is not a separate presentation project.
+`build_workbench.py INPUT_ROOT NEW_DIRECTORY` packages the retained three-pose
+sweeps, raw source/measurement JSON, source hashes and MHR license into a private
+offline bundle. It expects `reference-sweep`, `middle-sweep`, `near-sweep` and the
+original asset license. Open its `index.html` in the receiving browser: it needs
+no web server, camera, model runtime or input device on the display host.
+
+`run_visible_probe.py --help` runs a bounded central/yaw comparison using60
+identical inferences per case. `run_visible_yaw.py --help` renders9 new hand-only
+yaw views and evaluates10 identical inputs per view, using the existing cached
+Blender environment and Rust inference binary. Exact SSH host, identity and
+display directory are explicit receiving-local arguments, never repository
+defaults. The user authorizes the chosen display and operation; these tools grant
+no access and start no attention service.
+
+The producer writes actual progress to an owned SSH projection process. The RPi
+reads an atomically replaced local `run-state.js` and renders images/metrics.
+Pending inference, retained results, new renders, completion and delayed updates
+are distinguished. The new yaw sweep retains the correct final image/reference
+with its measurements and a chart across measured angles. This is a small
+experiment view, not a new Field/research-browser product or universal activity
+dashboard. The independent local sensor/activity panel remains visible.
+
+`run_visible_yaw.py --resume` reuses the completed render manifest and valid
+ten-frame model outputs in an interrupted directory; it evaluates only missing
+cases. Completed result directories are not overwritten. Partial model output
+requires explicit reconciliation. Keep raw JSONL, render labels/source scene,
+transport failures and final results private and separate from source Git.
+
+For new controlled sweeps, `render_hand_reference.py --hand-only --yaw-steps 9`
+keeps the rest of the body out of the experiment. See the dated correction in
+`docs/POSITION-BIAS.md`: the old negative-pitch images are body-occluded invalid
+hand-visibility inputs, not valid detector-miss cases. Joint-marker distances
+alone never qualify visibility or physical contact.

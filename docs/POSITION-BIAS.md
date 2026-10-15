@@ -160,3 +160,51 @@ The two endpoint poses therefore cannot establish a general scalar gap
 correction: held-out articulation behaves differently. Source-level rendering
 and observation are reproducible, but anatomical pose/contact mapping and
 synthetic-to-real transfer remain unqualified. No fitted correction is deployed.
+
+## Human-visible review corrects the render interpretation — 2026-10-15
+
+Nicolás inspected the experiment on Cuevanico's TV and reported that the final
+pitch case showed a very close patch of skin rather than a recognizable hand.
+The initial response cited hand-marker distances without inspecting the actual
+displayed input. That response was inadequate: projected/in-frame joint markers
+and their distances do not establish which surface is visible.
+
+Inspection confirmed the negative-pitch input is body-occluded. In the retained
+near-finger scene, a center-camera ray hits `body_mesh` at **3.718 cm**, while the
+wrist marker is **61.852 cm** from the camera. The corresponding reference-view
+ray hits at **63.246 cm**. Rotating the whole body about the hand brought another
+surface into the camera's view. This is a defective hand-visibility fixture,
+not evidence of a detector failure on a visible hand. The three earlier
+negative-pitch misses remain retained, but are **invalid inputs for hand-detector
+evaluation**. The original 30/33 count describes raw outputs, not acceptance over
+33 valid hand images. Other view-dependent results remain observations with
+their original geometry and input limits.
+
+The optional renderer now supports `--hand-only`, masking geometry with summed
+right-wrist/finger skinning weights >=0.5, and `--yaw-steps N` for bounded new
+views from -35 to +35 degrees. Original full-body inputs remain preserved.
+The mask changes image context, including the forearm, so differences from
+older full-body estimates cannot be attributed solely to angle or a corrected
+model. Masked hand geometry is not independently qualified anatomy/contact.
+
+A new nine-view hand-only near-finger sweep completed. Its declared marker gap
+remained approximately **17.568 mm**; frame10 model estimates ranged from
+**25.183 to 35.729 mm**. At -35 degrees the masked input yielded **28.312 mm**,
+where the earlier full-body input yielded **71.051 mm**. This motivates isolating
+image/crop/context effects; it does not validate a live correction. The live
+producer projected new rendered images and measurements to the RPi. A network
+interruption was retained and resumed using completed renders/results, evaluating
+only the remaining three model cases.
+
+A separate six-case central/yaw comparison extended identical-input tracking to
+60 frames: central open/intermediate/near estimates were87.087/44.765/32.919 mm;
+negative-yaw estimates were76.495/22.743/92.387 mm. Waiting longer therefore did
+not resolve the older near-pose error. These use the original full-body inputs,
+not the new hand-only fixture. No sensor, input device, threshold change or
+anatomical acceptance was involved.
+
+The reusable [visible-work tools](../tools/synthetic/README.md#visible-experiments)
+display actual render/inference stages and retain completed/error state. A static
+or replayed result must not be described as ongoing processing. Human observation
+is part of experimental validation: inspect the actual image, visibility and
+occlusion before interpreting metric landmarks or missed detections.

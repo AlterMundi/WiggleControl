@@ -12,8 +12,8 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
-Latest#7 evidence: full-trajectory skin measurements and285 matched controller
-replays reject the tested palm-length/dwell grid as an adopted fix. No candidate
+Earlier#7 evidence: full-trajectory skin measurements and285 matched controller
+replays reject the tested palm-length/dwell grid as an adopted fix. No scalar candidate
 both removes separated-skin contacts and preserves baseline near-hold coverage
 at20Hz and both10Hz phases. Continue geometry/perception comparisons before
 changing the receiving thresholds; see the
@@ -24,6 +24,14 @@ six-positive-control benchmark retains53/54 baseline near contacts; tested
 normalizations still lose useful coverage. These remain synthetic controls,
 not physical acceptance or a resolved#7. See the
 [new articulations](research/native-visual-macros-2026-10.md#additional-articulations).
+An optional[WiLoR mesh comparison](research/mesh-reconstruction-2026-10.md) now
+separates eight selected near/far inputs under known-crop/right-hand assumptions.
+Its143-input continuation completed: conditional metric-only replacement removes
+all26 negative contact frames at20Hz and preserves18/18 near-hold frames on two
+positive trajectories, versus17/18 baseline. An eight-input retained-native-box
+probe also preserves far/near separation. Full native-crop/remaining-view tests,
+interactive latency, both-hand ownership and physical input remain open. CPU cost
+is several seconds per frame and5GiB peak; no model/runtime/profile was adopted.
 
 ## Outcome and today's goal
 

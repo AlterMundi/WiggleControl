@@ -10,10 +10,13 @@ jobs:
           components: rustfmt, clippy
       - run: node tests/preview_timer.cjs
       - run: node tests/preview_recovery.cjs
+      - run: node tests/controller_workbench.cjs
       - run: python3 tools/synthetic/test_pair_closure.py
       - run: python3 tools/synthetic/test_visible_motion.py
       - run: python3 tools/synthetic/test_pinch_interpretations.py
       - run: python3 tools/synthetic/test_pinch_pose.py
+      - run: python3 tools/synthetic/test_wilor_probe.py
+      - run: python3 tools/synthetic/test_mesh_metric.py
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings

@@ -1,0 +1,29 @@
+{
+  "revision": "b00adea9a6843bbb4c9042109c5eb29ab2a59dea",
+  "repository": "warmshao/WiLoR-mini",
+  "files": [
+    {
+      "name": "pretrained_models/mano_mean_params.npz",
+      "url": "https://huggingface.co/warmshao/WiLoR-mini/resolve/b00adea9a6843bbb4c9042109c5eb29ab2a59dea/pretrained_models/mano_mean_params.npz",
+      "bytes": 1178,
+      "sha256": "efc0ec58e4a5cef78f3abfb4e8f91623b8950be9eff8b8e0dbb0d036ebc63988"
+    },
+    {
+      "name": "pretrained_models/MANO_RIGHT.pkl",
+      "url": "https://huggingface.co/warmshao/WiLoR-mini/resolve/b00adea9a6843bbb4c9042109c5eb29ab2a59dea/pretrained_models/MANO_RIGHT.pkl",
+      "bytes": 3821356,
+      "sha256": "45d60aa3b27ef9107a7afd4e00808f307fd91111e1cfa35afd5c4a62de264767"
+    },
+    {
+      "name": "pretrained_models/wilor_final.ckpt",
+      "url": "https://huggingface.co/warmshao/WiLoR-mini/resolve/b00adea9a6843bbb4c9042109c5eb29ab2a59dea/pretrained_models/wilor_final.ckpt",
+      "bytes": 2564989533,
+      "sha256": "3e97aafc7dd08d883a4cc5a027df61fdb6fda6136dbd1319405413862ada6bb2"
+    }
+  ],
+  "source": "https://github.com/warmshao/WiLoR-mini",
+  "source_commit": "ebec42f94c389070cdd7dda6fd1bf0b4a659c960",
+  "model_license": "https://github.com/rolpotamias/WiLoR/blob/main/license.txt",
+  "mano_license": "https://mano.is.tue.mpg.de/license.html",
+  "scope": "Optional offline research comparison. Model/MANO licenses are separate; no weights or MANO assets redistributed."
+}

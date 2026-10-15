@@ -421,3 +421,42 @@ and use a new output directory to render it. Positive forward flexion and distal
 clearance do not certify whole-hand collision freedom or human intent. These
 two source recipes are retained controls, not model predictions or human labels.
 See the [diversity results](../../docs/research/native-visual-macros-2026-10.md#additional-articulations).
+
+### Optional WiLoR known-crop reconstruction
+
+This research-only CPU comparison uses a separate Python3.10 environment because
+the pinned provider/Chumpy/NumPy stack differs from the Blender environment.
+Install `wilor-requirements.lock` with the PyTorch CPU extra index and
+`--config-file tools/synthetic/wilor-uv.toml`; its extra build dependency is needed
+for Chumpy's undeclared pip import. No system or Pi environment is changed.
+
+Clone the provider repository at `wilor-assets.json`'s exact source commit and
+obtain its three listed assets at the pinned public URLs/hashes, preserving the
+separate WiLoR and MANO licenses. The probe validates source/assets and does not
+download them or load a detector automatically. Model assets stay outside Git.
+
+`wilor_probe.py SELECTION NEW_OUTPUT --repo SOURCE --assets ASSETS [--focal both]`
+accepts a bounded version1 selection with1..512 cases. Each case declares `name`,
+relative `image`, pixel `bbox:[left,top,right,bottom]`, independently known
+`right:true`, `source_frame`, `skin_gap_m` and actual image `focal_px`.
+Input paths must stay inside the selection directory. `crop_source` defaults to
+`independent_reference_skin_bounds`; `retained_native_landmarks` explicitly marks
+provided native-landmark boxes. Right-hand side remains independently specified.
+This does not qualify detection/identity/confidence.
+`--focal provider_default` or `known_renderer` selects one of the two declared
+branches. Outputs retain transforms, source hashes, raw joints/vertices, measured
+wall time and complete/error producer state. No gesture semantics are evaluated.
+Use an actual resource ceiling for the heavy optional experiment; the initial
+two-thread run reached5GiB. See the[model comparison](../../docs/research/mesh-reconstruction-2026-10.md)
+for the completed sample/trajectory/native-box probes and acceptance limits.
+
+`compare_mesh_metric.py NATIVE_RESULTS MESH_JSONL SELECTION --group NAME --images
+ORIGINAL_IMAGES --binary BINARY --settings SETTINGS --output NEW_JSON` substitutes
+only a complete, image-hash/source-clock-matched group's estimated gap. Retain
+`reference_case` and `source_us` in each grouped selection case. Optional
+`--geometry LABELS` requires the full independent geometry match. It reuses actual
+Rust controller replay and scores20Hz/both10Hz phases, baseline reproduction and
+Stop/EOF release. Native confidence, eligibility, ID and cursor remain unchanged;
+they are not WiLoR confidence or ownership evidence. Partial producer appends are
+read only through complete lines and incomplete groups are rejected. This is
+conditional offline evidence, not a real-time runtime adapter or human intent.

@@ -79,6 +79,30 @@ impl SessionConfig {
             ..Config::default()
         }
     }
+    /// Apply the selected pinch interpretation identically in pointer, touch and replay.
+    pub(crate) fn observation(
+        &self,
+        detected: Option<&crate::vision::DetectedHand>,
+        width: u32,
+        height: u32,
+        source_us: u64,
+    ) -> Observation {
+        let mut observation = detected
+            .map(|hand| hand.observation(width, height, source_us))
+            .unwrap_or(Observation {
+                version: 1,
+                source_us,
+                hand: None,
+            });
+        if self.pinch_3d {
+            if let (Some(hand), Some(detected)) = (&mut observation.hand, detected) {
+                hand.pinch_distance_m = Some(detected.world_pinch_distance_m());
+                // The legacy 2D scroll chord must not override a 3D pinch.
+                hand.scrolling = false;
+            }
+        }
+        observation
+    }
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
         let data = fs::read(path)?;
         if data.len() > 8192 {
@@ -629,7 +653,8 @@ fn run_mode(
                     .hands
                     .into_iter()
                     .filter_map(|h| {
-                        h.observation(image.width(), image.height(), frame.source_us)
+                        config
+                            .observation(Some(&h), image.width(), image.height(), frame.source_us)
                             .hand
                     })
                     .collect();
@@ -702,22 +727,12 @@ fn run_mode(
                         summary.tracked += 1;
                     }
                 }
-                let mut observation = hand
-                    .as_ref()
-                    .map(|h| h.observation(image.width(), image.height(), frame.source_us))
-                    .unwrap_or(Observation {
-                        version: 1,
-                        source_us: frame.source_us,
-                        hand: None,
-                    });
-                if config.pinch_3d {
-                    if let (Some(observed), Some(detected)) = (&mut observation.hand, &hand) {
-                        observed.pinch_distance_m = Some(detected.world_pinch_distance_m());
-                        // Scroll is a separate legacy 2D gesture; avoid ambiguous
-                        // pointer-mode switching during the isolated 3D trial.
-                        observed.scrolling = false;
-                    }
-                }
+                let observation = config.observation(
+                    hand.as_ref(),
+                    image.width(),
+                    image.height(),
+                    frame.source_us,
+                );
                 now = monotonic_us()?;
                 let interpreted = observation.hand.clone();
                 if let Some(reason) = interpreted.as_ref().and_then(|h| h.invalid_reason()) {
@@ -943,6 +958,91 @@ mod tests {
     use super::*;
     use std::os::unix::process::ExitStatusExt;
 
+    fn fictional_hand(id: u64, pixel_closed: bool, world_gap: f64) -> crate::vision::DetectedHand {
+        use crate::vision::{DetectedHand, XY};
+        let mut hand = DetectedHand {
+            id,
+            landmarks: [XY { x: 200.0, y: 300.0 }; 21],
+            world_landmarks: [[0.0; 3]; 21],
+            confidence: 0.99,
+            handedness: 0.9,
+            tracked: true,
+        };
+        hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
+        hand.landmarks[5] = XY { x: 180.0, y: 340.0 };
+        hand.landmarks[17] = XY { x: 240.0, y: 340.0 };
+        hand.landmarks[6] = XY { x: 180.0, y: 280.0 };
+        hand.landmarks[8] = XY { x: 180.0, y: 180.0 };
+        hand.landmarks[4] = XY {
+            x: if pixel_closed { 186.0 } else { 300.0 },
+            y: 180.0,
+        };
+        hand.world_landmarks[8][2] = world_gap;
+        hand
+    }
+
+    #[test]
+    fn configured_pinch_metric_drives_both_contacts_when_2d_and_3d_disagree() {
+        use crate::touch_gestures::{Frame, Gestures};
+        for pinch_3d in [false, true] {
+            let config: SessionConfig = serde_json::from_value(serde_json::json!({
+                "camera":"/fictional/camera", "models":"/fictional/models",
+                "runtime":"/fictional/runtime", "fps":10, "gain":2000,
+                "pinch_3d":pinch_3d, "pinch_close_m":0.045, "pinch_open_m":0.065,
+            }))
+            .unwrap();
+            let mut touches = Gestures::new(config.gestures(), config.touch_workspace).unwrap();
+            touches.start();
+            let mut pointer = Engine::new(config.gestures()).unwrap();
+            pointer.start();
+            for (time, closed, expected) in [
+                (1, false, 0),
+                (20_001, true, 0),
+                (60_001, true, 2),
+                (80_001, false, 0),
+            ] {
+                // The unused metric always contradicts the configured one.
+                let pixel_closed = if pinch_3d { !closed } else { closed };
+                let world_closed = if pinch_3d { closed } else { !closed };
+                let gap = if world_closed { 0.025 } else { 0.08 };
+                let observations: Vec<_> = [7, 9]
+                    .into_iter()
+                    .map(|id| {
+                        config
+                            .observation(
+                                Some(&fictional_hand(id, pixel_closed, gap)),
+                                640,
+                                480,
+                                time,
+                            )
+                            .hand
+                            .unwrap()
+                    })
+                    .collect();
+                assert!(observations.iter().all(|h| h.engaged));
+                pointer.observe(
+                    time,
+                    Observation {
+                        version: 1,
+                        source_us: time,
+                        hand: Some(observations[0].clone()),
+                    },
+                );
+                let contacts = touches.observe(
+                    time,
+                    Frame {
+                        version: 1,
+                        source_us: time,
+                        ambiguous: false,
+                        hands: observations,
+                    },
+                );
+                assert_eq!(contacts.len(), expected, "3D={pinch_3d} at {time}");
+                assert_eq!(pointer.pinch_state() == "pressed", expected == 2);
+            }
+            assert!(config.observation(None, 640, 480, 100_001).hand.is_none());
+        }
+    }
     #[test]
     fn preview_clock_starts_on_visible_frame_and_has_a_finite_preparation_bound() {
         let now = Instant::now();

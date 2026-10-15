@@ -102,13 +102,9 @@ pub fn check(
                 .hands
                 .iter()
                 .filter_map(|h| {
-                    let mut hand = h
-                        .observation(image.width(), image.height(), frame.source_us)
-                        .hand?;
-                    if config.pinch_3d {
-                        hand.pinch_distance_m = Some(h.world_pinch_distance_m());
-                    }
-                    Some(hand)
+                    config
+                        .observation(Some(h), image.width(), image.height(), frame.source_us)
+                        .hand
                 })
                 .collect();
             (hands, found.ambiguous, raw)

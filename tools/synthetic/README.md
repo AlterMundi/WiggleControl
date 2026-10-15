@@ -97,7 +97,7 @@ alone never qualify visibility or physical contact.
 ## Controller iteration and temporal images
 
 Current scope, mode expansion and evidence gates: [the roadmap](../../docs/ROADMAP.md).
-`cargo run --locked --bin wigglecontrol-simulate -- NEW_DIRECTORY` currently runs2016
+`cargo run --locked --bin wigglecontrol-simulate -- NEW_DIRECTORY` runs2016
 camera-free observation scenarios through the actual Rust gesture engine, across
 fixed/adaptive filters, input rates, noise amplitudes and seeds. Its output
 contains raw trajectories and separate rest/motion error and pinch timing.
@@ -160,3 +160,15 @@ committed. This backend reports raw detector arrays, not stable identity,
 ambiguity classification or Rust contact semantics. Those unavailable fields
 stay unknown. Compare the same retained images and do not confuse debug-build
 cost, model stack or sequential VPS load with a controlled Pi benchmark.
+
+### Calibrated analytic benchmark
+
+Pass an optional read-only profile after `NEW_DIRECTORY` to exercise actual
+workspace mapping. The calibrated expansion runs5760 cases and retains the
+profile, camera-space observations, explicit noise space and development/held-out
+seed split. The report stays private when it contains a receiving profile.
+`select_controller_profile.py REPORT` ranks development data and reports held-out
+failure separately; it never adopts settings. The workbench builder includes that
+selection and shows its trace and budget outcome. The current calibrated grid
+fails the fixed gates; see the owning evolution report. No sensor or OS output is
+needed for these commands.

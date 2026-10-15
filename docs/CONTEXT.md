@@ -23,11 +23,20 @@ The TV's owned experiment browser now shows measured filter tradeoffs, actual
 moving-reference processing, retained completion and explicitly saved replay.
 No new camera/microphone/input session, runtime binary, live thresholds, power
 mode or saved calibration was deployed by these experiments. The selected
-45/65mm receiving pinch experiment remains as before. The new adaptive candidate
-meets particular analytic budgets; real noise/calibrated-workspace amplification,
+45/65mm receiving pinch experiment remains as before. The full-workspace adaptive
+candidate meets particular analytic budgets; its calibrated expansion fails them.
+Real noise,
 anatomical contact truth, occlusion ownership, physical comfort and application
 acceptance remain distinct work. Macro visual classification and actual native
 action adapters remain pending; replay action intents have `executed:false`.
+
+Current source correction: live direct touch now shares the configured2D/3D
+pinch conversion with pointer and image-sequence replay; a contradictory-metrics
+two-contact regression verifies both modes. The calibrated5760-case benchmark
+reproduces exactly and exposes failure of all tested filters against the fixed
+rest/fast/fine budgets. The TV retains the calibrated scores and explicit failures.
+No runtime/configuration adoption follows from that ranking. See the evolution
+report's calibrated-workspace and direct-touch sections for evidence and limits.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.
 

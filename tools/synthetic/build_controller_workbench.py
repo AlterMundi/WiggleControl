@@ -5,6 +5,8 @@ import json
 import hashlib
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 
 
 def main():
@@ -19,6 +21,8 @@ def main():
     if report.get('schema') != 'wigglecontrol.controller-simulation/v1' or not report.get('rows'):
         p.error('Expected completed controller-simulation/v1 report')
     report['filter_source_sha256'] = hashlib.sha256(args.report.read_bytes()).hexdigest()
+    report['selection'] = json.loads(subprocess.check_output([sys.executable,
+        str(Path(__file__).with_name('select_controller_profile.py')), str(args.report)]))
     report['comparisons'] = []
     for label, file in args.vision_report:
         result = json.loads(Path(file).read_text())

@@ -206,11 +206,57 @@ budgets, not a physical acceptance gate. A new scene/noise model, pinch-induced
 movement, calibration and human preference remain independent tests. Neither
 the selector nor the workbench writes a receiving configuration.
 
-The benchmark maps a full normalized camera workspace to1920x1080. It has not
-yet evaluated the selected receiving calibration's narrower bounds. Workspace
-mapping amplifies camera-coordinate noise and changes effective velocity units;
-the next filter qualification must include calibrated ranges and edges before
-using these numerical budgets as receiving claims.
+### Calibrated workspace invalidates the full-frame selection
+
+Revision5 accepts a read-only calibration profile:
+`wigglecontrol-simulate NEW_DIRECTORY CALIBRATION_PROFILE`. Desired screen targets
+are transformed into camera coordinates before adding the same camera-space noise;
+filtered observations use the actual shared workspace mapping back to the output.
+The report retains the complete profile and raw camera observations for reproduction.
+A fictional half-width/height workspace regression confirms exactly doubled raw
+screen noise, with no error for the zero-noise unfiltered trajectory.
+
+The selected receiving workspace spans approximately0.568 ×0.597 of the camera
+frame. The previous0.3Hz/beta40/floor0.05 candidate now gives27.77px fast moving
+RMS at10Hz and28.29px at20Hz on seed313, exceeding the fixed20px budget. Applying
+full-frame results directly to the calibrated controller would be incorrect.
+
+An expanded64-profile grid, three rates, three noise amplitudes, five seeds and
+two trajectories yields5760 cases. Seeds11/29/101/313 are development data;
+907 was held out for this expansion. The grid and original5/20/10px rest/fast/fine
+budgets were fixed before scoring907. The best development ranking is now
+0.3Hz/beta80/floor0.07, but its worst budget ratio is1.447: **no candidate passes
+the complete development gate**. Its separate907 ratio is1.334, also failing.
+
+| Rate / seed907 | Fast-case rest RMS px | Fast moving RMS px | Fine moving RMS px |
+| --- | --- | --- | --- |
+| 10Hz | 4.41 | 24.77 | 6.51 |
+| 20Hz | 5.30 | 26.67 | 7.34 |
+
+All5760 scheduled cases preserve one press/release. A repeat with the final
+profile-retaining tool reproduces every score exactly. These analytic trajectories
+move horizontally; vertical/diagonal motion, edge clipping and measured real
+camera noise still need coverage. The0.009 synthetic camera noise is an engineering
+stress assumption, not a measured human recording. Neither ranking nor failure
+justifies changing receiving thresholds, calibration or the default filter.
+The existing TV view now shows these calibrated results, the actual selected
+trace and explicit budget failures; earlier full-frame evidence remains retained.
+
+## Configured pinch interpretation in direct touch
+
+Source inspection found that the live direct-touch branch converted detections
+with the raw2D observation method while pointer and image-sequence replay applied
+`pinch_3d`. Thus the selected3D setting could be ignored in the live two-contact
+path. Session configuration now owns one conversion used by all three consumers.
+Selected3D adds the estimated world-tip gap and suppresses the separate legacy2D
+scroll chord; default2D behavior is preserved. Direct touch still has no wheel
+semantics.
+
+A camera-free regression deliberately makes pixel and world distances contradict:
+both independently owned contacts, and the pointer, must open/confirm/hold/release
+according to the configured metric. It covers both modes and absent detections.
+This fixes source integration; it does not improve landmark accuracy, deploy a
+new receiving runtime or establish physical multitouch acceptance.
 
 ## Reuse and research curation
 

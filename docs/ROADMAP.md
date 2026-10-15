@@ -39,7 +39,7 @@ with explicit uncertainty over a plausible but unqualified 3D reconstruction.
 | Mapping | Shared diagonal calibration, guided review, saved profile/rollback, matching native overlay target | Complete corners/comfort acceptance; participant-specific workspaces |
 | Delivery | Real virtual mouse on Chromium Wayland/VLC XWayland; type-B two-contact writer and touch-aware client scale/rotation | Camera-driven multitouch acceptance; actual fallback per application |
 | Operation | Finite and selected until-stop controls, private rolling recordings, existing local panel, independent physical input | Final receiving configuration and sustained accepted-hand resources |
-| Simulation | Static MHR controls; hand-only yaw;2016 fast/fine analytic cases;25-frame single/paired rendered trajectories through actual perception/gestures; pinned Tasks CPU comparison; TV progress/results | Qualified skin/contact truth, articulated sequences, held-contact ownership, participants and broader coverage |
+| Simulation | Static MHR controls; hand-only yaw;2016 full-workspace /5760 calibrated analytic cases;25-frame single/paired rendered trajectories through actual perception/gestures; pinned Tasks CPU comparison; TV progress/results | Qualified skin/contact truth, articulated sequences, held-contact ownership, participants and broader coverage |
 
 Implementation and deployment are distinct. The adaptive filter and new simulation
 tools are source experiments; the selected receiving 45/65mm live pinch thresholds,

@@ -8,8 +8,20 @@ import sys
 import tempfile
 import unittest
 
+from run_visible_motion import frame_projection
+
 
 class ProjectionFailure(unittest.TestCase):
+    def test_tasks_gap_is_visible_without_inventing_contact_or_identity(self):
+        row = dict(hands=[dict(world_pinch_distance_m=.04, stable_id_available=False)],
+                   contacts=None, ambiguous=None)
+        projected = frame_projection(dict(distal_skin=dict(surface_gap_m=.08)), row)
+        self.assertEqual(projected['model_gap_m'], .04)
+        self.assertEqual(projected['skin_gap_m'], .08)
+        self.assertIsNone(projected['contacts'])
+        self.assertIsNone(projected['ambiguous'])
+        self.assertNotIn('model_hands', projected)
+
     def test_lost_display_preserves_model_completion_and_does_not_mask_model_failure(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

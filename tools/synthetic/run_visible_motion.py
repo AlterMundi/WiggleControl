@@ -12,13 +12,15 @@ import time
 import uuid
 
 from run_visible_probe import SINK
+from compare_pinch_interpretations import matched_geometry
 
 
 def frame_projection(reference, row):
     paired = len(reference.get('reference_hands', [])) == 2
     result = dict(skin_gap_m=None if paired else reference.get('distal_skin', {}).get('surface_gap_m'),
                   closure=reference.get('closure_interpolation'),
-                  model_gap_m=row['hands'][0].get('pinch_distance_m') if row['hands'] and not paired else None,
+                  model_gap_m=row['hands'][0].get('pinch_distance_m',
+                      row['hands'][0].get('world_pinch_distance_m')) if row['hands'] and not paired else None,
                   contacts=len(row['contacts']) if row.get('contacts') is not None else None,
                   hands=len(row['hands']), ambiguous=row['ambiguous'],
                   ambiguity_reason=row.get('ambiguity_reason'))
@@ -56,6 +58,8 @@ def main():
                    help='Optional exported pose model over native landmarks; no macro actions')
     p.add_argument('--controller-settings', type=Path,
                    help='Use the full native controller-sequence path; no device/action adapter')
+    p.add_argument('--geometry', type=Path,
+                   help='Matched independently measured labels; original images remain unchanged')
     p.add_argument('--rediscovery', type=int, default=5,
                    help='Controlled native missing-hand detector interval in frames, default5')
     p.add_argument('--pair-separation', type=float,
@@ -124,6 +128,14 @@ def main():
                 time.sleep(0.5)
             manifest = json.loads((args.render_dir/'sequence.json').read_text())
             labels = json.loads((args.render_dir/'labels.json').read_text())
+            geometry_digest = None
+            geometry_error = None
+            if args.geometry:
+                geometry_digest = hashlib.sha256(args.geometry.read_bytes()).hexdigest()
+                measured, geometry_error = matched_geometry(labels, json.loads(args.geometry.read_text()))
+                for original, frame in zip(labels['frames'], measured['frames']):
+                    frame['image'] = original['image']
+                labels = measured
             if len(manifest['frames']) != args.frames:
                 raise RuntimeError('Unexpected render frame count')
             publish(status='running', phase='inference', frame=0)
@@ -177,6 +189,8 @@ def main():
                     raise RuntimeError('Gesture model changed during inference')
                 if args.controller_settings and hashlib.sha256(args.controller_settings.read_bytes()).hexdigest() != settings_digest:
                     raise RuntimeError('Controller settings changed during inference')
+                if args.geometry and hashlib.sha256(args.geometry.read_bytes()).hexdigest() != geometry_digest:
+                    raise RuntimeError('Independent geometry changed during inference')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
                           experiment_label=args.label,
                           config_sha256=config_digest,
@@ -185,6 +199,7 @@ def main():
                           model_sha256=args.model_sha256,
                           gesture_model_sha256=gesture_digest,
                           controller_settings_sha256=settings_digest,
+                          geometry_sha256=geometry_digest, geometry_marker_max_error_m=geometry_error,
                           projection_errors=projection_errors,
                           receiving_display_verified=False,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,

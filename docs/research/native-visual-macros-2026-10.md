@@ -227,3 +227,36 @@ outputs/scores, digests and observed display. Source tools and this report carry
 portable methods/results; raw assets and local topology stay outside Git.
 This section extends the owning research beyond the immutable index9 snapshot;
 that earlier selected contribution remains unchanged.
+
+## Alternative perception on the identical inputs
+
+Following Nicolás's question about feasibility, the pinned MediaPipe Tasks1.1.1
+CPU VIDEO backend was executed on the same61 separated-skin macro frames and
+four41-frame corrected-pinch views. It reuses the previously retained Hand
+Landmarker bundle SHA256
+`fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`.
+No new model download, capture or receiving runtime selection occurred.
+
+Tasks detects exactly one hand in225/225 frames. All36 independent approximately
+2mm near-hold samples have raw estimated gap<=45mm, matching the native raw-gap
+test on those samples. This is a raw-metric result, not36 accepted clicks:
+Tasks does not supply stable track IDs, per-hand presence confidence, ambiguity
+or evaluated gesture output through this comparison seam.
+
+The separated macro still has seven estimates<=45mm, at frames18–21 and40–42,
+while independent skin separation is77.80–81.17mm. The minimum estimate is39.94mm
+at78.57mm skin separation. Merely switching to this provider API therefore does
+not remove the underlying transition counterexample. No claim is made about
+the number of contact events an eventual qualified Tasks adapter would emit.
+
+Processing medians were75.78ms for the macro and83.06/59.80/80.60/71.98ms for
+yaw−35°/yaw+35°/pitch−25°/pitch+25°. The macro and first positive run overlapped
+on VPS compute/display; these are observed costs, not a controlled performance
+ranking. All finite processes completed and retained their exact source labels,
+model digest, predictions and projection status; no projection failure occurred.
+The owned TV workbench showed the actual processing and saved comparisons.
+
+This result narrows the next decision: compare additional geometric consistency
+signals and qualified stronger perception models, rather than assume the newer
+API solves depth bias. Synthetic near-gap coverage is encouraging; pose-specific
+false onsets, diverse hands/poses, real intent/comfort and occlusion remain open.

@@ -397,3 +397,9 @@ without repeating rendering/inference. A successful marker match is not full
 anatomical or unseen-view validation. See the
 [matched comparison](../../docs/research/native-visual-macros-2026-10.md#full-trajectory-interpretation-comparison)
 for the rejected candidates and actual limits.
+
+The visible motion runner also accepts `--geometry LABELS`, using the same
+full-trajectory match and unchanged-file digest check. It retains original
+input-image names and displays measured skin separation beside either backend's
+raw gap. Tasks still has unknown contact/ownership semantics; projection never
+turns those unknowns into zero contacts or stable identities.

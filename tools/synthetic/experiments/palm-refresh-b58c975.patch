@@ -1,0 +1,277 @@
+diff --git a/src/sequence.rs b/src/sequence.rs
+index ecb64e6..7117d09 100644
+--- a/src/sequence.rs
++++ b/src/sequence.rs
+@@ -147,7 +147,7 @@ pub fn check(
+             "offline_now_equals_source":true,"processing_ms":started.elapsed().as_secs_f64()*1000.0,
+             "rediscovery_interval":rediscovery_interval,
+             "pair_separation_widths":pair_separation_widths,
+-            "palm_deduplication":config.palm_deduplication,
++            "palm_deduplication":config.palm_deduplication,"tracking_roi":config.tracking_roi,
+             "tracking_diagnostics":frame.image.as_ref().map(|_|&model.multi_diagnostics),
+             "ambiguous":ambiguous,"ambiguity_reason":ambiguity_reason,
+             "perception":raw,"hands":hands,"contacts":contacts})
+@@ -238,7 +238,7 @@ pub fn check_controller(
+             "frame":index,"source_us":frame.source_us,"image":frame.image,"width":width,"height":height,
+             "processing_ms":started.elapsed().as_secs_f64()*1000.0,"offline_now_equals_source":true,
+             "pair_separation_widths":config.pair_separation_widths,
+-            "palm_deduplication":config.palm_deduplication,
++            "palm_deduplication":config.palm_deduplication,"tracking_roi":config.tracking_roi,
+             "tracking_diagnostics":frame.image.as_ref().map(|_|&perception.multi_diagnostics),
+             "visual_macros":classifier.is_some(),"visual_pose":visual_pose,
+             "perception":raw,"hands":hands,"contacts":state.contacts,"controller":state,
+diff --git a/src/session.rs b/src/session.rs
+index 9f6b56d..264bcab 100644
+--- a/src/session.rs
++++ b/src/session.rs
+@@ -59,6 +59,8 @@ pub struct SessionConfig {
+     pub pair_separation_widths: f64,
+     #[serde(default)]
+     pub palm_deduplication: crate::vision::PalmDeduplication,
++    #[serde(default)]
++    pub tracking_roi: crate::vision::TrackingRoi,
+ }
+ fn default_pair_separation_widths() -> f64 {
+     0.8
+@@ -92,7 +94,8 @@ impl SessionConfig {
+             rediscovery,
+             separation_override.unwrap_or(self.pair_separation_widths),
+         )?
+-        .with_palm_deduplication(self.palm_deduplication))
++        .with_palm_deduplication(self.palm_deduplication)
++        .with_tracking_roi(self.tracking_roi))
+     }
+     pub fn gestures(&self) -> Config {
+         Config {
+@@ -652,7 +655,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
+     } else {
+         seconds
+     };
+-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
++    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"tracking_roi":config.tracking_roi,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+     let (recording_frames, mut recording_observations) =
+         if let Some((frames, observations, dir)) = recording {
+             fs::write(
+diff --git a/src/vision.rs b/src/vision.rs
+index c4f1c7e..4bfc47a 100644
+--- a/src/vision.rs
++++ b/src/vision.rs
+@@ -177,10 +177,46 @@ pub enum PalmDeduplication {
+     Roi,
+     PalmLandmarks,
+ }
++#[derive(Clone, Copy, Default, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
++#[serde(rename_all = "snake_case")]
++pub enum TrackingRoi {
++    #[default]
++    Landmarks,
++    /// Experimental fresh palm geometry; retains existing track identities.
++    PalmRefresh,
++}
+ struct PalmProposal {
+     roi: Roi,
+     landmarks: [XY; 7],
+ }
++/// Refresh only mutual unique matches; a plausible alternate is not identity.
++fn palm_refresh_matches(tracks: &[TrackedHand], proposals: &[PalmProposal]) -> Vec<Option<usize>> {
++    let costs: Vec<Vec<bool>> = tracks
++        .iter()
++        .map(|track| {
++            proposals
++                .iter()
++                .map(|p| palm_match_cost(&track.hand, &p.landmarks).is_some_and(|c| c < 0.25))
++                .collect()
++        })
++        .collect();
++    costs
++        .iter()
++        .map(|row| {
++            let matches: Vec<_> = row
++                .iter()
++                .enumerate()
++                .filter(|(_, yes)| **yes)
++                .map(|(i, _)| i)
++                .collect();
++            if matches.len() != 1 {
++                return None;
++            }
++            let p = matches[0];
++            (costs.iter().filter(|r| r[p]).count() == 1).then_some(p)
++        })
++        .collect()
++}
+ // OpenCV Zoo's pinned PALM_LANDMARK_IDS maps the first five palm points
+ // to wrist/index/middle/ring/pinky MCP. Thumb articulation is not a scale cue.
+ fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
+@@ -238,6 +274,8 @@ pub struct HandAttempt {
+     pub landmarks: Option<[[f64; 2]; 21]>,
+     pub handedness: Option<f64>,
+     pub duplicate_match: Option<u64>,
++    #[serde(skip_serializing_if = "is_false")]
++    pub palm_refresh: bool,
+ }
+ #[derive(serde::Serialize)]
+ pub struct SkippedPalm {
+@@ -248,6 +286,9 @@ pub struct SkippedPalm {
+ fn roi_values(roi: Roi) -> [f64; 4] {
+     [roi.center.x, roi.center.y, roi.side, roi.angle]
+ }
++fn is_false(value: &bool) -> bool {
++    !value
++}
+ pub struct MultiHands {
+     pub hands: Vec<DetectedHand>,
+     pub ambiguous: bool,
+@@ -273,6 +314,7 @@ pub struct Perception {
+     pub multi_diagnostics: MultiDiagnostics,
+     tracking_diagnostics_enabled: bool,
+     palm_deduplication: PalmDeduplication,
++    tracking_roi: TrackingRoi,
+ }
+ fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
+     let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
+@@ -324,6 +366,7 @@ impl Perception {
+             multi_diagnostics: MultiDiagnostics::default(),
+             tracking_diagnostics_enabled: false,
+             palm_deduplication: PalmDeduplication::default(),
++            tracking_roi: TrackingRoi::default(),
+         })
+     }
+     /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
+@@ -500,10 +543,28 @@ impl Perception {
+             input_tracks: previous.len(),
+             ..Default::default()
+         };
++        let fresh_palms = if self.tracking_roi == TrackingRoi::PalmRefresh {
++            self.multi_diagnostics.palm_search = true;
++            Some(self.detect_palms(image)?)
++        } else {
++            None
++        };
++        let refresh_matches = fresh_palms
++            .as_ref()
++            .map(|p| palm_refresh_matches(&previous, p));
+         let mut next = Vec::new();
+-        for track in previous {
+-            let found = self.infer_roi(image, track.roi, track.hand.id, true)?;
+-            self.record_attempt(track.roi, track.hand.id, true, found.as_ref());
++        for (index, track) in previous.into_iter().enumerate() {
++            let refresh = refresh_matches.as_ref().and_then(|m| m[index]);
++            let roi = refresh
++                .map(|i| fresh_palms.as_ref().unwrap()[i].roi)
++                .unwrap_or(track.roi);
++            let found = self.infer_roi(image, roi, track.hand.id, true)?;
++            self.record_attempt(roi, track.hand.id, true, found.as_ref());
++            if self.tracking_diagnostics_enabled {
++                if let Some(attempt) = self.multi_diagnostics.attempts.last_mut() {
++                    attempt.palm_refresh = refresh.is_some();
++                }
++            }
+             if let Some(hand) = found {
+                 if identity_uncertain(&track.hand, &hand, track.roi.side) {
+                     return Ok(MultiHands {
+@@ -529,7 +590,12 @@ impl Perception {
+             && (next.is_empty() || self.search_frames % self.rediscovery_interval == 0)
+         {
+             self.multi_diagnostics.palm_search = true;
+-            for proposal in self.detect_palms(image)? {
++            let proposals = if let Some(palms) = fresh_palms {
++                palms
++            } else {
++                self.detect_palms(image)?
++            };
++            for proposal in proposals {
+                 let roi = proposal.roi;
+                 if let Some(existing) = next.iter().find(|t| match self.palm_deduplication {
+                     PalmDeduplication::Roi => {
+@@ -608,6 +674,7 @@ impl Perception {
+             landmarks: hand.map(|h| h.landmarks.map(|p| [p.x, p.y])),
+             handedness: hand.map(|h| h.handedness),
+             duplicate_match: None,
++            palm_refresh: false,
+         });
+     }
+     /// Bounded camera-free sequence diagnostics; normal acquisition does not collect candidates.
+@@ -619,6 +686,10 @@ impl Perception {
+         self.palm_deduplication = policy;
+         self
+     }
++    pub fn with_tracking_roi(mut self, policy: TrackingRoi) -> Self {
++        self.tracking_roi = policy;
++        self
++    }
+ }
+ impl DetectedHand {
+     pub fn world_pinch_distance_m(&self) -> f64 {
+@@ -929,6 +1000,59 @@ mod tests {
+         assert!((a[2015].y - 23.0 / 24.0).abs() < 1e-8);
+     }
+     #[test]
++    fn palm_refresh_requires_mutual_uniqueness_and_ignores_proposal_order() {
++        let track = |id, offset| {
++            let mut landmarks = [XY {
++                x: 100.0 + offset,
++                y: 180.0,
++            }; 21];
++            for (i, x) in [(5, 60.0), (9, 85.0), (13, 110.0), (17, 140.0)] {
++                landmarks[i] = XY {
++                    x: x + offset,
++                    y: 100.0,
++                };
++            }
++            TrackedHand {
++                roi: Roi {
++                    center: XY {
++                        x: 100.0 + offset,
++                        y: 140.0,
++                    },
++                    side: 300.0,
++                    angle: 0.0,
++                },
++                hand: DetectedHand {
++                    id,
++                    landmarks,
++                    image_depths: [0.0; 21],
++                    world_landmarks: [[0.0; 3]; 21],
++                    confidence: 0.99,
++                    handedness: 0.9,
++                    tracked: true,
++                },
++            }
++        };
++        let proposal = |t: &TrackedHand| PalmProposal {
++            roi: t.roi,
++            landmarks: [0, 5, 9, 13, 17, 1, 2].map(|i| t.hand.landmarks[i]),
++        };
++        let tracks = vec![track(7, 0.0), track(8, 100.0)];
++        assert_eq!(
++            palm_refresh_matches(&tracks, &[proposal(&tracks[1]), proposal(&tracks[0])]),
++            vec![Some(1), Some(0)]
++        );
++        assert_eq!(
++            palm_refresh_matches(&tracks[..1], &[proposal(&tracks[0]), proposal(&tracks[0])]),
++            vec![None]
++        );
++        let overlap = vec![track(7, 0.0), track(8, 0.0)];
++        assert_eq!(
++            palm_refresh_matches(&overlap, &[proposal(&overlap[0])]),
++            vec![None, None]
++        );
++        assert_eq!(palm_refresh_matches(&tracks, &[]), vec![None, None]);
++    }
++    #[test]
+     fn roi_rotation_round_trip_and_finger_orientation() {
+         let r = Roi {
+             center: XY { x: 300.0, y: 200.0 },
+diff --git a/tools/synthetic/run_visible_motion.py b/tools/synthetic/run_visible_motion.py
+index 958d00b..36ed048 100644
+--- a/tools/synthetic/run_visible_motion.py
++++ b/tools/synthetic/run_visible_motion.py
+@@ -205,6 +205,7 @@ def main():
+                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
+                           pair_separation_widths=None if args.mediapipe_model else rows[0].get('pair_separation_widths'),
+                           palm_deduplication=None if args.mediapipe_model else rows[0].get('palm_deduplication', 'roi'),
++                          tracking_roi=None if args.mediapipe_model else rows[0].get('tracking_roi', 'landmarks'),
+                           reference=labels, predictions=rows,
+                           limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
+                           if labels.get('skin_clearance_measured') else

@@ -17,6 +17,7 @@ jobs:
       - run: python3 tools/synthetic/test_pinch_pose.py
       - run: python3 tools/synthetic/test_wilor_probe.py
       - run: python3 tools/synthetic/test_mesh_metric.py
+      - run: python3 tools/synthetic/test_tasks_metric.py
       - run: python3 tools/synthetic/test_mesh_projection.py
       - run: cargo fmt --check
       - run: cargo test --locked

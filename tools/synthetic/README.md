@@ -567,3 +567,23 @@ for old sources that did not report it.
 See [tracking recovery](../../docs/research/tracking-recovery-2026-10.md) for the
 retained first-version regression, corrected409-frame single-hand equality,
 paired/cadence comparisons, new same-side controls and occlusion/resource limits.
+
+### Stationary tracking and conditional Tasks metrics
+
+[The crop/Tasks investigation](../../docs/research/roi-stability-and-tasks-2026-10.md)
+verifies stationary decoded RGB despite changing PNG bytes, fixed-crop tensor
+invariance, a rejected fresh-palm branch,655 Tasks inputs and fresh10Hz tracking
+on three hard scenes. [Rejected experiment patches](experiments/README.md) are
+reproduction artifacts; they do not add options to the selected/current runtime.
+
+`compare_tasks_metric.py NATIVE_RESULTS TASKS_RESULTS --images IMAGES --binary
+BINARY --settings SETTINGS --onset-ratio 0.38 --output NEW_REPORT` compares the
+actual Rust controller with matched single-hand Tasks world-gap estimates and
+optional Tasks-derived onset permission. Native identity, confidence, eligibility,
+cursor and source time remain native; multiple provider hands are rejected,
+missing hands cancel, source/geometry/image hashes are retained and baseline
+contacts/Stop/EOF are checked. The helper does not run a model or inject input.
+Its separate `counterfactual_unions` are Boolean combinations of independently
+confirmed component decisions, not a fusion controller or delivered contact IDs.
+The reported intervals are source-clock intervals; a second stride over actual
+10Hz observations is5Hz, not another10Hz qualification.

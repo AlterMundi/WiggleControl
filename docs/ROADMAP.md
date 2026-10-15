@@ -12,6 +12,17 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+Current perception work: [stationary crops and Tasks](research/roi-stability-and-tasks-2026-10.md)
+establishes exact fixed-tensor invariance and complementary failures on655 images.
+Neither fresh-palm refresh nor a sole Tasks metric is adopted. Separately gated
+component decisions combine analytically to117/117 near frames at20Hz; this is
+not implemented contact fusion. Fresh10Hz tracking retains the hard-scene
+complementarity and changes raw negative counts versus observation subsampling.
+Compare efficient native crop/model hypotheses before choosing two stacks;
+qualify same-hand/frame association, independent confirmation, lifecycle and
+new conflicting negatives before actual input. Pi resources and human acceptance
+remain required. The full multi-hand/macros/participant roadmap below stays active.
+
 Latest#7 source candidate: [late onset permission](research/pinch-onset-veto-2026-10.md)
 uses the previously tested0.38 pixel ratio to veto a new press while retaining raw
 confirmation/rearm/release. It removes development26/12/13 negative contact frames

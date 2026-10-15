@@ -28,7 +28,7 @@ def invoke(root, command):
 def setup(root):
     for name in ['usr-local/bin', 'usr-local/share/wigglecontrol/models',
                  'usr-local/lib/wigglecontrol', 'etc/wigglecontrol', 'etc/udev/rules.d',
-                 'etc/daimon-integrators', 'etc/ssh', 'var', 'test-bin',
+                 'etc/daimon-integrators', 'etc/modules-load.d', 'etc/ssh', 'var', 'test-bin',
                  'artifacts/models', 'artifacts/runtime/lib']:
         (root/name).mkdir(parents=True, exist_ok=True)
     (root/'etc/passwd').write_text('root:x:0:0:root:/root:/bin/sh\ntester:x:1000:1000:tester:/home/tester:/bin/sh\n')
@@ -38,6 +38,7 @@ def setup(root):
     (root/'etc/ssh/sshd_config').write_text('ADMIN_SENTINEL\n')
     (root/'uinput').write_text('No real device\n'); (root/'uinput').chmod(0o600)
     (root/'test-bin/udevadm').write_text('#!/bin/sh\nexit 0\n')
+    (root/'test-bin/modprobe').write_text('#!/bin/sh\n[ "$#" = 1 ] && [ "$1" = uinput ] || exit 88\nprintf "%s\\n" "$1" >> /var/module-calls\n')
     (root/'test-bin/cp').write_text('#!/bin/sh\n[ ! -e /var/fail-copy ] || exit 77\nexec /usr/bin/cp "$@"\n')
     for p in (root/'test-bin').iterdir(): p.chmod(0o755)
     (root/'artifacts/binary').write_text('TEST_BINARY_NOT_EXECUTED\n')
@@ -63,7 +64,8 @@ def main():
         root=Path(temp); setup(root)
         paths=['usr-local/bin/wigglecontrol','usr-local/share/wigglecontrol/models/old-model',
                'usr-local/lib/wigglecontrol/old-library','etc/wigglecontrol/config.json',
-               'etc/udev/rules.d/80-wigglecontrol-uinput.rules']
+               'etc/udev/rules.d/80-wigglecontrol-uinput.rules',
+               'etc/modules-load.d/wigglecontrol.conf']
         originals={}
         for i,name in enumerate(paths):
             p=root/name; p.write_text(f'ORIGINAL-{i}\n'); p.chmod(0o640)
@@ -77,12 +79,46 @@ def main():
         (root/'var/fail-copy').unlink()
         for _ in range(2):
             result=invoke(root,install); assert result.returncode==0,result.stderr
+            assert (root/'etc/modules-load.d/wigglecontrol.conf').read_text().splitlines()[-1]=='uinput'
         rolled=invoke(root,'/src/tools/rollback.sh; getfacl -p /dev/uinput > /var/restored.acl')
         assert rolled.returncode==0,rolled.stderr
         assert (root/'var/original.acl').read_bytes()==(root/'var/restored.acl').read_bytes()
         assert all((root/p).read_bytes()==v and (root/p).stat().st_mode&0o777==0o640 for p,v in originals.items())
         assert (root/'etc/ssh/sshd_config').read_text()=='ADMIN_SENTINEL\n'
         print('Interrupted snapshot, retry, content/mode rollback and explicit original uinput ACL restoration passed')
+
+    # A previously installed package has no boot-path entry in its rollback.
+    # Its upgrade must retain pre-existing contents/mode or remove an added file.
+    for existing in (False, True):
+        with tempfile.TemporaryDirectory(prefix='upgrade-',dir=scratch) as temp:
+            root=Path(temp); setup(root)
+            boot=root/'etc/modules-load.d/wigglecontrol.conf'
+            if existing:
+                boot.write_text('PRE_EXISTING_BOOT_POLICY\n'); boot.chmod(0o640)
+            (root/'etc/udev/rules.d/80-wigglecontrol-uinput.rules').write_text('KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:tester:rw /dev/uinput"\n')
+            backup=root/'var/lib/wigglecontrol/rollback'; backup.mkdir(parents=True)
+            original='remove /usr/local/bin/wigglecontrol\n'
+            (backup/'manifest').write_text(original)
+            acl=invoke(root,'getfacl -p /dev/uinput > /var/lib/wigglecontrol/rollback/uinput.acl')
+            assert acl.returncode==0,acl.stderr
+            prepare='/src/tools/prepare_input.sh tester'
+            (root/'var/fail-copy').touch(); failed=invoke(root,prepare)
+            assert failed.returncode!=0 and (backup/'manifest').read_text()==original
+            assert boot.read_text()=='PRE_EXISTING_BOOT_POLICY\n' if existing else not boot.exists()
+            (root/'var/fail-copy').unlink()
+            for _ in range(2):
+                result=invoke(root,prepare); assert result.returncode==0,result.stderr
+                lines=(backup/'manifest').read_text().splitlines()
+                assert len(lines)==2 and lines[0]==original.strip()
+                assert boot.read_text().splitlines()[-1]=='uinput'
+            rolled=invoke(root,'/src/tools/rollback.sh')
+            assert rolled.returncode==0,rolled.stderr
+            if existing:
+                assert boot.read_text()=='PRE_EXISTING_BOOT_POLICY\n' and boot.stat().st_mode&0o777==0o640
+            else:
+                assert not boot.exists()
+            assert (root/'etc/ssh/sshd_config').read_text()=='ADMIN_SENTINEL\n'
+    print('Legacy manifest upgrade preserves/removes boot policy, interruption, retry and rollback passed')
 
 
 if __name__=='__main__': main()

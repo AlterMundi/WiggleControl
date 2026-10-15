@@ -32,6 +32,9 @@ r=next(r for r in json.loads((root/'runtime-manifest.json').read_text())['runtim
 lib=Path(sys.argv[2])/'lib'/f"libonnxruntime.so.{r['version']}"
 assert hashlib.sha256(lib.read_bytes()).hexdigest()==r['library_sha256'],'native runtime hash mismatch'
 PY
+# Register the kernel interface before retaining its original device ACL.
+# Loading this module creates no userspace virtual input device or capture.
+modprobe uinput
 backup=/var/lib/wigglecontrol/rollback
 install -d -m 700 /var/lib/wigglecontrol
 if [ ! -e "$backup/manifest" ]; then
@@ -39,8 +42,8 @@ if [ ! -e "$backup/manifest" ]; then
  stage=$(mktemp -d /var/lib/wigglecontrol/rollback.new.XXXXXX)
  trap 'rm -rf "$stage"' EXIT HUP INT TERM
  : > "$stage/manifest"
- for path in /usr/local/bin/wigglecontrol /usr/local/share/wigglecontrol /usr/local/lib/wigglecontrol /etc/wigglecontrol/config.json /etc/udev/rules.d/80-wigglecontrol-uinput.rules; do
-  if [ -e "$path" ]; then
+ for path in /usr/local/bin/wigglecontrol /usr/local/share/wigglecontrol /usr/local/lib/wigglecontrol /etc/wigglecontrol/config.json /etc/udev/rules.d/80-wigglecontrol-uinput.rules /etc/modules-load.d/wigglecontrol.conf; do
+  if [ -e "$path" ] || [ -L "$path" ]; then
    mkdir -p "$stage/files$(dirname "$path")"
    cp -a "$path" "$stage/files$(dirname "$path")/"
    printf 'restore %s\n' "$path" >> "$stage/manifest"
@@ -73,6 +76,6 @@ if not p.exists():p.write_text(json.dumps({'camera':camera,'models':'/usr/local/
 PY
 chmod 644 /etc/wigglecontrol/config.json
 printf 'KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:%s:rw /dev/uinput"\n' "$operator" > /etc/udev/rules.d/80-wigglecontrol-uinput.rules
-setfacl -m "u:$operator:rw" /dev/uinput
 udevadm control --reload-rules
+"$(dirname "$0")/prepare_input.sh" "$operator"
 echo 'Installed manual-only WiggleControl; no camera/input session started'

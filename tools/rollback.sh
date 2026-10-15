@@ -6,7 +6,7 @@ backup=/var/lib/wigglecontrol/rollback
 [ -f "$backup/manifest" ] || exit 1
 while IFS=' ' read -r action path; do
  case "$action" in
-  restore) [ -e "$backup/files$path" ] || { echo 'Rollback snapshot incomplete' >&2; exit 1; };;
+  restore) [ -e "$backup/files$path" ] || [ -L "$backup/files$path" ] || { echo 'Rollback snapshot incomplete' >&2; exit 1; };;
   remove) :;;
   *) exit 1;;
  esac

@@ -9,7 +9,7 @@ see QUALIFICATION.md for what is proved. No boot camera/inference session exists
 Use the ordinary checkout with Rust 1.85 or later. Native vision requires libclang
 for the V4L build dependency; the CPU runtime is a pinned separately packaged
 native library, not a GPU dependency. Receiving tools include Python 3.12+ (safe
-archive extraction), ACL utilities and udev. Reuse existing distribution packages.
+archive extraction), ACL utilities, kmod and udev. Reuse existing distribution packages.
 
 ```sh
 python3 tools/fetch_models.py
@@ -120,9 +120,14 @@ hand trials do not predict tracked-hand cost, jitter or gesture accuracy.
 
 ## Permissions and original baseline
 
-Installation adds a named-operator uinput ACL plus a dedicated udev rule. It does
+Installation adds a named-operator uinput ACL plus a dedicated udev rule. It also
+registers the kernel module and retains a dedicated
+`/etc/modules-load.d/wigglecontrol.conf` containing `uinput`, using the normal
+[systemd module-loading mechanism](https://github.com/systemd/systemd/blob/v257/man/modules-load.d.xml).
+This registers the kernel interface before udev grants access after startup;
+loading the module creates no userspace virtual input or sensor session. It does
 not make the device world writable or run inference as root. The initial installed
-file tree, config/rule and uinput ACL are retained in receiving rollback storage.
+file tree, config/rule, module-loading configuration and uinput ACL are retained in receiving rollback storage.
 The exact baseline matters: if a temporary test grant preceded installation,
 the installation-time ACL already includes it.
 
@@ -138,6 +143,23 @@ preserves both the installation ACL and the selected original baseline. Without
 this argument, rollback restores the installation-time ACL, including preexisting
 grants. Custody paths and the selected receiving baseline stay in the private map.
 
+For an existing installation that already has its matching named-operator rule
+and retained original rollback, prepare this startup dependency without replacing
+binaries, models or camera configuration:
+
+```sh
+sudo tools/prepare_input.sh RECEIVING_OPERATOR
+```
+
+The helper rejects a missing/mismatched installed rule or missing original rollback.
+It extends an older manifest before replacing the new module-loading path, retaining
+an existing file/symlink or recording its absence. Retry never replaces the first
+baseline. It reloads rules, loads only `uinput`, waits at most10seconds for udev,
+then restores only the named operator's access. Full installation calls this same
+helper. This is not an input/session start and needs no human gesture capture.
+Source/fixture qualification does not establish that a particular host rebooted
+successfully; record controlled registration and actual reboot evidence separately.
+
 ## Rollback
 
 End this component's owned session and verify it is terminal first. Then run:
@@ -147,13 +169,14 @@ sudo tools/rollback.sh
 ```
 
 Rollback validates retained file snapshots before mutation, restores previous
-artifacts/config/rule or removes fresh ones, restores the selected original ACL
-and reloads udev rules. It neither stops arbitrary processes nor changes SSH,
+artifacts/config/rule/module-loading file or removes fresh ones, restores the selected original ACL
+and reloads udev rules. It leaves the kernel module loaded; unloading it might affect
+other input clients. It neither stops arbitrary processes nor changes SSH,
 sudo policy, the desktop or the independent panel. Reinstallation uses the same
 qualified build/artifacts; the original rollback snapshot remains retained.
 
 The isolated fixture checks interrupted snapshot/retry, original contents/modes
-and explicit ACL restoration on a fake device with no network or host service
+explicit ACL restoration, and old-manifest boot-file upgrade/retry/rollback on a fake device with no network or host service
 effects. Actual receiving rollback/reinstallation has its separate evidence in
 QUALIFICATION.md; a mocked fixture alone does not prove real permission removal.
 

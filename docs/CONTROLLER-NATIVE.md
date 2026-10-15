@@ -109,3 +109,20 @@ held-mode change and pause/resume were observed. No page overflow or console
 exceptions;390px layout had no horizontal overflow. A fixture proves this UI and
 semantic path, not live acquisition or compositor effects. Its temporary server
 was stopped and the owned browser returned to the research workbench.
+
+## ARM64 candidate build
+
+The Rust workflow tests and builds this native path on an
+[ARM64 Ubuntu24.04 runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
+with the existing Rust1.85.1 pin. This avoids compiling on the receiving Pi and
+requires no new local cross toolchain. Its `wigglecontrol-arm64-candidate` artifact
+contains a tar archive preserving executable mode, LICENSE/NOTICE and a manifest
+with source commit, compiler, architecture, feature selection and binary SHA256.
+It contains no model, inference runtime, camera recording or receiving config.
+Artifacts expire after14days; the maintained workflow can build another commit.
+
+A candidate build is not an installation or receiving qualification. Before use,
+verify the run's source commit and manifest hash, compare the target's libc with
+the binary's requirements, then stage at a separate user-local path and run help
+and config-only preflight. Retain the selected prior binary and configurations.
+Camera/input acceptance follows the existing human-ready and receiving rules.

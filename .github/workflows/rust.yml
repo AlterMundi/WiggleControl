@@ -24,3 +24,43 @@ jobs:
       - run: cargo test --locked --features native-vision
       - run: cargo clippy --locked --all-targets --features native-vision -- -D warnings
       - run: sudo python3 tests/installation_fixture.py --scratch "$PWD/target/installation-fixtures"
+
+  arm64-candidate:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.1
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - run: cargo test --locked --features native-vision
+      - run: cargo build --locked --release --features native-vision --bin wigglecontrol
+      - name: Retain source-bound candidate without models or receiving configuration
+        run: |
+          mkdir -p target/arm64-candidate
+          install -m755 target/release/wigglecontrol target/arm64-candidate/wigglecontrol
+          cp LICENSE NOTICE target/arm64-candidate/
+          python3 - <<'PYTHON'
+          import hashlib, json, os, pathlib, platform, subprocess
+          root = pathlib.Path("target/arm64-candidate")
+          manifest = {
+              "schema": "wigglecontrol.candidate/v1",
+              "source_commit": os.environ["GITHUB_SHA"],
+              "architecture": platform.machine(),
+              "rustc": subprocess.check_output(["rustc", "--version"], text=True).strip(),
+              "features": ["native-vision"],
+              "sha256": hashlib.sha256((root / "wigglecontrol").read_bytes()).hexdigest(),
+              "receiving_qualified": False,
+          }
+          if manifest["architecture"] != "aarch64":
+              raise SystemExit("Expected native ARM64 builder")
+          (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PYTHON
+          tar -C target/arm64-candidate -czf target/wigglecontrol-arm64-candidate.tar.gz wigglecontrol manifest.json LICENSE NOTICE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wigglecontrol-arm64-candidate
+          path: target/wigglecontrol-arm64-candidate.tar.gz
+          if-no-files-found: error
+          retention-days: 14

@@ -67,11 +67,12 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  assert.equal(element('stop').disabled,true);
  vm.runInContext('stopped=false',context);
  state.provider_transport=true;state.active=true;state.frame_to_meaning_ms=85;
- state.ui_fixture=false;state.synthetic_frame=true;state.camera_opened=false;
+ state.ui_fixture=false;state.synthetic_frame=true;state.camera_source=true;state.camera_opened=false;
  state.test_phase='preparing';
  context.fetch=async()=>({status:200,ok:true,headers:{get:()=>JSON.stringify(state)},blob:async()=>({})});
  await vm.runInContext('poll()',context);
  assert.match(element('capture-status').textContent,/Camera not acquired/);
+ assert.equal(element('timing-label').textContent,'Driver stamp → meaning');
  state.camera_opened=true;state.recording=true;
  await vm.runInContext('poll()',context);
  assert.match(element('capture-status').textContent,/Camera active.*Recording/);

@@ -1073,13 +1073,13 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 )?;
             } else {
                 let inference_started = Instant::now();
-                let hand = if config.prayer_enabled {
+                let hand = if config.prayer_enabled || config.dual_crop {
                     let pair = perception.infer_many(&image)?;
                     summary.max_hands = summary.max_hands.max(pair.hands.len());
                     summary.ambiguous_frames += u64::from(pair.ambiguous);
                     let hands: Vec<_> = pair.hands.iter().map(crate::prayer::Hand::from).collect();
                     let request = prayer.observe(
-                        true,
+                        config.prayer_enabled,
                         pair.ambiguous,
                         &hands,
                         frame.source_us,

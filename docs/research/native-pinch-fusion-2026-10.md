@@ -80,6 +80,12 @@ remain separate from accepted hand identity. Conversion is shared by native
 pointer/touch/controller paths and camera-free sequences. No receiving camera
 session has executed this candidate.
 
+Source follow-up: review found that the legacy single-pointer path still called
+single-crop `infer` when prayer was disabled. It now selects the existing guarded
+`infer_many` path when dual crop is explicitly enabled, without enabling prayer.
+Controller/touch/offline image results below already used that path and are
+unaffected; this fixes optional live-source wiring, not physical qualification.
+
 Thirteen positive41-frame and two negative61-frame trajectories reproduce655
 native image/controller inputs. Existing source geometry/images and45/65mm
 thresholds are retained. The0.38 cue applies separately to each estimate.

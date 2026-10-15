@@ -33,23 +33,36 @@ struct Snapshot {
     metadata: String,
     expires: Option<Instant>,
     guided_expires: Option<Instant>,
+    published_at: Instant,
 }
 impl Snapshot {
     fn metadata_at(&self, now: Instant) -> io::Result<String> {
-        if self.expires.is_some() || self.guided_expires.is_some() {
-            let mut metadata: Value = serde_json::from_str(&self.metadata)?;
-            if let Some(expires) = self.expires {
-                metadata["remaining_ms"] =
-                    Value::from(expires.saturating_duration_since(now).as_millis() as u64);
-            }
-            if let Some(expires) = self.guided_expires {
-                metadata["guided"]["remaining_ms"] =
-                    Value::from(expires.saturating_duration_since(now).as_millis() as u64);
-            }
-            Ok(serde_json::to_string(&metadata)?)
-        } else {
-            Ok(self.metadata.clone())
+        let mut metadata: Value = serde_json::from_str(&self.metadata)?;
+        if let Some(expires) = self.expires {
+            metadata["remaining_ms"] =
+                Value::from(expires.saturating_duration_since(now).as_millis() as u64);
         }
+        if let Some(expires) = self.guided_expires {
+            metadata["guided"]["remaining_ms"] =
+                Value::from(expires.saturating_duration_since(now).as_millis() as u64);
+        }
+        let elapsed_ms = now
+            .saturating_duration_since(self.published_at)
+            .as_secs_f64()
+            * 1000.0;
+        for key in ["age_ms", "frame_age_ms"] {
+            if let Some(age) = metadata.get(key).and_then(Value::as_f64) {
+                metadata[key] = Value::from(age + elapsed_ms);
+            }
+        }
+        if let (Some(fresh), Some(age), Some(limit)) = (
+            metadata.get("fresh").and_then(Value::as_bool),
+            metadata.get("age_ms").and_then(Value::as_f64),
+            metadata.get("freshness_ms").and_then(Value::as_f64),
+        ) {
+            metadata["fresh"] = Value::from(fresh && age < limit);
+        }
+        Ok(serde_json::to_string(&metadata)?)
     }
 }
 pub struct Preview {
@@ -139,6 +152,7 @@ impl Preview {
             jpeg,
             metadata,
             expires,
+            published_at: Instant::now(),
             guided_expires: data
                 .get("guided")
                 .and_then(|g| g.get("remaining_ms"))
@@ -492,6 +506,7 @@ mod tests {
             metadata: "{\"guided\":{\"remaining_ms\":20000}}".into(),
             expires: None,
             guided_expires: Some(at + Duration::from_secs(20)),
+            published_at: at,
         };
         let state: Value =
             serde_json::from_str(&snapshot.metadata_at(at + Duration::from_secs(3)).unwrap())
@@ -499,11 +514,32 @@ mod tests {
         assert_eq!(state["guided"]["remaining_ms"], 17000);
     }
     #[test]
+    fn manual_cached_frame_ages_and_loses_freshness_without_new_capture() {
+        let at = Instant::now();
+        let snapshot = Snapshot {
+            jpeg: vec![],
+            metadata: r#"{"age_ms":20,"frame_age_ms":20,"fresh":true,"freshness_ms":100}"#.into(),
+            expires: None,
+            guided_expires: None,
+            published_at: at,
+        };
+        let state: Value = serde_json::from_str(
+            &snapshot
+                .metadata_at(at + Duration::from_millis(90))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(state["age_ms"].as_f64(), Some(110.0));
+        assert_eq!(state["frame_age_ms"].as_f64(), Some(110.0));
+        assert_eq!(state["fresh"], false);
+    }
+    #[test]
     fn cached_frame_does_not_extend_the_session_deadline() {
         let now = Instant::now();
         let snapshot = Snapshot {
             jpeg: vec![],
             metadata: "{\"remaining_ms\":1000}".into(),
+            published_at: now,
             expires: Some(now + Duration::from_secs(1)),
             guided_expires: None,
         };

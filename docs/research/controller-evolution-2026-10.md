@@ -573,3 +573,74 @@ traces retained. No camera, microphone, OS input or receiving controller/profile
 adoption follows from these experiments. Parent#3 retains the early-onset and
 occlusion continuity work; real interaction, macros and participant modes remain
 unfinished.
+
+
+## Configured overlap policy and recoverable feedback —2026-10-15
+
+Session `pair_separation_widths` now drives one shared perception factory for
+acquisition and offline sequence replay. The default remains0.8; the tested1.2
+policy is an explicit candidate setting. Config validation rejects values outside
+0.8..2.0 before model/camera access. Both preflight commands report the value.
+An explicit replay override remains available without changing the session file.
+The visible runner reports the producer's actual selected guard and checks that
+binary/config digests did not change during inference; frozen comparison copies
+are retained while normal builds continue.
+
+The configured1.2 old crossing reproduction has zero contacts and explicit
+ambiguity at frame23. Configured0.8 preserves every original61 model/meaning row;
+overriding a1.2 config back to0.8 restores the known onset. This verifies that
+config, replay and live factory selection share the intended policy, not just
+that a JSON field is accepted.
+
+Two new61-frame renders vary geometry before comparing policies. Both preserve
+all skin in frame, independently checked forward flexion, per-hand distal
+clearance and disjoint evaluated skin-depth intervals. The same rig/lighting
+remain a limitation; these are additional geometries, not diverse human hands.
+
+| Layout | Half spacing / rear depth | Dual-hand frames0.8→1.2 | Stable hold counts | Second onset0.8→1.2 |
+| --- | --- | --- | --- | --- |
+| Near separated |0.065 /0.14m |61→61 of61 |All41 match under both |17.15mm gap→same onset |
+| Wider/deeper crossing |0.13 /0.18m |37→36 of61 |Open/open17/17 and near/open7/7; near/near0/13 and open/near0/4 under both |44.84mm gap→no onset |
+
+The narrower normal layout retains both13-frame contact holds under1.2. The new
+crossing again prevents a transition onset by earlier rejection, while continuous
+multitouch still fails. No live default or old receiving calibration changed.
+Private comparison SHA256:
+`bd3f41f2c34d7225efbbbe2de9b663220522bfd7502ff0a71d9dbe3f2309852c`.
+
+### Rearm and transport feedback
+
+The controller now exposes read-only `awaiting_open_hands` from its actual contact
+engines. A closed returning track cannot become ready merely by reappearing;
+positive open evidence clears only that hand's rearm indicator. Native preview
+receives the perception rejection cause and gives a separate/open instruction
+for overlap. These diagnostics do not change contact release or create actions.
+
+The initial remote UI fixture reached cancellation and closed-return feedback,
+then entered its generic failure path before the open state became visible.
+That path permanently ended feedback on any frame error. Stop also ended the
+view from a finally block even when its request failed. Both behaviors were
+corrected: frame failures mark the view delayed, clear stale visual holds and
+retry; an unacknowledged Stop stays available with a persistent warning. Only an
+acknowledged request ends that view, without claiming camera closure. Known finite
+trial deadlines still end feedback on time.
+
+Cached server metadata now ages in manual/until-stop mode as well as finite
+mode. Browser freshness includes request/body/decode time and does not acknowledge
+trial readiness for an already-late image. Native clock/metadata and executable
+page controls test these cases without acquiring sensors.
+
+The final actual Cuevanico UI test used real Rust device-free pipeline output
+and retained model observations: held contact→overlap release→closed return
+waiting for hand4→positive open/ready. A controlled five-second503 frame fault
+showed delayed state with Stop available, then recovered held feedback. A rejected
+scoped Stop remained unacknowledged; the next accepted one ended the fixture.
+All four pose states fit1920x1080 with no page overflow; no console exceptions.
+The fixture used12–14KiB display JPEGs derived from the retained327–333KiB PNGs;
+all perception measurements continued using the original PNGs. This UI exercise
+is not a camera latency or physical gesture-accuracy measurement.
+
+Temporary fixture, pipeline and forwards closed, restoring the owned workbench.
+The source tests cover per-hand rearm after identity loss, policy validation,
+server-side cached age and browser transport/Stop recovery. Receiving a new
+artifact and human camera/application acceptance remain separate requirements.

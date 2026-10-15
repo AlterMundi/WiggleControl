@@ -9,6 +9,7 @@ jobs:
         with:
           components: rustfmt, clippy
       - run: node tests/preview_timer.cjs
+      - run: node tests/preview_recovery.cjs
       - run: python3 tools/synthetic/test_pair_closure.py
       - run: cargo fmt --check
       - run: cargo test --locked

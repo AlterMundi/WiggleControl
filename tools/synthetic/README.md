@@ -266,10 +266,20 @@ that occur during transitions rather than a fully open/closed hold.
 
 `sequence-check` now emits `ambiguity_reason` (`pair_overlap`, `track_identity`
 or null). Its optional `--pair-separation WIDTHS` accepts0.8..2.0 palm widths;
-the ordinary runtime and offline default remain0.8. It can be combined with
+the session default remains0.8 when the field is omitted. The offline option
+overrides session `pair_separation_widths`; without it, replay uses the same
+configured policy as acquisition. It can be combined with
 `--rediscovery N`; repeated/unknown options and nonfinite/out-of-range values fail.
 The visible runner exposes the same native-only probe and retains its value.
 This controls rejection of a crowded pair, not pinch thresholds or identity
 recovery. Raising it can cancel sooner; fewer contacts alone do not prove a better
 controller. No probe changes the live policy. See the owning evolution report
 for the early-contact failure, measured coverage and unchanged receiving state.
+
+`--pair-half-spacing METERS` (0.03..0.16, default0.105) varies the paired closure's
+separation/crossing span. `--pair-depth-offset METERS` (0.08..0.30, default0.14)
+varies the rear hand's depth. Actual disjoint skin-depth checks remain mandatory;
+an offset alone does not establish collision-free geometry. Frame labels retain
+both values. The measured near-separated/deeper-crossing extension is in the
+evolution report. Use immutable binary/config copies for comparison: the visible
+runner records launch digests and rejects changes detected during inference.

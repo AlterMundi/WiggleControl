@@ -71,6 +71,16 @@ open-hand controls are tested separately. See the
 [paired comparison](research/controller-evolution-2026-10.md#paired-closure-overlap-and-input-cadence-2026-10-15)
 for exact scope, failed coverage and the remaining implementation work in#3.
 
+Current source now connects optional session `pair_separation_widths` to both
+camera and replay through one factory, retaining0.8 by default. Candidate1.2
+also preserves all41 stable-hold counts in a narrower separated layout and
+prevents a44.84mm early second onset in a wider/deeper crossing; continuity is
+still lost. Native feedback reports real per-hand open-rearm state and crowding.
+The actual TV UI passed held→overlap→closed return→open rearm, temporary503 frame
+loss/recovery and an unacknowledged then acknowledged scoped Stop, without sensors
+or OS input. Source also ages cached metadata and includes transfer/decode time
+before readiness. Current receiving/physical adoption remains a separate gate.
+
 Current mode increment: an exclusive arbiter now reuses pointer/contact/macro
 engines for pointer, relative precision, explicit scroll, one contact and two
 contacts. Replay verifies neutral mode transitions, open-before-move/repress,

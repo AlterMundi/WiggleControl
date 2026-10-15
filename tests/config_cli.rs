@@ -34,6 +34,13 @@ fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     assert_eq!(report["pinch_close_ratio"], 0.25);
     assert_eq!(report["pinch_open_ratio"], 0.4);
     assert!(report["adaptive_smoothing"].is_null());
+    assert_eq!(report["pair_separation_widths"], 0.8);
+    config["pair_separation_widths"] = serde_json::json!(1.2);
+    fs::write(&path, config.to_string()).unwrap();
+    let selected = check();
+    assert!(selected.status.success());
+    let selected: serde_json::Value = serde_json::from_slice(&selected.stdout).unwrap();
+    assert_eq!(selected["pair_separation_widths"], 1.2);
     config["adaptive_smoothing"] =
         serde_json::json!({"min_cutoff_hz":0.5,"beta":20.0,"derivative_cutoff_hz":1.0});
     fs::write(&path, config.to_string()).unwrap();

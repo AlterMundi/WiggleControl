@@ -48,8 +48,8 @@ def main():
     p.add_argument('--model-sha256')
     p.add_argument('--rediscovery', type=int, default=5,
                    help='Controlled native missing-hand detector interval in frames, default5')
-    p.add_argument('--pair-separation', type=float, default=0.8,
-                   help='Offline native overlap guard in palm widths, default0.8; no live adoption')
+    p.add_argument('--pair-separation', type=float,
+                   help='Override the session overlap guard for native replay only; otherwise use its config')
     args = p.parse_args()
     if not 9 <= args.frames <= 121:
         p.error('--frames must be9..121')
@@ -57,7 +57,7 @@ def main():
         p.error('--mediapipe-model requires --model-sha256')
     if not 1 <= args.rediscovery <= 30 or (args.mediapipe_model and args.rediscovery != 5):
         p.error('--rediscovery must be1..30 and is a native-only option')
-    if not 0.8 <= args.pair_separation <= 2 or (args.mediapipe_model and args.pair_separation != 0.8):
+    if args.pair_separation is not None and (not 0.8 <= args.pair_separation <= 2 or args.mediapipe_model):
         p.error('--pair-separation must be0.8..2 and is a native-only option')
     args.output.mkdir(mode=0o700, exist_ok=False)
     # Same atomic receiving writer as the retained static/yaw probes.
@@ -106,7 +106,7 @@ def main():
                              str(args.render_dir/'sequence.json'), str(args.config)]
                 if args.rediscovery != 5:
                     inference += ['--rediscovery', str(args.rediscovery)]
-                if args.pair_separation != 0.8:
+                if args.pair_separation is not None:
                     inference += ['--pair-separation', str(args.pair_separation)]
                 if args.mediapipe_model:
                     inference = ['uv', 'run', '--offline', '--no-project', '--python', '3.11',
@@ -114,6 +114,8 @@ def main():
                         str(Path(__file__).with_name('mediapipe_sequence.py')),
                         str(args.render_dir/'sequence.json'), str(args.mediapipe_model),
                         '--expected-sha256', args.model_sha256]
+                binary_digest = None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest()
+                config_digest = hashlib.sha256(args.config.read_bytes()).hexdigest()
                 process = subprocess.Popen(inference,
                     stdout=subprocess.PIPE, stderr=errors, text=True)
                 for line in process.stdout:
@@ -129,14 +131,18 @@ def main():
                             **frame_projection(reference, row), **picture(last_image))
                 if process.wait(timeout=10) or len(rows) != args.frames:
                     raise RuntimeError('Incomplete sequence inference; inspect model.stderr')
+                if binary_digest is not None and hashlib.sha256(args.binary.read_bytes()).hexdigest() != binary_digest:
+                    raise RuntimeError('Native binary changed during inference; retain a frozen artifact for comparison')
+                if hashlib.sha256(args.config.read_bytes()).hexdigest() != config_digest:
+                    raise RuntimeError('Configuration changed during inference; preserve a separate experiment config')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
                           experiment_label=args.label,
-                          config_sha256=hashlib.sha256(args.config.read_bytes()).hexdigest(),
+                          config_sha256=config_digest,
                           backend='mediapipe-1.1.1-cpu' if args.mediapipe_model else 'rust-onnx-cpu',
-                          binary_sha256=None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                          binary_sha256=binary_digest,
                           model_sha256=args.model_sha256,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
-                          pair_separation_widths=None if args.mediapipe_model else args.pair_separation,
+                          pair_separation_widths=None if args.mediapipe_model else rows[0].get('pair_separation_widths'),
                           reference=labels, predictions=rows,
                           limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
                           if labels.get('skin_clearance_measured') else

@@ -98,6 +98,14 @@ impl Gestures {
         self.tracks.clear();
         Vec::new()
     }
+    /// Read-only rearm feedback from the same engines that decide contacts.
+    pub fn awaiting_open_hands(&self) -> Vec<u64> {
+        self.tracks
+            .iter()
+            .filter(|(_, track)| track.engine.pinch_state() == "open_first")
+            .map(|(id, _)| *id)
+            .collect()
+    }
     fn events(&mut self, id: u64, events: Vec<Event>) -> Result<(), &'static str> {
         let track = self.tracks.get_mut(&id).ok_or("missing touch track")?;
         for event in events {

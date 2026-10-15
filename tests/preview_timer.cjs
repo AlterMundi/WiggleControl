@@ -16,6 +16,12 @@ vm.runInContext(`showController({controller:{mode:'pointer',running:true,button_
 assert.equal(element('held-input').textContent,'Button held');
 vm.runInContext(`showController({controller:{mode:'pointer',running:true,button_down:true,contacts:[],primary_hand:1,claimed_hand:null,pointer_ready:true},perception:[],input_available:true},false)`, context);
 assert.equal(element('held-input').textContent,'View delayed');
+vm.runInContext(`showController({controller:{mode:'two_contacts',running:true,button_down:false,contacts:[],awaiting_open_hands:[],primary_hand:null,claimed_hand:null},perception:[],perception_ambiguity_reason:'pair_overlap',input_available:false},true)`,context);
+assert.match(element('guide').textContent,/overlap.*Separate and open/);
+vm.runInContext(`showController({controller:{mode:'two_contacts',running:true,button_down:false,contacts:[],awaiting_open_hands:[3,4],primary_hand:null,claimed_hand:null},perception:[{id:3},{id:4}],input_available:false},true)`,context);
+assert.match(element('guide').textContent,/Open your hands before pinching again/);
+vm.runInContext(`showController({controller:{mode:'two_contacts',running:true,button_down:false,contacts:[],awaiting_open_hands:[],primary_hand:null,claimed_hand:null},perception:[{id:3},{id:4}],input_available:false},true)`,context);
+assert.match(element('guide').textContent,/Pinch each visible hand/);
 vm.runInContext('deadline=2500; stopped=false;', context);
 element('test-indicator').className='testing'; element('presses').textContent='4';
 tick(); assert.equal(element('countdown').textContent,'00:02');

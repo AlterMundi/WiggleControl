@@ -78,6 +78,7 @@ pub struct Output {
     pub mouse: Vec<Event>,
     /// Complete current contact set, including an empty release frame.
     pub contacts: Vec<Contact>,
+    pub awaiting_open_hands: Vec<u64>,
     pub action: Option<ActionResult>,
 }
 pub struct Controller {
@@ -134,6 +135,7 @@ impl Controller {
             button_down: self.pointer.pinch_state() == "pressed",
             mouse,
             contacts: self.contacts.clone(),
+            awaiting_open_hands: self.touches.awaiting_open_hands(),
             action: None,
         }
     }

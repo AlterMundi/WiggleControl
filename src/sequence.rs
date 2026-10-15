@@ -2,7 +2,6 @@
 use crate::{
     session::SessionConfig,
     touch_gestures::{Frame, Gestures},
-    vision::Perception,
 };
 use serde::Deserialize;
 use std::{
@@ -61,27 +60,24 @@ pub fn check(
     manifest: &Path,
     config: &Path,
     rediscovery_interval: u32,
-    pair_separation_widths: f64,
+    pair_separation_override: Option<f64>,
 ) -> Result<(), Box<dyn Error>> {
     if !(1..=30).contains(&rediscovery_interval) {
         return Err("rediscovery interval must be 1..30 frames".into());
     }
-    if !(0.8..=2.0).contains(&pair_separation_widths) {
+    if pair_separation_override.is_some_and(|v| !(0.8..=2.0).contains(&v)) {
         return Err("pair separation must be finite and0.8..2.0 palm widths".into());
     }
     let sequence = Sequence::load(manifest)?;
     let config = SessionConfig::load(config)?;
+    let pair_separation_widths = pair_separation_override.unwrap_or(config.pair_separation_widths);
     ort::init_from(&config.runtime).commit()?;
     let root = manifest
         .canonicalize()?
         .parent()
         .ok_or("missing sequence root")?
         .to_path_buf();
-    let mut model = Perception::with_replay_options(
-        Path::new(&config.models),
-        rediscovery_interval,
-        pair_separation_widths,
-    )?;
+    let mut model = config.replay_perception(rediscovery_interval, pair_separation_override)?;
     let mut gestures = Gestures::new(config.gestures(), config.touch_workspace)?;
     gestures.start();
     let mut out = io::stdout().lock();

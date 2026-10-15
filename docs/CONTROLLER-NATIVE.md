@@ -14,6 +14,15 @@ Their gesture settings and touch workspace must agree: preflight rejects diverge
 values before initializing inference or opening a camera. Session `pinch_3d`
 selects the shared detection conversion; mode settings do not override it.
 
+Session `pair_separation_widths` selects the crowded-pair rejection guard for
+camera sessions and offline sequences through the same perception factory. It
+accepts0.8..2.0; omitted values retain the existing0.8 policy. The experimental
+1.2 candidate prevents the observed early second contact in two rendered crossing
+layouts, but cancels earlier and does not maintain input through occlusion.
+It is an explicit candidate setting, not a new installed/default policy.
+Both config-check commands report it without loading models or opening sensors.
+Offline `--pair-separation` overrides the config only for that sequence check.
+
 ```sh
 wigglecontrol config-check-controller SESSION.json SETTINGS.json
 wigglecontrol camera-check-controller SECONDS SESSION.json SETTINGS.json PORT
@@ -40,6 +49,18 @@ The existing loopback preview shows current mode, held state and an explicit
 primary-hand selector. Mode changes and hand claims release the old input and
 require positive open evidence again. Two-contact mode uses both tracks and
 disables the one-hand selector. Track IDs do not identify participants.
+
+Crowding feedback asks the human to separate/open the hands. After tracking
+returns, `awaiting_open_hands` comes from the actual per-hand gesture engines;
+closed returning tracks remain blocked until fresh open evidence. The indicator
+clears independently for each hand rather than guessing rearm from detection.
+
+A transient frame/transport failure marks feedback delayed and retries, keeping
+scoped Stop available. A failed Stop request remains unacknowledged rather than
+closing the view. An acknowledged request ends this view and directs the human
+to the independent capture panel; it is not a sensor-closure receipt. Cached
+server metadata ages even in until-stop mode, and the browser includes transfer/
+decode time before marking feedback fresh or acknowledging trial readiness.
 
 Manual commands fence observations at their monotonic control time. A queued
 open frame captured before the control cannot rearm a hand that is now closed.

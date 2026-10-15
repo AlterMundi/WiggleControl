@@ -54,6 +54,10 @@ def main():
                         help='Two mirrored hands close/open at independent phases; requires --closing-steps')
     parser.add_argument('--pair-layout', choices=['separated', 'crossing'], default='separated',
                         help='Fixed separated hands or a controlled crossing during paired closure')
+    parser.add_argument('--pair-half-spacing', type=float, default=0.105,
+                        help='Half the paired-closure separation/crossing span in meters')
+    parser.add_argument('--pair-depth-offset', type=float, default=0.14,
+                        help='Rear reference hand depth offset in meters; skin separation is checked')
     args = parser.parse_args()
     if not 0 <= args.closure <= 1:
         parser.error('--closure must be in0..1')
@@ -70,6 +74,12 @@ def main():
         parser.error('--pair-closing requires --closing-steps and reference --closing-view')
     if args.pair_layout != 'separated' and not args.pair_closing:
         parser.error('--pair-layout requires --pair-closing')
+    if not 0.03 <= args.pair_half_spacing <= 0.16 or not 0.08 <= args.pair_depth_offset <= 0.30:
+        parser.error('Pair spacing must be0.03..0.16m and depth offset0.08..0.30m')
+    if args.pair_half_spacing != 0.105 and not args.pair_closing:
+        parser.error('--pair-half-spacing requires --pair-closing')
+    if args.pair_depth_offset != 0.14 and not (args.pair_motion or args.pair_closing):
+        parser.error('--pair-depth-offset requires a paired sequence')
     if args.closing_view != 'reference' and not args.closing_steps:
         parser.error('--closing-view requires --closing-steps')
     if args.skin_check:
@@ -266,12 +276,12 @@ def main():
             offset = -0.10 + phase * 0.20
             translation = right * offset
             turn = Matrix.Identity(4)
-            second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * 0.14) @ reflection @ Matrix.Translation(-center) @ base
+            second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * args.pair_depth_offset) @ reflection @ Matrix.Translation(-center) @ base
         if args.pair_closing:
-            offset = -0.105 + (phase * 0.210 if args.pair_layout == 'crossing' else 0.0)
+            offset = -args.pair_half_spacing + (phase * 2 * args.pair_half_spacing if args.pair_layout == 'crossing' else 0.0)
             translation = right * offset
             turn = Matrix.Identity(4)
-            second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * 0.14) @ reflection @ Matrix.Translation(-center) @ base
+            second_rig.matrix_world = Matrix.Translation(center - right * offset + forward * args.pair_depth_offset) @ reflection @ Matrix.Translation(-center) @ base
         rig.matrix_world = Matrix.Translation(center + translation) @ turn @ Matrix.Translation(-center) @ base
         bpy.context.view_layer.update()
         points = [point(n) for n in names]
@@ -375,6 +385,8 @@ def main():
               'reference_hand_count': 2 if paired else 1,
               'paired_closure': args.pair_closing,
               'pair_layout': args.pair_layout if args.pair_closing else None,
+              'pair_half_spacing_m': args.pair_half_spacing if args.pair_closing else None,
+              'pair_depth_offset_m': args.pair_depth_offset if paired else None,
               'applied_joint_angles_rad': {n: v * closure for n, v in parameters.items()},
               'target_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
               'pose_recipe': 'forward-flex-v2', 'joint_recipe_bounds_rad': limits,

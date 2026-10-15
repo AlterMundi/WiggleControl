@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::path::Path::new(&args[1]),
                 std::path::Path::new(&args[2]),
                 rediscovery.unwrap_or(5),
-                separation.unwrap_or(0.8),
+                separation,
             );
         }
         Some("position-sweep") if args.len() == 4 => {
@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             wigglecontrol::session::controller_config(&config, std::path::Path::new(&args[2]))?;
             println!(
                 "{}",
-                serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,"pointer_model":"relative","visual_macros":false})
+                serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,"pointer_model":"relative","visual_macros":false,"pair_separation_widths":config.pair_separation_widths})
             );
             return Ok(());
         }
@@ -131,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "{}",
                 serde_json::json!({
                     "valid": true, "fps": config.fps, "gain": config.gain, "pointer_output":config.pointer_output, "prayer_enabled":config.prayer_enabled,
-                    "adaptive_smoothing":config.adaptive_smoothing,
+                    "adaptive_smoothing":config.adaptive_smoothing,"pair_separation_widths":config.pair_separation_widths,
                 "pinch_close_ratio":config.pinch_close_ratio,
                 "pinch_open_ratio":config.pinch_open_ratio,
                 "pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"recording_enabled":config.recording_directory.is_some(),"freshness_ms":config.freshness_ms,
@@ -165,8 +165,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 image
             };
-            let mut model =
-                wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
+            let mut model = config.perception()?;
             let iterations: usize = args.get(4).map(|s| s.parse()).transpose()?.unwrap_or(3);
             if !(1..=60).contains(&iterations) {
                 return Err("reference iterations must be 1..60".into());
@@ -210,8 +209,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 image
             };
-            let mut model =
-                wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
+            let mut model = config.perception()?;
             for iteration in 0..iterations {
                 let detected = model.infer(&image)?;
                 println!(

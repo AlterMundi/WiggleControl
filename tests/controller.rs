@@ -105,6 +105,67 @@ fn touch_switch_ends_both_contacts_and_reentry_requires_open() {
     assert!(!down(&observe(&mut c, 180_001, true)));
 }
 #[test]
+fn touch_rearm_feedback_follows_each_real_engine_after_identity_loss() {
+    let mut c = controller(Mode::TwoContacts);
+    let o = c.observe(
+        1,
+        frame(1, vec![hand(7, true, 0.3, 0.5), hand(9, true, 0.7, 0.5)]),
+        None,
+    );
+    assert_eq!(o.awaiting_open_hands, [7, 9]);
+    assert!(o.contacts.is_empty());
+    let o = c.observe(
+        50_001,
+        frame(
+            50_001,
+            vec![hand(7, false, 0.3, 0.5), hand(9, true, 0.7, 0.5)],
+        ),
+        None,
+    );
+    assert_eq!(o.awaiting_open_hands, [9]);
+    c.observe(
+        70_001,
+        frame(
+            70_001,
+            vec![hand(7, true, 0.3, 0.5), hand(9, true, 0.7, 0.5)],
+        ),
+        None,
+    );
+    let held = c.observe(
+        110_001,
+        frame(
+            110_001,
+            vec![hand(7, true, 0.3, 0.5), hand(9, true, 0.7, 0.5)],
+        ),
+        None,
+    );
+    assert_eq!(held.contacts.len(), 1);
+    assert_eq!(held.awaiting_open_hands, [9]);
+    let mut lost = frame(130_001, vec![]);
+    lost.ambiguous = true;
+    assert!(c.observe(130_001, lost, None).contacts.is_empty());
+    let returning = c.observe(
+        150_001,
+        frame(
+            150_001,
+            vec![hand(17, true, 0.3, 0.5), hand(19, true, 0.7, 0.5)],
+        ),
+        None,
+    );
+    assert!(returning.contacts.is_empty());
+    assert_eq!(returning.awaiting_open_hands, [17, 19]);
+    let reopened = c.observe(
+        170_001,
+        frame(
+            170_001,
+            vec![hand(17, false, 0.3, 0.5), hand(19, false, 0.7, 0.5)],
+        ),
+        None,
+    );
+    assert!(reopened.awaiting_open_hands.is_empty());
+    assert!(reopened.contacts.is_empty());
+}
+#[test]
 fn precision_scales_motion_and_scroll_emits_only_wheel() {
     let mut normal = controller(Mode::Pointer);
     let mut fine = controller(Mode::Precision);

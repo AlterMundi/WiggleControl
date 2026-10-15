@@ -2,8 +2,9 @@
 
 CompAII,2026-10-15. Continues [offline provider/worker work](provider-worker-2026-10.md)
 and [the transport contract](../PROVIDER-TRANSPORT.md). This is a finite public-
-synthetic JPEG source on the actual Pi, not camera capture or OS input. Receiving
-binarye2eeb17 is source-bound to ARM64 CI38819793295; runtime/profile/calibration
+synthetic JPEG source on the actual Pi, not camera capture or OS input. The
+initial receiving binary e2eeb17 is source-bound to ARM64 CI38819793295; the fixed one-hand
+comparison uses cb901cb, CI 38823175721. Runtime/profile/calibration
 and the original human trial stay unchanged.
 
 ## What actually executes
@@ -40,6 +41,9 @@ Do not count those preparation failures as failed hand detections or GPU timings
 | Two hands,30Hz acquisition |279 /62 /216 /1 |135.3 /167.5 |7.55Hz |
 | Prepared one hand,30Hz |189 /45 /144 /0 |161.2 /203.0 |6.95Hz |
 | Prepared two hands,30Hz |279 /76 /203 /0 |133.7 /161.9 |8.03Hz |
+| Fixed one-hand graph,run1 |189 /87 /102 /0 |84.5 /102.5 |13.70Hz |
+| Same source,one-contact mode,two-hand graph |189 /45 /144 /0 |154.3 /197.9 |6.97Hz |
+| Fixed one-hand graph,run2 |189 /89 /100 /0 |81.4 /102.2 |13.98Hz |
 
 Accepted rate uses first→last accepted meaning timestamps, excluding the initial
 cold gap. The wall source captures at its stated rate; issued=accepted+expired
@@ -85,9 +89,16 @@ perception/return cost as the remaining dominant lane, rather than Rust semantic
 A reference MediaPipe [streaming graph](https://github.com/google-ai-edge/mediapipe/blob/998a5d77bb3d0e06211b6e9cc1fd6094e6051bfb/mediapipe/tasks/cc/vision/hand_landmarker/hand_landmarker_graph.cc#L126)
 triggers palm detection while tracked count is below configured maximum. This
 source reference motivates testing an explicit one-hand graph; it does not prove
-the exact compiled1.1.1 graph's cost. The optional fixture `MAX_HANDS` now selects1
-or2, default2, with matching worker options and host count validation. One-hand
-performance/quality benefit remains unmeasured at this source checkpoint.
+the exact compiled1.1.1 graph's cost. The optional fixture `MAX_HANDS` now selects 1
+or 2, default 2, with matching worker options and host count validation. One-hand
+comparison now shows an actual benefit on this reference. The controlled
+comparison uses the same cb901cb binary, one-contact settings, 300ms freshness,
+geometry and 30Hz publication; only the fixed detector maximum changes. Two-hand
+maximum yields 0/9 accepted near holds; one-hand maximum gives 19/22 and 18/21 in
+two executions, with no contacts in 42/42 accepted fully open frames in either run.
+These repeats establish neither independent pose diversity nor a general latency
+guarantee. The graph-source explanation remains a hypothesis about the runtime
+cost; the configuration effect itself is measured.
 
 A deliberate1000ms delay of one actual result POST after an acknowledged held
 contact releases that contact at302.739ms source age, with no intervening accepted
@@ -99,3 +110,54 @@ The selected300ms limit, pinch thresholds, calibration and everyday runtime are
 preserved. Whole-path source/app latency and broad contact continuity remain pending. No camera-ready request or physical acceptance follows
 from a successful HTTP/model run. Broader negatives/crossings, image-depth/macros,
 participants and actual applications remain required by the full roadmap.
+
+## Wall-time coverage prevents an optimistic accepted-frame score
+
+The reusable `tools/synthetic/score_provider_fixture.py` validates capture-bound
+identity, host timestamp order, count conservation, successful producer completion,
+acknowledged worker close and final neutral state. It reuses the existing independent
+single/pair geometry scorers. It also compares actual controller output with **all**
+captured stable geometry intervals, including skipped images and processing delay.
+The final capture bounds the observation window. Counts do not prove ownership,
+and skin proximity does not certify human intent.
+
+The one-hand graph sustains the expected count during 968.1/1500.1ms and
+978.6/1500.6ms of near geometry: about 65%, despite 86% accepted-frame coverage.
+The first contacts follow each of three near-plateau starts by 151.6–191.4ms in
+run 1 and 161.1–194.0ms in run 2, including perception and existing confirmation.
+Neither run has contact during its captured fully open hold intervals. The
+otherwise matched two-hand graph has 0/1500.3ms near coverage. Prepared separated
+two-hand control reaches 1456.7/3299.9ms expected near counts and retains 286.3ms
+of contact into fully open intervals; this exposes release latency that its
+23/23 accepted open/open counts alone hide. These are semantic output times,
+not kernel, application or physical-camera latency.
+
+A further one-hand fault run delays one real result POST 1000ms after a held
+acknowledgment. The independent controller releases at 303.779ms source age,
+rejects one expired lease and finishes with acknowledged worker close and no
+held state. The earlier two-hand fault remains 302.739ms. No freshness extension
+or threshold change is used.
+
+Reproduce scoring with the retained journal and its independent, acquisition-indexed
+geometry (private receiving recordings are never inputs to public examples):
+
+```sh
+python3 tools/synthetic/score_provider_fixture.py \
+  RUN.jsonl SOURCE-reference.json SESSION.json NEW-output-directory
+python3 -m unittest discover -s tools/synthetic -p test_score_provider_fixture.py
+```
+
+The TV workbench can replay accepted results with their measured inter-result
+timing; older reference replays retain their explicit 20Hz source playback. Saved
+playback performs no new inference. The current one-hand source is the retained
+`forward-flex-custom-v1` recipe, with index angles within the forward-only bounds
+and measured distal skin clearance; the rejected dorsal solver is not reused.
+Whole-hand anatomy and actual comfort remain unqualified.
+
+Next: connect the existing timestamp-validated camera and private recorder to the
+qualified lease/worker seam; prepare explicit one/two-hand graph selection and
+manual mode controls without automatic capture. Broaden negatives and crossings
+before interpreting this narrow one-hand gain as robust control. Then qualify
+finite camera-to-input use, real applications and human comfort. The receiving
+manual artifact is usable for finite camera/device-free fixtures only; it is
+not an enabled everyday camera controller or boot service.

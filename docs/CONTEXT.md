@@ -2,6 +2,18 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+Latest [real-clock receiving comparison](research/realtime-worker-2026-10.md)
+qualifies actual synthetic JPEG→GPU worker→Rust on Pi. At identical one-contact
+settings, explicit maxHands1 improves6.97Hz/154.3ms median to13.70–13.98Hz/
+81.4–84.5ms and19/22,18/21 accepted near contacts. Full source wall-time
+coverage remains about65%; prepared two-hand coverage remains44%. Actual
+delayed-result tests release at302.739/303.779ms source age without extending
+300ms freshness. Reusable scoring validates host clocks/counts/final close and
+includes skipped geometry intervals. TV replay supports measured output timing.
+No camera/device input, everyday-runtime selection or physical acceptance follows.
+Next: existing capture/private recording→worker seam, broader negatives/ownership,
+then finite human/application qualification. The full goal stays active.
+
 Latest [provider/worker integration](research/provider-worker-2026-10.md) adds
 camera/device/model-free raw-landmark JSONL→Rust tracking/meaning, with age/order,
 ambiguity/ID retirement and shared pinch/workspace conversion. Actual classic

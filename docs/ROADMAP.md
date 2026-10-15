@@ -15,17 +15,21 @@ in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 Current [real-clock transport](PROVIDER-TRANSPORT.md) implements a finite encoded-
 frame→GPU-worker→Rust fixture with host-owned run/frame leases, latest-slot
 coalescing, independent meaning ticks and timestamped release/expiry receipts.
-It reuses the existing feedback/Stop/mode server. Source protocol/preview tests
-pass; same-host ARM64 model/transport timing and skipped-frame quality still need
-actual execution before receiving selection. No camera or OS input is opened.
+Actual Pi runs now execute that full fixture. Fixed one-hand detection improves
+matched one-contact control from6.97Hz/154.3ms to13.70–13.98Hz/81.4–84.5ms
+median encoded-publication→meaning, retaining19/22 and18/21 accepted near frames.
+Wall-time coverage is only about65% of near geometry;151.6–194.0ms first-contact
+delay remains visible. Prepared two-hand control retains9/15 accepted dual near
+holds and44% of expected near wall time. Delayed-result releases at302.739ms
+(two hands) and303.779ms (one hand) retain the300ms limit.
 
-Actual [first real-clock receiving results](research/realtime-worker-2026-10.md)
-now expose0/7 one-hand near holds and0/13 dual near holds despite completed GPU/
-HTTP/Rust execution. Source age plus processing cadence retires identities;
-every23 observed one-hand ID change follows an expired previous observation.
-30Hz capture alone reduces age but does not restore contact. Next candidate
-warms the graph before input and reduces optional listener delay, with new stage
-instrumentation. Do not select this controller or stretch freshness to conceal cost.
+[The receiving report](research/realtime-worker-2026-10.md) preserves initial
+failures, controlled comparisons and reproducible scoring. No camera or OS input
+is opened. Next: reuse the existing timestamp-validated capture/private-recording
+path through this worker seam, with explicit graph selection, then broaden negative/
+ownership coverage and qualify human/application use. Keep live calibration,
+selected runtime and original prepared trial intact; do not stretch freshness
+to hide processing cost.
 
 Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing

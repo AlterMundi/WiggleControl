@@ -6,8 +6,14 @@ The new controller arbiter joins existing pointer, contact and named macro engin
 in camera-free replay. The opt-in [native controller session](CONTROLLER-NATIVE.md) now connects acquisition,
 manual controls and the independent writer. A separately staged ARM64 candidate has partial scripted device qualification;
 stationary Wayland Chromium handoff is qualified with the selected local compositor
-patch, while other clients/locks/grabs, live hand control and visual pose
-classification remain pending.
+patch, while other clients/locks/grabs and live hand control remain pending.
+
+An optional [trained pose backend](research/gesture-classifier-2026-10.md) now
+reuses native landmarks through a parity-checked530KiB ONNX model. Sensor-free
+image/sequence probes exist; the camera session still has no classifier→macro
+connection. Unknown is not neutral, and Open_Palm does not establish pinch
+openness. Four tutorial inputs and164 synthetic frames do not qualify physical
+macro comfort or false-action rates.
 
 ## Exclusive controller modes
 
@@ -106,7 +112,7 @@ mode cycle, media play/pause, volume steps, launcher, calibration and local paus
 They are never arbitrary command strings. `pause_controller` means this local
 controller; no coordinated global Stop action exists in the vocabulary.
 
-Remaining work: compare a real pose classifier on independently labelled images;
+Remaining work: extend the reproduced classifier comparison to independently labelled sequences;
 show candidate/hold/action progress in the native view; qualify native controller/session delivery on the receiver; connect selected
 configured actions to supported native action adapters; qualify actual actions and comfort. The existing prayer
 candidate/calibration workflow remains separately owned and disabled pending its

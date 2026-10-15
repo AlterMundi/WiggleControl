@@ -5,6 +5,60 @@ Python is used for the renderer's supported scripting interface; the input devic
 perception and gesture runtime stay Rust. It is not installed on the integrator,
 opens no sensors and does not change the production models or camera calibration.
 
+## Optional pose classifier
+
+The [pose investigation](../../docs/research/gesture-classifier-2026-10.md) records
+actual converted-model parity, native image probes and the remaining macro gates.
+Python is used only for the providers' model-format/reference APIs; Rust inference
+reuses the already selected ONNX Runtime1.22.0. No TensorFlow dependency, second
+hand detector, model training or receiving installation is needed for that route.
+
+Download the versioned task bundle from `BUNDLE_URL` in
+`export_gesture_classifier.py` into an explicit research directory. The exporter
+requires SHA256`97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482`;
+it rejects other bytes and existing output directories. Preserve MediaPipe's
+Apache-2.0 source license/attribution and the downloaded artifact's provenance.
+No model or example photograph is committed to this repository.
+
+```sh
+uv run --no-project --python 3.11 --with-requirements tools/synthetic/gesture-requirements.lock python \
+  tools/synthetic/export_gesture_classifier.py gesture_recognizer.task NEW_MODEL_DIRECTORY
+uv run --no-project --python 3.11 --with-requirements tools/synthetic/gesture-requirements.lock python \
+  tools/synthetic/gesture_provider_reference.py gesture_recognizer.task NEW_REFERENCE.json IMAGE.jpg OTHER_IMAGE.jpg
+uv run --no-project --python 3.11 --with-requirements tools/synthetic/gesture-requirements.lock python \
+  tools/synthetic/check_gesture_classifier.py NEW_MODEL_DIRECTORY NEW_PARITY.json --fixture NEW_REFERENCE.json
+```
+
+The reference tool uses explicit local images, records misses and retains the
+provider's own landmarks/category. The parity checker compares original LiteRT
+and converted ONNX embeddings/probabilities on256 seeded random tensors, three
+constant controls and optionally those reference tensors. This proves particular
+tensor/preprocessing equivalence, not independent gesture accuracy or macro intent.
+The two unused declared embedder ports are confirmed by graph dependencies and
+perturbation; do not generalize that finding to other model versions.
+
+Build with `--features native-vision` for these sensor-free Rust commands:
+
+```sh
+wigglecontrol gesture-check IMAGE CONFIG NEW_MODEL_DIRECTORY/gesture_classifier.onnx
+wigglecontrol gesture-landmarks NEW_MODEL_DIRECTORY/gesture_classifier.onnx RUNTIME < normalized-image-xyz.jsonl
+wigglecontrol sequence-check SEQUENCE CONFIG --gesture-model NEW_MODEL_DIRECTORY/gesture_classifier.onnx
+```
+
+`gesture-landmarks` accepts bounded16KiB JSONL records with `width`, `height` and
+exactly21 `landmarks` triples. They are the provider's **unmirrored source-image
+normalized XYZ**, not metric world points, raw ROI coordinates or2D points with
+invented zero Z. Preprocessing currently qualifies full images at zero rotation.
+Native hand inference preserves projected image Z in source-pixel X units;
+the original world-gap/contact calculations are unchanged.
+
+`sequence-check --gesture-model` adds `pose_prediction` to each raw perception
+hand. No macro engine, sensor or OS output is enabled. `run_visible_motion.py`
+accepts the same optional `--gesture-model`; the existing TV workbench shows its
+actual category/score during inference and explicitly saved replay. Its report
+pins the model bytes and rejects changes during a run. Unknown `None` is never
+positive neutral evidence, and `Open_Palm` alone does not establish an open pinch.
+
 The selected MHR LOD1 FBX includes an articulated body and fingers. Fetch the
 public release in `mhr-asset.json`, verify the archive hash, and extract only
 `assets/lod1.fbx` and its `assets/LICENSE.txt`. Verify the member hash too; retain

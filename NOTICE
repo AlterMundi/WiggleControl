@@ -9,6 +9,12 @@ ONNX Runtime 1.22.0 native CPU binaries retain Microsoft's MIT license,
 included in the downloaded distribution. ort wrapper is MIT OR Apache-2.0.
 Private Barehands/ProyectoRPi AGPL code has not been copied into this runtime.
 
+src/pose_classifier.rs follows MediaPipe's Apache-2.0 LandmarksToMatrix
+calculator at commit 7dd8fe00c17e7732818ea1406c4fb64beb237e6c.
+Copyright 2025 The MediaPipe Authors. The optional model exporter identifies
+the public task bundle and converted artifacts by digest; binary weights and
+public example photographs are not included in this source distribution.
+
 The local compositor candidate under tools/labwc preserves labwc's GPL-2.0-only
 license and pinned upstream provenance. Its patch is a separate experiment;
 it is excluded from the original Rust Cargo package and its MIT/Apache-2.0 grant.

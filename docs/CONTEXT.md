@@ -27,8 +27,10 @@ mode or saved calibration was deployed by these experiments. The selected
 candidate meets particular analytic budgets; its calibrated expansion fails them.
 Real noise,
 anatomical contact truth, occlusion ownership, physical comfort and application
-acceptance remain distinct work. Macro visual classification and actual native
-action adapters remain pending; replay action intents have `executed:false`.
+acceptance remain distinct work. The optional visual classifier backend is now
+reproduced; native classifier→macro integration and actual action adapters remain
+pending. Replay action intents have `executed:false`. See the
+[pose investigation](research/gesture-classifier-2026-10.md).
 
 Current source correction: live direct touch now shares the configured2D/3D
 pinch conversion with pointer and image-sequence replay; a contradictory-metrics

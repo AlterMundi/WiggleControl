@@ -61,6 +61,7 @@ pub fn check(
     config: &Path,
     rediscovery_interval: u32,
     pair_separation_override: Option<f64>,
+    gesture_model: Option<&Path>,
 ) -> Result<(), Box<dyn Error>> {
     if !(1..=30).contains(&rediscovery_interval) {
         return Err("rediscovery interval must be 1..30 frames".into());
@@ -78,6 +79,9 @@ pub fn check(
         .ok_or("missing sequence root")?
         .to_path_buf();
     let mut model = config.replay_perception(rediscovery_interval, pair_separation_override)?;
+    let mut classifier = gesture_model
+        .map(crate::pose_classifier::Classifier::new)
+        .transpose()?;
     let mut gestures = Gestures::new(config.gestures(), config.touch_workspace)?;
     gestures.start();
     let mut out = io::stdout().lock();
@@ -96,11 +100,22 @@ pub fn check(
             reader.limits(limits);
             let image = reader.decode()?.to_rgb8();
             let found = model.infer_many(&image)?;
-            let raw: Vec<_> = found.hands.iter().map(|h| serde_json::json!({
-                "id":h.id,"confidence":h.confidence,"handedness":h.handedness,"tracked":h.tracked,
-                "landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),
-                "world_landmarks":h.world_landmarks
-            })).collect();
+            let mut raw = Vec::new();
+            for hand in &found.hands {
+                let mut value = serde_json::json!({
+                    "id":hand.id,"confidence":hand.confidence,"handedness":hand.handedness,"tracked":hand.tracked,
+                    "landmarks":hand.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),
+                    "world_landmarks":hand.world_landmarks
+                });
+                if let Some(classifier) = &mut classifier {
+                    value["pose_prediction"] = serde_json::to_value(classifier.predict_hand(
+                        hand,
+                        image.width(),
+                        image.height(),
+                    )?)?;
+                }
+                raw.push(value);
+            }
             let hands: Vec<_> = found
                 .hands
                 .iter()

@@ -48,6 +48,9 @@ mod intent;
 pub mod vision;
 
 #[cfg(feature = "native-vision")]
+pub mod pose_classifier;
+
+#[cfg(feature = "native-vision")]
 pub mod sequence;
 
 #[cfg(feature = "native-vision")]

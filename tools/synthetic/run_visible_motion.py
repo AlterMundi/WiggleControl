@@ -29,6 +29,10 @@ def frame_projection(reference, row):
         result['model_hands'] = [dict(id=h.get('id'),
                                       gap_m=h.get('pinch_distance_m', h.get('world_pinch_distance_m')))
                                  for h in row['hands']]
+    classified = [dict(id=h['id'], **h['pose_prediction']) for h in row.get('perception', [])
+                  if 'pose_prediction' in h]
+    if classified:
+        result['pose_predictions'] = classified
     return result
 
 
@@ -46,6 +50,8 @@ def main():
     p.add_argument('--mediapipe-model', type=Path,
                    help='Optional pinned Tasks CPU comparison; does not evaluate Rust gesture meaning')
     p.add_argument('--model-sha256')
+    p.add_argument('--gesture-model', type=Path,
+                   help='Optional exported pose model over native landmarks; no macro actions')
     p.add_argument('--rediscovery', type=int, default=5,
                    help='Controlled native missing-hand detector interval in frames, default5')
     p.add_argument('--pair-separation', type=float,
@@ -55,6 +61,8 @@ def main():
         p.error('--frames must be9..121')
     if args.mediapipe_model and not args.model_sha256:
         p.error('--mediapipe-model requires --model-sha256')
+    if args.gesture_model and args.mediapipe_model:
+        p.error('--gesture-model requires native inference')
     if not 1 <= args.rediscovery <= 30 or (args.mediapipe_model and args.rediscovery != 5):
         p.error('--rediscovery must be1..30 and is a native-only option')
     if args.pair_separation is not None and (not 0.8 <= args.pair_separation <= 2 or args.mediapipe_model):
@@ -108,6 +116,8 @@ def main():
                     inference += ['--rediscovery', str(args.rediscovery)]
                 if args.pair_separation is not None:
                     inference += ['--pair-separation', str(args.pair_separation)]
+                if args.gesture_model:
+                    inference += ['--gesture-model', str(args.gesture_model.resolve())]
                 if args.mediapipe_model:
                     inference = ['uv', 'run', '--offline', '--no-project', '--python', '3.11',
                         '--with-requirements', str(Path(__file__).with_name('mediapipe-requirements.lock')), 'python',
@@ -116,6 +126,7 @@ def main():
                         '--expected-sha256', args.model_sha256]
                 binary_digest = None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest()
                 config_digest = hashlib.sha256(args.config.read_bytes()).hexdigest()
+                gesture_digest = hashlib.sha256(args.gesture_model.read_bytes()).hexdigest() if args.gesture_model else None
                 process = subprocess.Popen(inference,
                     stdout=subprocess.PIPE, stderr=errors, text=True)
                 for line in process.stdout:
@@ -135,12 +146,15 @@ def main():
                     raise RuntimeError('Native binary changed during inference; retain a frozen artifact for comparison')
                 if hashlib.sha256(args.config.read_bytes()).hexdigest() != config_digest:
                     raise RuntimeError('Configuration changed during inference; preserve a separate experiment config')
+                if args.gesture_model and hashlib.sha256(args.gesture_model.read_bytes()).hexdigest() != gesture_digest:
+                    raise RuntimeError('Gesture model changed during inference')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
                           experiment_label=args.label,
                           config_sha256=config_digest,
                           backend='mediapipe-1.1.1-cpu' if args.mediapipe_model else 'rust-onnx-cpu',
                           binary_sha256=binary_digest,
                           model_sha256=args.model_sha256,
+                          gesture_model_sha256=gesture_digest,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
                           pair_separation_widths=None if args.mediapipe_model else rows[0].get('pair_separation_widths'),
                           reference=labels, predictions=rows,

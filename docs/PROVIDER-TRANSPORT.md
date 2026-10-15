@@ -73,3 +73,9 @@ Actual same-host ARM64 worker/transport timing, quality across skipped frames,
 delayed-result held-release behavior and visible1080p receiving qualification
 must be recorded after execution. Camera integration, broader negatives/crossings,
 image-depth/macros, participants and human/application acceptance remain open.
+
+Initial ARM64 execution atd1d4265 reaches its finite worker-preparation timeout
+without starting inference. Inspection of the served page finds the existing
+HTML omits its optional `</body>` tag, so the client insertion never occurred.
+The fixture now inserts before the actual `</html>` tag, with a served-view/client
+route regression. This startup failure is not a measured GPU/transport result.

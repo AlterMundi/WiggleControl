@@ -143,8 +143,8 @@ impl Extension for Bridge {
         match (method, path) {
             ("GET", "/provider/view") => {
                 let page = include_str!("../tools/preview.html").replace(
-                    "</body>",
-                    "<script type=\"module\" src=\"/provider/client.mjs\"></script></body>",
+                    "</html>",
+                    "<script type=\"module\" src=\"/provider/client.mjs\"></script></html>",
                 );
                 Ok(ExtensionResponse {
                     status: "200 OK",
@@ -710,6 +710,27 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fixture_view_bootstraps_client_when_the_existing_html_omits_body_end_tag() {
+        let b = bridge();
+        let page = b.respond("GET", "/provider/view", &[]).unwrap();
+        assert_eq!(page.mime, "text/html; charset=utf-8");
+        assert!(String::from_utf8(page.body)
+            .unwrap()
+            .contains("<script type=\"module\" src=\"/provider/client.mjs\">"));
+        assert!(
+            String::from_utf8(b.respond("GET", "/provider/client.mjs", &[]).unwrap().body)
+                .unwrap()
+                .contains("/provider/ready")
+        );
+        assert!(b.handles("/task_hand_worker.js"));
+        assert_eq!(
+            b.respond("GET", "/task_hand_worker.js", &[])
+                .unwrap()
+                .status,
+            "200 OK"
+        );
+    }
     fn bridge() -> Arc<Bridge> {
         Arc::new(Bridge::new(BTreeMap::new(), 1_000_000, "test-1".into()))
     }

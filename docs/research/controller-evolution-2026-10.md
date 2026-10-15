@@ -385,8 +385,10 @@ silent power remained preserved. Details and exact candidate provenance are in
 [CONTROLLER-NATIVE.md](../CONTROLLER-NATIVE.md#receiving-candidate-checkpoint-2026-10-15).
 
 The first stationary mouse press after touch did not reach the client; fresh
-pointer movement made the repeated press/release work. This unresolved boundary
-is tracked in#5, not a universal successful handoff. The initial test generator's
+pointer movement made the repeated press/release work. The subsequent selected
+local compositor patch now repairs all five controlled stationary cases in the
+owned Wayland Chromium client; see [the current receiving evidence](../CONTROLLER-NATIVE.md#main-desktop-follow-up-2026-10-15).
+Other clients/locks/grabs remain in#5. The initial test generator's
 accidental watchdog timeout was corrected with explicit fresh synthetic test
 frames and a deliberate stall. The existing named uinput grant needed manual
 restoration after boot;#4 tracks persistent startup/upgrade/rollback. Live native
@@ -409,3 +411,63 @@ canonical technical source. A curated research record should link source/version
 independent labels, selected aggregate results, failure corrections and limits;
 private footage, receiving routes and native conversation history stay private.
 Publishing a report does not prove collective-research ingestion or deployment.
+
+## Articulated view comparison —2026-10-15
+
+The forward-flex reference was expanded from its retained central sequence to
+four fixed views: yaw±35° and pitch±25°. Every view has the same41-frame
+articulation/hold schedule at20Hz simulated source time. The render keeps the
+hand-only mask and independently measures distal skin clearance, full-skin image
+bounds/depth and signed forward joint displacement. It does not use model
+predictions to define the reference motion. All164 new frames retain the whole
+selected skin in frame, without distal-patch intersection; the minimum gap is
+approximately2mm and the open gap81.21mm. Full framing and those patches do not
+certify hidden fingertips, whole-hand collision or human joint limits.
+
+Each sequence was processed by the existing optimized native Rust/ONNX binary
+(SHA256 `3b0351aa218b5593380fed66e601df417aa79295a8c2b23df01695ee84e701ba`)
+and direct-touch meaning. The3D configuration retained45/65mm hysteresis.
+The2D comparison changed only `pinch_3d` to false, keeping the existing default
+0.25/0.4 normalized tip-gap ratios. All164 matched raw perception arrays were
+identical between interpretations; only gesture interpretation differed.
+
+| View | Detected / frames |3D contact interval, inclusive frame indices |3D contact during maximum-closure hold |2D contact during that hold |3D hold spread, RMS px |
+| --- | --- | --- | --- | --- | --- |
+| yaw−35° |41/41 |17–27 |8/9 |0/9 |0.95 |
+| yaw+35° |41/41 |16–28 |9/9 |0/9 |0.20 |
+| pitch−25° |41/41 |15–29 |9/9 |0/9 |1.33 |
+| pitch+25° |41/41 |15–27 |9/9 |0/9 |1.48 |
+
+Every3D view retained one track ID and one contiguous contact interval; the2D
+baseline produced no contact in any of the164 frames. Neither interpretation
+produced contacts in the72 fully open hold frames. Maximum-closure holds are
+frames16–24, defined by the renderer. The central retained3D comparison was9/9,
+contact interval16–28; it was reused, not rerendered as an independent replicate.
+Hold spread is about the emitted-contact mean on an explicitly1920x1080 full
+workspace; it includes filter settling and excludes frames without a contact.
+It is not calibrated absolute accuracy, physical camera jitter or end-to-end
+latency. Onset varies by two source frames (100ms) across the four new views.
+
+Estimated3D joint gap during the same maximum-closure pose ranges19.67–35.88mm
+across these views despite approximately2mm selected skin clearance. Different
+definitions and view-sensitive inference remain visible. This experiment supports
+retaining the current3D interpretation for further testing rather than reverting
+to the default2D baseline; it does not justify a universal scale correction or
+tuning live thresholds. Only one rig, lighting/background and closure recipe
+were tested; no human intent labels, varied hands or physical comfort were acquired.
+
+Reproduction: `render_hand_reference.py --hand-only --closure 1 --closing-steps 41
+--skin-check --closing-view CASE`, followed by the existing `run_visible_motion.py`
+with an explicit config/label. `summarize_closure_views.py` checks matching frame
+order/source time and retains source-report hashes. The private comparison
+SHA256 is `706a1e3cbf0db620867dc1738d8b486773efbc0857c2c0a49ce660fc2e0641b1`;
+source/config/binary hashes and editable renders remain with the evidence.
+
+Actual render/inference stages and view labels were projected to the owned TV
+workbench. Starting a new run now clears the preceding run's final counters and
+disables its saved replay until new measurements finish. Final2D results remain
+at1920x1080 with no page overflow and complete images. All producers/transports
+ended; no camera, microphone, OS input, saved calibration or live controller
+configuration changed. The collective-research correction source remains the
+broader evidence-method entry point; this detailed view increment stays in its
+owning technical report pending the next coherent shared synthesis.

@@ -24,6 +24,7 @@ def main():
     p.add_argument('--ssh-host', required=True)
     p.add_argument('--ssh-identity', type=Path, required=True)
     p.add_argument('--display-dir', required=True)
+    p.add_argument('--label', default='', help='Display label for this actual finite experiment')
     p.add_argument('--mediapipe-model', type=Path,
                    help='Optional pinned Tasks CPU comparison; does not evaluate Rust gesture meaning')
     p.add_argument('--model-sha256')
@@ -49,7 +50,7 @@ def main():
         def publish(**state):
             nonlocal seq
             seq += 1
-            state.update(runId=run_id, seq=seq, total=args.frames)
+            state.update(runId=run_id, seq=seq, total=args.frames, label=args.label)
             (args.output/'progress.json').write_text(json.dumps(
                 {k: v for k, v in state.items() if k not in ('imagePayload', 'result')})+'\n')
             if sink.poll() is not None:
@@ -108,6 +109,8 @@ def main():
                 if process.wait(timeout=10) or len(rows) != args.frames:
                     raise RuntimeError('Incomplete sequence inference; inspect model.stderr')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
+                          experiment_label=args.label,
+                          config_sha256=hashlib.sha256(args.config.read_bytes()).hexdigest(),
                           backend='mediapipe-1.1.1-cpu' if args.mediapipe_model else 'rust-onnx-cpu',
                           binary_sha256=None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                           model_sha256=args.model_sha256,
@@ -119,6 +122,7 @@ def main():
             (args.output/'results.json').write_text(json.dumps(result, indent=2)+'\n')
             # Publish a small replay projection; raw predictions/reference stay in the report.
             replay = dict(frames=[dict(frame=r['frame'], image='near/'+r['image'],
+                                      label=args.label,
                                       hands=len(r['hands']), ambiguous=r['ambiguous'],
                                       skin_gap_m=labels['frames'][r['frame']].get('distal_skin', {}).get('surface_gap_m', None),
                                       closure=labels['frames'][r['frame']].get('closure_interpolation'),

@@ -209,3 +209,27 @@ OS output. Use an explicit offline config matching the intended2D/3D mode;
 legacy configs default to2D. The view shows selected skin gap, estimated model
 joint gap and emitted contact count separately. The corrected central41-frame
 result and its limits are in the owning evolution report.
+
+For the same articulated sequence from another controlled view, pass
+`--closing-view yaw--1`, `yaw-1`, `pitch--1` or `pitch-1`. These reuse the existing
+static transforms (yaw±35°, pitch±25°) for every frame, with unchanged articulation
+and20Hz timing. Horizontal±12cm, vertical±7cm and depth±10cm cases are also
+available under their static case names. This option requires `--closing-steps`;
+it does not combine the articulation with a changing camera trajectory.
+Hand-only single-reference exports now retain evaluated skin depth/image bounds
+and full-skin framing, in addition to the joint markers. Full framing does not
+establish visibility of every occluded fingertip or anatomical correctness.
+
+The visible runner's optional `--label` identifies the actual finite experiment
+on the TV and in its retained report/replay. New runs clear the preceding run's
+final counters and disable its replay until new measurements complete.
+
+```sh
+python3 tools/synthetic/summarize_closure_views.py CENTER_RESULTS.json VIEW_RESULTS.json
+```
+
+This camera-free summary rejects mismatched frame order/times. It reports the
+model's contacts during the renderer's open/maximum-closure holds, track IDs,
+geometry/framing and estimated gaps. Holds are defined by articulation, not
+predicted contact state; they are not human intent labels. Source report digests
+allow the aggregate to be traced back to full private predictions and references.

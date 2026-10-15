@@ -47,6 +47,18 @@ stay separated by at least approximately2mm; full anatomy, views and real human
 intent remain unqualified. The TV retains this corrected sequence. See the
 [articulated reference correction](research/controller-evolution-2026-10.md#articulated-skin-reference-and-human-correction).
 
+The subsequent fixed-view expansion processed164 new frames at yaw±35° and
+pitch±25°: every frame detected, one ID and one contiguous3D contact interval per
+view, zero contacts in fully open holds. Maximum-closure coverage was35/36;
+default2D interpretation produced0/36 on identical raw perception. All skin stayed
+in frame with approximately2mm minimum distal clearance. Contact hold spread was
+0.20–1.48px on an explicit full1920x1080 workspace, not calibrated camera accuracy.
+View-dependent estimated gaps remain; see the
+[comparison and limits](research/controller-evolution-2026-10.md#articulated-view-comparison-2026-10-15).
+The TV retains the actual last2D comparison. Live thresholds/config/profile and
+selected controller binaries remain unchanged; physical and two-hand articulated
+qualification remain open.
+
 Current mode increment: an exclusive arbiter now reuses pointer/contact/macro
 engines for pointer, relative precision, explicit scroll, one contact and two
 contacts. Replay verifies neutral mode transitions, open-before-move/repress,

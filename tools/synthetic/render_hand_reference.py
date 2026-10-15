@@ -42,6 +42,10 @@ def main():
                         help='Optional 9..121-frame rigid hand trajectory, 20 Hz source time')
     parser.add_argument('--closing-steps', type=int, default=0,
                         help='9..121-frame opening/closing sequence toward --closure; requires --hand-only')
+    parser.add_argument('--closing-view', default='reference', choices=[
+        'reference', 'horizontal--1', 'horizontal-1', 'vertical--1', 'vertical-1',
+        'depth--1', 'depth-1', 'yaw--1', 'yaw-1', 'pitch--1', 'pitch-1'],
+        help='Reuse a controlled rigid view for the entire articulated sequence')
     parser.add_argument('--skin-check', action='store_true',
                         help='Measure selected distal skin patches using optional pinned python-fcl')
     parser.add_argument('--pair-motion', action='store_true',
@@ -60,6 +64,8 @@ def main():
         parser.error('--closing-steps requires9..121, --hand-only, positive --closure and no other sequence')
     if args.skin_check and args.pair_motion:
         parser.error('--skin-check currently supports a single reference hand')
+    if args.closing_view != 'reference' and not args.closing_steps:
+        parser.error('--closing-view requires --closing-steps')
     if args.skin_check:
         from skin_clearance import distal_skin_clearance
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
@@ -225,7 +231,8 @@ def main():
                   Matrix.Rotation(math.radians(20 * math.sin(i * 2 * math.pi / (args.motion_steps - 1))), 4, vertical))
                  for i in range(args.motion_steps)]
     if args.closing_steps:
-        cases = [(f'motion-closing-{i:03d}', Vector(), Matrix.Identity(4))
+        _, translation, turn = next(case for case in cases if case[0] == args.closing_view)
+        cases = [(f'motion-closing-{i:03d}', translation, turn)
                  for i in range(args.closing_steps)]
     labels = []
     for index, (name, translation, turn) in enumerate(cases):
@@ -262,10 +269,23 @@ def main():
             labels[-1]['source_us'] = 1 + index * 50_000
         if args.closing_steps:
             labels[-1]['closure_interpolation'] = closure
+            labels[-1]['view_case'] = args.closing_view
         labels[-1]['index_forward_displacement_m'] = forward_flexion(
             index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
         if args.skin_check:
             labels[-1]['distal_skin'] = distal_skin_clearance(mesh, bpy.context.evaluated_depsgraph_get())
+        if args.hand_only and not args.pair_motion:
+            evaluated = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            skin_points = [evaluated.matrix_world @ v.co for v in evaluated.data.vertices]
+            inverse_camera = camera.matrix_world.inverted()
+            depths = [-(inverse_camera @ p).z for p in skin_points]
+            skin_projected = [world_to_camera_view(scene, camera, p) for p in skin_points]
+            labels[-1]['skin_camera_depth_range_m'] = [min(depths), max(depths)]
+            labels[-1]['skin_image_bounds_px'] = [
+                min(p.x for p in skin_projected)*640, (1-max(p.y for p in skin_projected))*480,
+                max(p.x for p in skin_projected)*640, (1-min(p.y for p in skin_projected))*480]
+            labels[-1]['skin_in_frame'] = all(0 <= p.x <= 1 and 0 <= p.y <= 1 and p.z > 0
+                                              for p in skin_projected)
         if args.pair_motion:
             inverse_camera = camera.matrix_world.inverted()
             graph = bpy.context.evaluated_depsgraph_get()
@@ -314,6 +334,7 @@ def main():
               'image_size': [640, 480], 'render_seed': 0, 'frames': labels,
               'closure_interpolation': None if args.closing_steps else args.closure,
               'articulation_sequence': bool(args.closing_steps),
+              'closing_view': args.closing_view if args.closing_steps else None,
               'skin_clearance_measured': args.skin_check,
               'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
               'reference_hand_count': 2 if args.pair_motion else 1,

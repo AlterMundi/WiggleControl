@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "asset_sha256": "d66fbca815bcde6532f728f1f63071003c5d43ff44f56e263a0807baec1ae055",
+  "joint_angles_rad": {
+    "r_index1": 0.75,
+    "r_index2": 1.0,
+    "r_index3": 0.8,
+    "r_thumb0": -0.025409530450156526,
+    "r_thumb1": 0.49455550270580934,
+    "r_thumb2": 0.007116660760378157,
+    "r_thumb3": 0.6088971546900223
+  }
+}

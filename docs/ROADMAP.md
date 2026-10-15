@@ -18,6 +18,12 @@ both removes separated-skin contacts and preserves baseline near-hold coverage
 at20Hz and both10Hz phases. Continue geometry/perception comparisons before
 changing the receiving thresholds; see the
 [complete comparison](research/native-visual-macros-2026-10.md#full-trajectory-interpretation-comparison).
+Two additional articulated pinches now add82 detected frames and18/18 near-hold
+contact frames, with independent1.790/0.961mm distal skin gaps. The combined
+six-positive-control benchmark retains53/54 baseline near contacts; tested
+normalizations still lose useful coverage. These remain synthetic controls,
+not physical acceptance or a resolved#7. See the
+[new articulations](research/native-visual-macros-2026-10.md#additional-articulations).
 
 ## Outcome and today's goal
 

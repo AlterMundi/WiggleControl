@@ -13,6 +13,7 @@ jobs:
       - run: python3 tools/synthetic/test_pair_closure.py
       - run: python3 tools/synthetic/test_visible_motion.py
       - run: python3 tools/synthetic/test_pinch_interpretations.py
+      - run: python3 tools/synthetic/test_pinch_pose.py
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings

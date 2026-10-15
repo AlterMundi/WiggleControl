@@ -16,6 +16,7 @@ from pathlib import Path
 import bpy
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Matrix, Quaternion, Vector
+from pinch_pose import DEFAULT_ANGLES, LIMITS, load as load_pinch_pose
 
 
 
@@ -54,6 +55,8 @@ def main():
                         help='Measure selected distal skin patches using optional pinned python-fcl')
     parser.add_argument('--measure-only', action='store_true',
                         help='Evaluate closing geometry/skin without rendering images or an image sequence')
+    parser.add_argument('--pinch-pose', type=Path,
+                        help='Asset-bound seven-joint research recipe for a single-hand closing sequence')
     parser.add_argument('--pair-motion', action='store_true',
                         help='Two independently transformed mirrored open hands approach and cross')
     parser.add_argument('--pair-closing', action='store_true',
@@ -96,6 +99,11 @@ def main():
         from skin_clearance import distal_skin_clearance
     if args.measure_only and not (args.skin_check and args.closing_steps):
         parser.error('--measure-only requires --skin-check and --closing-steps')
+    if args.pinch_pose and (args.gesture != 'pinch' or not args.closing_steps or args.pair_closing):
+        parser.error('--pinch-pose requires a single-hand pinch closing sequence')
+    asset_digest = hashlib.sha256(args.fbx.read_bytes()).hexdigest()
+    pose_parameters, pose_digest = (load_pinch_pose(args.pinch_pose, asset_digest)
+                                   if args.pinch_pose else (None, None))
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.fbx(filepath=str(args.fbx.resolve()), use_anim=False)
@@ -137,15 +145,8 @@ def main():
     # dorsal index bending, rejected by Nicolás's actual TV review. Positive
     # flexion and a signed rest-plane check reject that branch. Distal skin
     # clearance is measured separately; these bounds do not certify anatomy.
-    parameters = {
-        'r_index1': 0.5780913844963557, 'r_index2': 0.9080790178234996,
-        'r_index3': 0.6839674325177723, 'r_thumb0': 0.4828462042455118,
-        'r_thumb1': -0.06196422713524768, 'r_thumb2': 0.21760893089706515,
-        'r_thumb3': 0.0,
-    }
-    limits = {'r_index1': [0, 1.0], 'r_index2': [0, 1.2], 'r_index3': [0, 1.0],
-              'r_thumb0': [-1.0, 1.0], 'r_thumb1': [-0.5, 0.5],
-              'r_thumb2': [0, 1.0], 'r_thumb3': [0, 1.0]}
+    parameters = dict(pose_parameters if pose_parameters is not None else DEFAULT_ANGLES)
+    limits = dict(LIMITS)
     if args.gesture == 'victory':
         # A separate, explicitly unqualified macro pose. Keep index/middle
         # extended, flex ring/pinky toward the palm and fold the thumb.
@@ -414,7 +415,8 @@ def main():
     if not args.measure_only:
         bpy.ops.wm.save_as_mainfile(filepath=str((args.output/'source.blend').resolve()))
     report = {'schema': 'wigglecontrol.synthetic-rig/v1', 'blender': bpy.app.version_string,
-              'asset_sha256': hashlib.sha256(args.fbx.read_bytes()).hexdigest(),
+              'asset_sha256': asset_digest,
+              'pinch_pose_sha256': pose_digest,
               'units': 'meters, imported FBX world coordinates', 'landmark_names': names,
               'landmark_kind': 'rig joint markers; skin contact/anatomical mapping not qualified',
               'camera_world_matrix': list(map(list, camera.matrix_world)),
@@ -433,7 +435,8 @@ def main():
               'pair_depth_offset_m': args.pair_depth_offset if paired else None,
               'applied_joint_angles_rad': {n: v * closure for n, v in parameters.items()},
               'target_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
-              'pose_recipe': 'forward-flex-v2' if args.gesture == 'pinch' else
+              'pose_recipe': 'forward-flex-custom-v1' if args.pinch_pose else
+                             'forward-flex-v2' if args.gesture == 'pinch' else
                              'forward-victory-v2' if args.finger_spread else 'forward-victory-v1',
               'gesture_recipe': args.gesture, 'joint_recipe_bounds_rad': limits,
               'macro_abduction_target_rad': abduction,

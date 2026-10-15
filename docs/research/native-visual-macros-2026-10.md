@@ -260,3 +260,50 @@ This result narrows the next decision: compare additional geometric consistency
 signals and qualified stronger perception models, rather than assume the newer
 API solves depth bias. Synthetic near-gap coverage is encouraging; pose-specific
 false onsets, diverse hands/poses, real intent/comfort and occlusion remain open.
+
+## Additional articulations
+
+CompAII,2026-10-15. To avoid selecting a correction around one closing recipe,
+two new independently specified pinches were generated before testing perception.
+Source angle files live in `tools/synthetic/poses/curled-v1.json` and
+`pip-dominant-v1.json`. They retain the pinned MHR asset and seven forward-bounded
+joint angles; a new optional `--pinch-pose` loader validates exact asset, joint
+set and finite numeric bounds before scene creation. No default recipe changed.
+The old41-frame pitch−25° control regenerated with exactly identical world
+markers and distal skin gaps (maximum difference0m for both), independently of
+the new recipe selection. Its historical metadata predates the optional
+abduction/recipe-digest fields; the strict replacement matcher was not weakened.
+
+Both new41-frame trajectories first passed geometry-only checks: all selected
+distal thumb/index patches remain disjoint, all hand skin remains in frame, and
+index joints stay on the forward side of the rest plane. Full trajectories were
+then rendered and examined, including maximum-pose PNGs; no inference output
+defined the geometry. Full anatomy, whole-hand collision and human intent remain
+unqualified. Low-index-flexion endpoint searches did not reach a near pose under
+the tested constraints; their failed candidates remain diagnostics, not positives.
+An exploratory extra-thumb-axis search also failed those low-flexion targets.
+This is not evidence that such a real human pinch is impossible.
+
+| New reference | Minimum selected skin gap | One-hand detections | Near-hold contact frames | Estimated3D near-hold gap | Open-hold contacts |
+| --- | --- | --- | --- | --- | --- |
+| Curled index, changed thumb |1.790mm |41/41 |9/9 |29.33–30.41mm |0/18 |
+| PIP-dominant index, changed thumb |0.961mm |41/41 |9/9 |33.79–36.08mm |0/18 |
+
+The existing source-bounddcee493 controller used45/65mm interpretation,40ms
+confirmation and the unchanged model/policy. Each run retained one track ID,
+one contact interval starting at frame16 and no macro action. The first attempt
+at the curled replay was rejected before inference because an older session
+config disagreed with the controller's gesture settings. Its terminal failure
+is retained; a matching offline config passed preflight and reused the completed
+render. No receiving config or calibration was edited. The later PIP run used
+that preflighted config from its start.
+
+An additional114 matched controller replays applied the preceding19-setting
+grid at20Hz and both10Hz phases to the two new controls. Across all six positive
+sequences, the20Hz baseline has53/54 near-contact frames and zero open contacts.
+Ratio0.40/0.60 with40ms dwell falls to49/54; ratio0.42/0.63 with80ms falls to47/54.
+Their zero contacts on the separated macro therefore remain a coverage tradeoff,
+not an accepted fix. The full goal, live45/65 profile and prepared8c569ae human
+trial remain unchanged. The TV showed the actual finite render/inference stages
+and retains the latest41-frame result; source unit tests cover asset mismatch,
+the known negative dorsal angle, malformed angles and recipe digests.

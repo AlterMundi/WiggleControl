@@ -23,7 +23,7 @@ def digest(path):
 def matched_geometry(reference, measured):
     """Reject a replacement skin reference whose full marker trajectory differs."""
     for key in ('asset_sha256', 'pose_recipe', 'target_joint_angles_rad',
-                'macro_abduction_target_rad', 'camera_world_matrix'):
+                'macro_abduction_target_rad', 'camera_world_matrix', 'pinch_pose_sha256'):
         if reference.get(key) != measured.get(key):
             raise ValueError('Geometry metadata mismatch: '+key)
     if len(reference['frames']) != len(measured['frames']):

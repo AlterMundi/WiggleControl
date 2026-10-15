@@ -403,3 +403,21 @@ full-trajectory match and unchanged-file digest check. It retains original
 input-image names and displays measured skin separation beside either backend's
 raw gap. Tasks still has unknown contact/ownership semantics; projection never
 turns those unknowns into zero contacts or stable identities.
+
+### Additional pinch articulations
+
+`--pinch-pose poses/curled-v1.json` or `poses/pip-dominant-v1.json` selects an
+explicit seven-joint recipe for single-hand closing sequences. Paths here are
+relative to `tools/synthetic/`. The version1 file pins the exact FBX SHA256 and
+all seven named angles. The loader rejects unknown joints, nonfinite/boolean
+angles, asset mismatch and values outside the retained forward recipe bounds.
+Those bounds are research constraints, not certified anatomical joint limits.
+Defaults remain `forward-flex-v2`; custom labels use `forward-flex-custom-v1`
+and retain the loaded recipe's byte digest. The geometry matcher also checks it.
+
+Before rendering a custom sequence, run `--measure-only --skin-check` with the
+same inputs and inspect the full skin trajectory. Then remove `--measure-only`
+and use a new output directory to render it. Positive forward flexion and distal
+clearance do not certify whole-hand collision freedom or human intent. These
+two source recipes are retained controls, not model predictions or human labels.
+See the [diversity results](../../docs/research/native-visual-macros-2026-10.md#additional-articulations).

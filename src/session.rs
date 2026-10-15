@@ -311,10 +311,10 @@ impl PreviewClock {
             .map(|_| self.deadline().saturating_duration_since(now).as_millis() as u64)
     }
 }
-struct Frame {
-    bytes: Vec<u8>,
-    source_us: u64,
-    sequence: u32,
+pub(crate) struct Frame {
+    pub bytes: Vec<u8>,
+    pub source_us: u64,
+    pub sequence: u32,
 }
 #[derive(Default)]
 struct Mailbox {

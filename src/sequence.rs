@@ -14,19 +14,19 @@ use std::{
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Sequence {
+pub(crate) struct Sequence {
     version: u32,
-    frames: Vec<ImageFrame>,
+    pub frames: Vec<ImageFrame>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ImageFrame {
-    source_us: u64,
+pub(crate) struct ImageFrame {
+    pub source_us: u64,
     /// None is explicit missing acquisition, not an invented blank hand image.
-    image: Option<String>,
+    pub image: Option<String>,
 }
 impl Sequence {
-    fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
+    pub(crate) fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
         if fs::metadata(path)?.len() > 1_048_576 {
             return Err("sequence exceeds 1 MiB".into());
         }

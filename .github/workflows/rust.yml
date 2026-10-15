@@ -21,6 +21,7 @@ jobs:
       - run: python3 tools/synthetic/test_browser_provider.py
       - run: node --check tools/synthetic/browser_hand_sequence.mjs
       - run: node --check tools/synthetic/task_hand_worker.js
+      - run: node --check tools/synthetic/provider_fixture_client.mjs
       - run: python3 tools/synthetic/test_pinch_fusion.py
       - run: python3 tools/synthetic/test_mesh_projection.py
       - run: cargo fmt --check

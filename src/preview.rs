@@ -35,6 +35,17 @@ struct Snapshot {
     guided_expires: Option<Instant>,
     published_at: Instant,
 }
+/// Optional same-origin endpoint owned by an explicitly selected session.
+pub(crate) trait Extension: Send + Sync {
+    fn handles(&self, path: &str) -> bool;
+    fn respond(&self, method: &str, path: &str, body: &[u8]) -> io::Result<ExtensionResponse>;
+}
+pub(crate) struct ExtensionResponse {
+    pub status: &'static str,
+    pub mime: &'static str,
+    pub body: Vec<u8>,
+    pub headers: String,
+}
 impl Snapshot {
     fn metadata_at(&self, now: Instant) -> io::Result<String> {
         let mut metadata: Value = serde_json::from_str(&self.metadata)?;
@@ -72,6 +83,7 @@ pub struct Preview {
     ready: Arc<AtomicBool>,
     pub port: u16,
     controls: Arc<Mutex<Controls>>,
+    extension: Arc<Mutex<Option<Arc<dyn Extension>>>>,
 }
 impl Preview {
     pub fn start(port: u16, stop: Arc<AtomicBool>) -> io::Result<Self> {
@@ -85,6 +97,8 @@ impl Preview {
         let acknowledged = ready.clone();
         let controls = Arc::new(Mutex::new(Controls::default()));
         let commands = controls.clone();
+        let extension = Arc::new(Mutex::new(None::<Arc<dyn Extension>>));
+        let extra = extension.clone();
         let worker = thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 match listener.accept() {
@@ -96,6 +110,7 @@ impl Preview {
                             &acknowledged,
                             &commands,
                             port,
+                            &extra,
                         );
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -113,10 +128,14 @@ impl Preview {
             port,
             ready,
             controls,
+            extension,
         })
     }
     pub fn enable_calibration_controls(&self) {
         self.controls.lock().unwrap().enabled = true;
+    }
+    pub(crate) fn enable_extension(&self, extension: Arc<dyn Extension>) {
+        *self.extension.lock().unwrap() = Some(extension);
     }
     pub fn enable_guided(&self) {
         self.controls.lock().unwrap().guided = true;
@@ -188,18 +207,20 @@ fn serve(
     ready: &AtomicBool,
     controls: &Mutex<Controls>,
     port: u16,
+    extension: &Mutex<Option<Arc<dyn Extension>>>,
 ) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(250)))?;
     stream.set_write_timeout(Some(Duration::from_millis(250)))?;
+    let read_deadline = Instant::now() + Duration::from_millis(250);
     let mut request = Vec::new();
     let mut chunk = [0; 1024];
-    while !request.windows(4).any(|w| w == b"\r\n\r\n") {
-        let count = stream.read(&mut chunk)?;
-        if count == 0 {
-            return Ok(());
+    let header_end = loop {
+        if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+            if end + 4 <= 4096 {
+                break end + 4;
+            }
         }
-        request.extend_from_slice(&chunk[..count]);
-        if request.len() > 4096 {
+        if request.len() >= 4096 {
             return respond(
                 stream,
                 "431 Request Header Fields Too Large",
@@ -208,10 +229,23 @@ fn serve(
                 "",
             );
         }
-    }
-    let request =
-        std::str::from_utf8(&request).map_err(|_| io::Error::other("invalid HTTP request"))?;
-    let mut lines = request.split("\r\n");
+        let remaining = read_deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "HTTP read deadline",
+            ));
+        }
+        stream.set_read_timeout(Some(remaining))?;
+        let count = stream.read(&mut chunk)?;
+        if count == 0 {
+            return Ok(());
+        }
+        request.extend_from_slice(&chunk[..count]);
+    };
+    let head = std::str::from_utf8(&request[..header_end])
+        .map_err(|_| io::Error::other("invalid HTTP request"))?;
+    let mut lines = head.split("\r\n");
     let first = lines.next().unwrap_or_default();
     let headers: Vec<_> = lines.filter_map(|line| line.split_once(':')).collect();
     let host = format!("127.0.0.1:{port}");
@@ -226,6 +260,117 @@ fn serve(
             b"Local host required",
             "",
         );
+    }
+    let parts: Vec<_> = first.split_whitespace().collect();
+    let endpoint = extension.lock().unwrap().clone();
+    if let (Some(endpoint), [method, path, "HTTP/1.1"]) = (endpoint, parts.as_slice()) {
+        if endpoint.handles(path) {
+            if !["GET", "POST"].contains(method) {
+                return respond(
+                    stream,
+                    "405 Method Not Allowed",
+                    "text/plain",
+                    b"Unsupported method",
+                    "",
+                );
+            }
+            if *method == "POST"
+                && !headers.iter().any(|(k, v)| {
+                    k.eq_ignore_ascii_case("origin") && v.trim() == format!("http://{host}")
+                })
+            {
+                return respond(
+                    stream,
+                    "403 Forbidden",
+                    "text/plain",
+                    b"Same origin required",
+                    "",
+                );
+            }
+            let lengths: Vec<_> = headers
+                .iter()
+                .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+                .collect();
+            if lengths.len() > 1
+                || headers
+                    .iter()
+                    .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"))
+            {
+                return respond(
+                    stream,
+                    "400 Bad Request",
+                    "text/plain",
+                    b"Invalid body framing",
+                    "",
+                );
+            }
+            let length = match lengths
+                .first()
+                .map(|(_, v)| v.trim().parse::<usize>())
+                .transpose()
+            {
+                Ok(n) => n.unwrap_or(0),
+                Err(_) => {
+                    return respond(
+                        stream,
+                        "400 Bad Request",
+                        "text/plain",
+                        b"Invalid body length",
+                        "",
+                    )
+                }
+            };
+            if length > crate::MAX_MESSAGE_BYTES {
+                return respond(
+                    stream,
+                    "413 Content Too Large",
+                    "text/plain",
+                    b"Provider body exceeds16KiB",
+                    "",
+                );
+            }
+            // Copy the parsed route before extending the request buffer.
+            let (method, path) = (method.to_string(), path.to_string());
+            let mut body = request[header_end..].to_vec();
+            if body.len() > length {
+                return respond(
+                    stream,
+                    "400 Bad Request",
+                    "text/plain",
+                    b"Unexpected request body",
+                    "",
+                );
+            }
+            body.resize(length, 0);
+            let already = request.len() - header_end;
+            let mut offset = already;
+            while offset < length {
+                let remaining = read_deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "HTTP body deadline",
+                    ));
+                }
+                stream.set_read_timeout(Some(remaining))?;
+                let n = stream.read(&mut body[offset..])?;
+                if n == 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "incomplete HTTP body",
+                    ));
+                }
+                offset += n;
+            }
+            let response = endpoint.respond(&method, &path, &body)?;
+            return respond(
+                stream,
+                response.status,
+                response.mime,
+                &response.body,
+                &response.headers,
+            );
+        }
     }
     match first {
         "GET / HTTP/1.1" => respond(
@@ -458,6 +603,64 @@ fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Echo;
+    impl Extension for Echo {
+        fn handles(&self, path: &str) -> bool {
+            path == "/provider/echo"
+        }
+        fn respond(&self, _: &str, _: &str, body: &[u8]) -> io::Result<ExtensionResponse> {
+            Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "application/octet-stream",
+                body: body.to_vec(),
+                headers: String::new(),
+            })
+        }
+    }
+    #[test]
+    fn provider_extension_keeps_header_body_bounds_origin_and_partial_body_separate() {
+        let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();
+        preview.enable_extension(Arc::new(Echo));
+        let host = format!("127.0.0.1:{}", preview.port);
+        let exchange = |headers: String, body: &[u8]| {
+            let mut stream = TcpStream::connect(&host).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            stream.write_all(headers.as_bytes()).unwrap();
+            for chunk in body.chunks(3072) {
+                stream.write_all(chunk).unwrap();
+            }
+            let mut out = Vec::new();
+            let _ = stream.read_to_end(&mut out);
+            out
+        };
+        let body = vec![b'x'; 14_000];
+        let response=exchange(format!("POST /provider/echo HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\nContent-Length: {}\r\n\r\n",body.len()),&body);
+        assert!(response.starts_with(b"HTTP/1.1 200"));
+        assert!(response.ends_with(&body));
+        for (extra, status) in [
+            ("Content-Length: 16385\r\n", "413"),
+            ("Content-Length: 1\r\nContent-Length: 1\r\n", "400"),
+            ("Transfer-Encoding: chunked\r\n", "400"),
+        ] {
+            let result=exchange(format!("POST /provider/echo HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n{extra}\r\n"),&[]);
+            assert!(String::from_utf8_lossy(&result).starts_with(&format!("HTTP/1.1 {status}")));
+        }
+        assert!(exchange(
+            format!("POST /provider/echo HTTP/1.1\r\nHost: {host}\r\n\r\n"),
+            &[]
+        )
+        .starts_with(b"HTTP/1.1 403"));
+        let mut incomplete = TcpStream::connect(&host).unwrap();
+        incomplete.write_all(format!("POST /provider/echo HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\nContent-Length: 100\r\n\r\nx").as_bytes()).unwrap();
+        thread::sleep(Duration::from_millis(320));
+        assert!(exchange(
+            format!("GET /provider/echo HTTP/1.1\r\nHost: {host}\r\n\r\n"),
+            &[]
+        )
+        .starts_with(b"HTTP/1.1 200"));
+    }
     #[test]
     fn guided_paint_ack_requires_selected_current_step_and_same_origin() {
         let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();

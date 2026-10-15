@@ -263,7 +263,11 @@ enum Command {
 }
 
 /// Intent only. Uses the same bounded JSONL reader as the native device writers.
-pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<(), Box<dyn Error>> {
+pub(crate) fn configured(
+    session: &Path,
+    settings: &Path,
+    presence_floor: f64,
+) -> Result<(SessionConfig, Controller, Tracker), Box<dyn Error>> {
     let config = SessionConfig::load(session)?;
     if config.dual_crop
         || config.secondary_model.is_some()
@@ -271,15 +275,19 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
     {
         return Err("provider replay requires single estimate and explicit matching presence floor/gesture gate".into());
     }
-    let mut tracker = Tracker::new(
+    let tracker = Tracker::new(
         config.gestures().stale_us,
         config.pair_separation_widths,
         presence_floor,
     )?;
-    let mut controller: Controller = crate::session::controller_config(&config, settings)?;
+    let controller: Controller = crate::session::controller_config(&config, settings)?;
     if controller.visual_policy().is_some() {
         return Err("provider image depth/visual macro integration is unavailable".into());
     }
+    Ok((config, controller, tracker))
+}
+pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<(), Box<dyn Error>> {
+    let (config, mut controller, mut tracker) = configured(session, settings, presence_floor)?;
     let mut out = io::stdout().lock();
     let publish = |out: &mut std::io::StdoutLock<'_>, value: serde_json::Value| -> io::Result<()> {
         writeln!(out, "{value}")?;

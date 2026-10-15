@@ -1,6 +1,6 @@
 // Camera-free optional provider comparison; all assets stay on loopback.
 // A browser backend is not stable hand identity or delivered system input.
-async function workerSource(baseUrl, modelBytes, delegate) {
+export async function workerSource(baseUrl, modelBytes, delegate) {
   if (location.origin !== new URL(baseUrl).origin) throw Error('Worker mode requires same-origin HTTP hosting');
   const worker = new Worker(new URL('task_hand_worker.js',baseUrl));
   let id = 0;
@@ -27,7 +27,7 @@ async function workerSource(baseUrl, modelBytes, delegate) {
   catch(error) {worker.terminate();throw error;}
   return {
     async infer(image,source_us) {
-      const bitmap = await createImageBitmap(image);
+      const bitmap = image instanceof ImageBitmap ? image : await createImageBitmap(image);
       return call('frame',{image:bitmap,source_us},[bitmap]);
     },
     async close() {

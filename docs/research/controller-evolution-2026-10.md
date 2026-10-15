@@ -311,6 +311,42 @@ changed. Human plausibility/comfort, different views, self-occlusion, whole-hand
 collision and real intended actions remain independent acceptance work. This
 single successful synthetic contact interval does not prove the full controller.
 
+## Exclusive mode arbitration and replay
+
+The new Rust controller reuses the existing pointer/contact/macro engines behind
+one explicit mode selector: pointer, reduced-gain precision, explicit scroll,
+one contact and two contacts. Mode changes release old output before accepting
+new gestures; closed pointer reacquisition cannot move or click until opening.
+Named macro intent can change the local mode or pause, with normal pinch input
+taking precedence. Other actions remain unhandled requests. This is semantic
+integration, not a deployed native device or visual macro classifier.
+
+Behavioral tests cover switching while dragging or holding two contacts,
+rearm, pointer/scroll exclusivity, precision gain, sticky/manual track selection,
+clock regression, stale/future/duplicate/malformed input, macro provenance and
+same-frame action arbitration. CLI checks retain actual release frames on EOF
+and malformed/oversized messages without devices. Testing exposed a baseline
+initialization bug: acquiring a hand directly in scroll cleared its scroll state
+after setting it, discarding the first displacement. Identity now initializes
+before scroll mode; pointer, loss and filter regressions pass.
+
+The41 retained observations from the corrected central closure were also replayed
+through the new CLI with the offline45/65mm gesture settings. No images were
+rerendered and no perception inference was repeated. Pointer and precision each
+produced one press/release; the precision movement path was exactly0.25 times
+the pointer path. One-contact and two-contact modes each retained13 contact
+frames, because this input contains one observed hand. That is not a two-hand
+vision qualification. A pointer→precision change during the hold emitted the
+release and blocked further movement/press until opening; no duplicate click
+occurred. All cases ended neutral at EOF.
+
+The owning contract and command examples are in [MODES.md](../MODES.md).
+Next integration: route native session controls and independent device writers
+through this arbiter, retain visible mode/rearm state, then qualify real actions.
+Absolute precision mapping, participant roles and visual pose recognition remain
+separate incomplete work. No receiving runtime, sensor, input or calibration
+changed in this source-only increment.
+
 ## Reuse and research curation
 
 The distinction between marker distance, selected skin clearance and plausible

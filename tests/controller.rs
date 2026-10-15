@@ -1,0 +1,345 @@
+#![cfg(target_os = "linux")]
+use wigglecontrol::{
+    controller::{Controller, Mode, Output, Settings},
+    macros,
+    touch_gestures::Frame,
+    Config, Event, Hand, Point,
+};
+fn hand(id: u64, closed: bool, x: f64, y: f64) -> Hand {
+    Hand {
+        id,
+        confidence: 0.99,
+        engaged: true,
+        pinch_eligible: true,
+        scrolling: false,
+        cursor: Point { x, y },
+        thumb_tip: Point { x: 0.4, y: 0.5 },
+        index_tip: Point {
+            x: if closed { 0.42 } else { 0.52 },
+            y: 0.5,
+        },
+        palm_width: 0.2,
+        pinch_distance_m: None,
+    }
+}
+fn frame(t: u64, hands: Vec<Hand>) -> Frame {
+    Frame {
+        version: 1,
+        source_us: t,
+        ambiguous: false,
+        hands,
+    }
+}
+fn controller(mode: Mode) -> Controller {
+    let mut c = Controller::new(Settings {
+        initial_mode: mode,
+        gestures: Config {
+            smoothing_us: 0.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .unwrap();
+    c.start();
+    c
+}
+fn observe(c: &mut Controller, t: u64, closed: bool) -> Output {
+    c.observe(t, frame(t, vec![hand(7, closed, 0.5, 0.5)]), None)
+}
+fn down(o: &Output) -> bool {
+    o.mouse.contains(&Event::Button { down: true })
+}
+fn up(o: &Output) -> bool {
+    o.mouse.contains(&Event::Button { down: false })
+}
+fn press(c: &mut Controller) {
+    observe(c, 1, false);
+    observe(c, 20_001, true);
+    let o = observe(c, 60_001, true);
+    assert!(o.button_down || !o.contacts.is_empty());
+}
+
+#[test]
+fn pointer_drag_switch_releases_and_closed_hand_cannot_move_or_press_until_open() {
+    let mut c = controller(Mode::Pointer);
+    press(&mut c);
+    let switched = c.set_mode(Mode::Precision);
+    assert!(up(&switched));
+    assert!(!switched.button_down);
+    assert!(switched.contacts.is_empty());
+    for t in [80_001, 100_001] {
+        let o = c.observe(t, frame(t, vec![hand(7, true, 0.8, 0.8)]), None);
+        assert!(!o.pointer_ready);
+        assert!(!down(&o));
+        assert!(!o.mouse.iter().any(|e| matches!(e, Event::Move { .. })));
+    }
+    assert!(observe(&mut c, 120_001, false).pointer_ready);
+    observe(&mut c, 140_001, true);
+    assert!(down(&observe(&mut c, 180_001, true)));
+}
+#[test]
+fn touch_switch_ends_both_contacts_and_reentry_requires_open() {
+    let mut c = controller(Mode::TwoContacts);
+    for (t, closed) in [(1, false), (20_001, true), (60_001, true)] {
+        let o = c.observe(
+            t,
+            frame(
+                t,
+                vec![hand(7, closed, 0.3, 0.5), hand(9, closed, 0.7, 0.5)],
+            ),
+            None,
+        );
+        assert_eq!(o.contacts.len(), if t == 60_001 { 2 } else { 0 });
+        assert!(o.mouse.is_empty());
+    }
+    let stopped = c.set_mode(Mode::OneContact);
+    assert!(stopped.contacts.is_empty());
+    assert!(stopped.mouse.is_empty());
+    assert!(observe(&mut c, 80_001, true).contacts.is_empty());
+    observe(&mut c, 100_001, false);
+    observe(&mut c, 120_001, true);
+    let one = observe(&mut c, 160_001, true);
+    assert_eq!(one.contacts.len(), 1);
+    assert!(one.contacts[0].id >= 2);
+    assert!(c.set_mode(Mode::Pointer).contacts.is_empty());
+    assert!(!down(&observe(&mut c, 180_001, true)));
+}
+#[test]
+fn precision_scales_motion_and_scroll_emits_only_wheel() {
+    let mut normal = controller(Mode::Pointer);
+    let mut fine = controller(Mode::Precision);
+    for c in [&mut normal, &mut fine] {
+        c.observe(1, frame(1, vec![hand(7, false, 0.4, 0.4)]), None);
+    }
+    let a = normal.observe(50_001, frame(50_001, vec![hand(7, false, 0.6, 0.7)]), None);
+    let b = fine.observe(50_001, frame(50_001, vec![hand(7, false, 0.6, 0.7)]), None);
+    let delta = |o: &Output| {
+        o.mouse
+            .iter()
+            .find_map(|e| {
+                if let Event::Move { dx, dy } = e {
+                    Some((*dx, *dy))
+                } else {
+                    None
+                }
+            })
+            .unwrap()
+    };
+    let (a, b) = (delta(&a), delta(&b));
+    assert!((b.0 / a.0 - 0.25).abs() < 1e-12);
+    assert!((b.1 / a.1 - 0.25).abs() < 1e-12);
+    let mut scroll = controller(Mode::Scroll);
+    observe(&mut scroll, 1, false);
+    let wheel = scroll.observe(50_001, frame(50_001, vec![hand(7, true, 0.7, 0.8)]), None);
+    assert!(wheel
+        .mouse
+        .iter()
+        .any(|e| matches!(e,Event::Scroll{vertical}if *vertical<0)));
+    assert!(!wheel
+        .mouse
+        .iter()
+        .any(|e| matches!(e, Event::Button { .. } | Event::Move { .. })));
+    assert!(wheel.contacts.is_empty());
+}
+#[test]
+fn clock_regression_and_invalid_frame_keep_the_actual_release_event() {
+    for case in 0..5 {
+        let mut c = controller(Mode::Pointer);
+        press(&mut c);
+        let mut f = frame(80_001, vec![hand(7, true, 0.5, 0.5)]);
+        let now = match case {
+            0 => 50_001,
+            1 => {
+                f.source_us = 90_001;
+                80_001
+            }
+            2 => {
+                f.ambiguous = true;
+                80_001
+            }
+            3 => {
+                f.hands.push(f.hands[0].clone());
+                80_001
+            }
+            _ => 300_001,
+        };
+        let released = c.observe(now, f, None);
+        assert!(up(&released), "case{case}");
+        assert!(!released.button_down);
+        assert!(released.contacts.is_empty());
+        assert!(!down(&observe(&mut c, 320_001, true)));
+        assert!(c.stop().contacts.is_empty());
+    }
+}
+#[test]
+fn explicit_claim_does_not_fall_back_to_another_participant_or_array_position() {
+    let mut c = controller(Mode::Pointer);
+    c.select_hand(Some(9));
+    let o = c.observe(
+        1,
+        frame(1, vec![hand(9, false, 0.7, 0.5), hand(7, false, 0.3, 0.5)]),
+        None,
+    );
+    assert_eq!(o.primary_hand, Some(9));
+    let o = c.observe(
+        50_001,
+        frame(
+            50_001,
+            vec![hand(7, false, 0.8, 0.5), hand(9, false, 0.7, 0.5)],
+        ),
+        None,
+    );
+    assert!(o.mouse.is_empty());
+    let missing = c.observe(
+        100_001,
+        frame(100_001, vec![hand(7, false, 0.8, 0.5)]),
+        None,
+    );
+    assert!(!missing.pointer_ready);
+    assert!(!down(&missing));
+    let returned = c.observe(150_001, frame(150_001, vec![hand(9, true, 0.8, 0.5)]), None);
+    assert!(!returned.pointer_ready);
+}
+fn macros_controller(mode: Mode) -> Controller {
+    let config = macros::Config {
+        hold_us: 200_000,
+        neutral_us: 100_000,
+        cooldown_us: 200_000,
+        stale_us: 150_000,
+        bindings: vec![macros::Binding {
+            pose: macros::Pose::Victory,
+            action: macros::Action::TogglePrecision,
+        }],
+    };
+    let mut c = Controller::new(Settings {
+        initial_mode: mode,
+        macros: Some(config),
+        ..Default::default()
+    })
+    .unwrap();
+    c.start();
+    c
+}
+#[test]
+fn held_macro_changes_mode_once_and_discards_same_frame_movement() {
+    let mut c = macros_controller(Mode::Pointer);
+    let mut actions = 0;
+    for i in 0..15 {
+        let t = 1 + i * 50_000;
+        let pose = macros::HandPose {
+            id: 7,
+            confidence: 0.99,
+            pose: if i < 3 {
+                None
+            } else {
+                Some(macros::Pose::Victory)
+            },
+        };
+        let o = c.observe(
+            t,
+            frame(t, vec![hand(7, false, 0.3 + i as f64 * 0.01, 0.5)]),
+            Some(pose),
+        );
+        if o.action.is_some() {
+            actions += 1;
+            assert_eq!(o.mode, Mode::Precision);
+            assert!(o.transition);
+            assert!(!o.mouse.iter().any(|e| matches!(
+                e,
+                Event::Move { .. } | Event::Scroll { .. } | Event::Button { down: true }
+            )));
+            assert!(!o.pointer_ready);
+        }
+    }
+    assert_eq!(actions, 1);
+    assert!(!c.action(macros::Action::PlayPause).action.unwrap().handled);
+    assert!(!c.action(macros::Action::PauseController).running);
+    assert!(!observe(&mut c, 800_001, false).running);
+}
+#[test]
+fn touch_pinch_candidate_and_missing_pose_cannot_complete_a_macro() {
+    for mode in [Mode::Pointer, Mode::OneContact, Mode::TwoContacts] {
+        let mut c = macros_controller(mode);
+        for i in 0..9 {
+            let t = 1 + i * 50_000;
+            let closing = i >= 6;
+            let pose = macros::HandPose {
+                id: 7,
+                confidence: 0.99,
+                pose: if i < 3 {
+                    None
+                } else {
+                    Some(macros::Pose::Victory)
+                },
+            };
+            let o = c.observe(t, frame(t, vec![hand(7, closing, 0.5, 0.5)]), Some(pose));
+            assert!(o.action.is_none(), "{mode:?}/{i}");
+        }
+    }
+    let mut c = macros_controller(Mode::Pointer);
+    for i in 0..12 {
+        let t = 1 + i * 50_000;
+        let p = (i >= 3).then_some(macros::HandPose {
+            id: 7,
+            confidence: 0.99,
+            pose: Some(macros::Pose::Victory),
+        });
+        assert!(c
+            .observe(t, frame(t, vec![hand(7, false, 0.5, 0.5)]), p)
+            .action
+            .is_none());
+    }
+}
+
+#[test]
+fn changing_mode_never_resets_the_source_watermark_or_accepts_invalid_settings() {
+    let mut c = controller(Mode::Pointer);
+    observe(&mut c, 1, false);
+    c.set_mode(Mode::OneContact);
+    let mut repeated = frame(1, vec![hand(7, false, 0.5, 0.5)]);
+    repeated.source_us = 1;
+    assert!(c.observe(10_001, repeated, None).transition);
+    let defaults: Settings = serde_json::from_str("{}").unwrap();
+    assert!(Controller::new(defaults).is_ok());
+    for value in [
+        serde_json::json!({"version":2}),
+        serde_json::json!({"precision_gain":0}),
+        serde_json::json!({"gestures":{"stale_us":1}}),
+    ] {
+        assert!(Controller::new(serde_json::from_value(value).unwrap()).is_err());
+    }
+    assert!(serde_json::from_str::<Settings>(r#"{"gestures":{"typo":1}}"#).is_err());
+}
+
+#[test]
+fn pose_evidence_cannot_invent_a_neutral_hand_or_upgrade_its_confidence() {
+    for fault in 0..4 {
+        let mut c = macros_controller(Mode::Pointer);
+        for i in 0..9 {
+            let t = 1 + i * 50_000;
+            let neutral = i < 3;
+            let mut p = macros::HandPose {
+                id: 7,
+                confidence: 0.99,
+                pose: if neutral {
+                    None
+                } else {
+                    Some(macros::Pose::Victory)
+                },
+            };
+            let mut hands = vec![hand(7, false, 0.5, 0.5)];
+            if neutral {
+                match fault {
+                    0 => p.confidence = f64::NAN,
+                    1 => p.id = 9,
+                    2 => hands[0].confidence = 0.6,
+                    _ => hands.clear(),
+                }
+            }
+            assert!(
+                c.observe(t, frame(t, hands), Some(p)).action.is_none(),
+                "fault{fault}/{i}"
+            );
+        }
+    }
+}

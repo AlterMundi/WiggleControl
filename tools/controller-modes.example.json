@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "initial_mode": "pointer",
+  "precision_gain": 0.25,
+  "gestures": {
+    "close_m": 0.045,
+    "open_m": 0.065,
+    "stale_us": 300000
+  },
+  "workspace": {
+    "min": {"x": 0, "y": 0},
+    "max": {"x": 1, "y": 1}
+  },
+  "macros": {
+    "hold_us": 500000,
+    "neutral_us": 200000,
+    "cooldown_us": 1000000,
+    "stale_us": 300000,
+    "bindings": [
+      {"pose": "victory", "action": "toggle_precision"},
+      {"pose": "thumbs_up", "action": "cycle_mode"},
+      {"pose": "closed_fist", "action": "pause_controller"}
+    ]
+  }
+}

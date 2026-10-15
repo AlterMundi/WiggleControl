@@ -1,0 +1,431 @@
+//! Exclusive interaction modes over the existing pointer/contact/macro engines.
+//! Intent only: acquiring sensors and delivering OS input remain separate adapters.
+use crate::{macros, touch::Contact, touch_gestures, Config, Engine, Event, Hand, Observation};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    #[default]
+    Pointer,
+    Precision,
+    Scroll,
+    OneContact,
+    TwoContacts,
+}
+impl Mode {
+    fn touch(self) -> bool {
+        matches!(self, Self::OneContact | Self::TwoContacts)
+    }
+    fn next(self) -> Self {
+        match self {
+            Self::Pointer => Self::OneContact,
+            Self::OneContact => Self::TwoContacts,
+            _ => Self::Pointer,
+        }
+    }
+}
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Settings {
+    pub version: u32,
+    pub initial_mode: Mode,
+    pub precision_gain: f64,
+    pub gestures: Config,
+    pub workspace: touch_gestures::Workspace,
+    pub macros: Option<macros::Config>,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            initial_mode: Mode::Pointer,
+            precision_gain: 0.25,
+            gestures: Config::default(),
+            workspace: Default::default(),
+            macros: None,
+        }
+    }
+}
+#[derive(Debug, Serialize)]
+pub struct ActionResult {
+    pub action: macros::Action,
+    /// Applied inside this semantic controller, never proof of an OS effect.
+    pub handled: bool,
+}
+#[derive(Debug, Serialize)]
+pub struct Output {
+    pub mode: Mode,
+    pub running: bool,
+    pub transition: bool,
+    pub reason: Option<&'static str>,
+    pub primary_hand: Option<u64>,
+    pub pointer_ready: bool,
+    pub button_down: bool,
+    pub mouse: Vec<Event>,
+    /// Complete current contact set, including an empty release frame.
+    pub contacts: Vec<Contact>,
+    pub action: Option<ActionResult>,
+}
+pub struct Controller {
+    mode: Mode,
+    running: bool,
+    config: Config,
+    precision_gain: f64,
+    pointer: Engine,
+    touches: touch_gestures::Gestures,
+    macros: Option<macros::Engine>,
+    claimed: Option<u64>,
+    primary: Option<u64>,
+    pointer_ready: bool,
+    contacts: Vec<Contact>,
+    watermark: Option<u64>,
+    last_now: Option<u64>,
+}
+impl Controller {
+    pub fn new(settings: Settings) -> Result<Self, &'static str> {
+        if settings.version != 1
+            || !settings.precision_gain.is_finite()
+            || !(0.05..=1.0).contains(&settings.precision_gain)
+        {
+            return Err("invalid controller version or precision gain");
+        }
+        Ok(Self {
+            mode: settings.initial_mode,
+            running: false,
+            config: settings.gestures,
+            precision_gain: settings.precision_gain,
+            pointer: Engine::new(settings.gestures)?,
+            touches: touch_gestures::Gestures::new(settings.gestures, settings.workspace)?,
+            macros: settings.macros.map(macros::Engine::new).transpose()?,
+            claimed: None,
+            primary: None,
+            pointer_ready: false,
+            contacts: Vec::new(),
+            watermark: None,
+            last_now: None,
+        })
+    }
+    fn output(&self, mouse: Vec<Event>, transition: bool) -> Output {
+        Output {
+            mode: self.mode,
+            running: self.running,
+            transition,
+            reason: None,
+            primary_hand: self.primary,
+            pointer_ready: self.pointer_ready,
+            button_down: self.pointer.pinch_state() == "pressed",
+            mouse,
+            contacts: self.contacts.clone(),
+            action: None,
+        }
+    }
+    fn neutralize(&mut self, reason: &'static str) -> Output {
+        let events = self.pointer.stop();
+        self.contacts = self.touches.stop();
+        self.primary = None;
+        self.pointer_ready = false;
+        if let Some(macros) = &mut self.macros {
+            macros.stop();
+        }
+        if self.running {
+            if self.mode.touch() {
+                self.touches.start();
+            } else {
+                self.pointer.start();
+            }
+            if let Some(macros) = &mut self.macros {
+                macros.start();
+            }
+        }
+        let mut output = self.output(events, true);
+        output.reason = Some(reason);
+        output
+    }
+    pub fn start(&mut self) -> Output {
+        self.running = true;
+        self.neutralize("started")
+    }
+    pub fn stop(&mut self) -> Output {
+        self.running = false;
+        self.neutralize("stopped")
+    }
+    pub fn set_mode(&mut self, mode: Mode) -> Output {
+        if self.mode == mode {
+            return self.output(Vec::new(), false);
+        }
+        self.mode = mode;
+        self.neutralize("mode_changed")
+    }
+    /// An explicit track claim is not participant identification or handedness.
+    pub fn select_hand(&mut self, id: Option<u64>) -> Output {
+        if self.claimed == id {
+            return self.output(Vec::new(), false);
+        }
+        self.claimed = id;
+        self.neutralize("hand_selected")
+    }
+    pub fn action(&mut self, action: macros::Action) -> Output {
+        let (mut output, handled) = match action {
+            macros::Action::TogglePrecision => (
+                self.set_mode(if self.mode == Mode::Precision {
+                    Mode::Pointer
+                } else {
+                    Mode::Precision
+                }),
+                true,
+            ),
+            macros::Action::ToggleScroll => (
+                self.set_mode(if self.mode == Mode::Scroll {
+                    Mode::Pointer
+                } else {
+                    Mode::Scroll
+                }),
+                true,
+            ),
+            macros::Action::CycleMode => (self.set_mode(self.mode.next()), true),
+            macros::Action::PauseController => (self.stop(), true),
+            _ => (self.output(Vec::new(), false), false),
+        };
+        output.action = Some(ActionResult { action, handled });
+        output
+    }
+    pub fn tick(&mut self, now: u64) -> Output {
+        if self.last_now.is_some_and(|t| now < t) {
+            return self.neutralize("consumer_clock_regression");
+        }
+        self.last_now = Some(now);
+        if self
+            .watermark
+            .is_some_and(|t| now.saturating_sub(t) >= self.config.stale_us)
+        {
+            return self.neutralize("stale_input");
+        }
+        let mouse = self.pointer.tick(now);
+        self.contacts = self.touches.tick(now);
+        if let Some(macros) = &mut self.macros {
+            macros.tick(now);
+        }
+        self.output(mouse, false)
+    }
+    fn open(&self, hand: &Hand) -> bool {
+        hand.engaged
+            && hand.pinch_eligible
+            && hand.confidence >= self.config.min_confidence
+            && hand
+                .pinch_distance_m
+                .map(|gap| gap >= self.config.open_m)
+                .unwrap_or_else(|| {
+                    hand.thumb_tip.distance(hand.index_tip) / hand.palm_width
+                        >= self.config.open_ratio
+                })
+    }
+    pub fn observe(
+        &mut self,
+        now: u64,
+        frame: touch_gestures::Frame,
+        pose: Option<macros::HandPose>,
+    ) -> Output {
+        let regressed = self.last_now.is_some_and(|t| now < t);
+        let tick = self.tick(now);
+        if !self.running {
+            return tick;
+        }
+        if regressed
+            || frame.version != 1
+            || frame.source_us > now
+            || now - frame.source_us >= self.config.stale_us
+            || self.watermark.is_some_and(|t| frame.source_us <= t)
+            || frame.hands.len() > 2
+            || frame.hands.iter().any(|h| !h.valid())
+            || (frame.hands.len() == 2 && frame.hands[0].id == frame.hands[1].id)
+        {
+            let mut released = self.neutralize("invalid_observation");
+            released.mouse.splice(0..0, tick.mouse);
+            return released;
+        }
+        self.watermark = Some(frame.source_us);
+        if frame.ambiguous {
+            let mut released = self.neutralize("ambiguous_identity");
+            released.mouse.splice(0..0, tick.mouse);
+            return released;
+        }
+        let selected = if self.mode == Mode::TwoContacts {
+            None
+        } else {
+            self.claimed
+                .or(self
+                    .primary
+                    .filter(|id| frame.hands.iter().any(|h| h.id == *id)))
+                .or_else(|| frame.hands.iter().map(|h| h.id).min())
+        };
+        let mut mouse = tick.mouse;
+        if selected != self.primary {
+            self.pointer_ready = false;
+            if let Some(macros) = &mut self.macros {
+                macros.start();
+            }
+        }
+        self.primary = selected;
+        if self.mode.touch() {
+            let hands = frame
+                .hands
+                .iter()
+                .filter(|h| self.mode == Mode::TwoContacts || Some(h.id) == selected)
+                .cloned()
+                .collect();
+            self.contacts = self.touches.observe(
+                now,
+                touch_gestures::Frame {
+                    version: 1,
+                    source_us: frame.source_us,
+                    ambiguous: false,
+                    hands,
+                },
+            );
+        } else {
+            let mut hand = frame.hands.iter().find(|h| Some(h.id) == selected).cloned();
+            if hand.as_ref().is_none_or(|h| {
+                !h.engaged || !h.pinch_eligible || h.confidence < self.config.min_confidence
+            }) {
+                self.pointer_ready = false;
+            }
+            if !self.pointer_ready {
+                self.pointer_ready = hand.as_ref().is_some_and(|h| self.open(h));
+            }
+            if !self.pointer_ready {
+                hand = None;
+            }
+            if let Some(hand) = &mut hand {
+                hand.scrolling = self.mode == Mode::Scroll;
+            }
+            let events = self.pointer.observe(
+                now,
+                Observation {
+                    version: 1,
+                    source_us: frame.source_us,
+                    hand,
+                },
+            );
+            mouse.extend(events.into_iter().map(|event| match event {
+                Event::Move { dx, dy } if self.mode == Mode::Precision => Event::Move {
+                    dx: dx * self.precision_gain,
+                    dy: dy * self.precision_gain,
+                },
+                event => event,
+            }));
+        }
+        let busy = !self.contacts.is_empty()
+            || matches!(self.pointer.pinch_state(), "closing" | "pressed")
+            || frame.hands.iter().any(|h| {
+                (self.mode == Mode::TwoContacts || Some(h.id) == selected)
+                    && h.engaged
+                    && h.pinch_eligible
+                    && h.confidence >= self.config.min_confidence
+                    && !self.open(h)
+            });
+        // A classifier cannot claim a different/missing hand or override observed confidence.
+        let pose = pose.and_then(|mut p| {
+            if !p.confidence.is_finite() {
+                return None;
+            }
+            let observed = frame.hands.iter().find(|h| {
+                h.id == p.id && (self.mode == Mode::TwoContacts || Some(h.id) == selected)
+            })?;
+            p.confidence = p.confidence.min(observed.confidence);
+            Some(p)
+        });
+        let action = self.macros.as_mut().and_then(|macros| {
+            macros.observe(
+                now,
+                macros::Frame {
+                    version: 1,
+                    source_us: frame.source_us,
+                    ambiguous: false,
+                    contacts_active: busy,
+                    hand: pose,
+                },
+            )
+        });
+        if let Some(action) = action {
+            let output = self.action(action);
+            if output.action.as_ref().is_some_and(|a| a.handled) {
+                return output;
+            }
+            let mut output = self.output(mouse, false);
+            output.action = Some(ActionResult {
+                action,
+                handled: false,
+            });
+            return output;
+        }
+        self.output(mouse, false)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Command {
+    Start,
+    Stop,
+    Mode {
+        mode: Mode,
+    },
+    SelectHand {
+        hand_id: Option<u64>,
+    },
+    Action {
+        action: macros::Action,
+    },
+    Tick {
+        now_us: u64,
+    },
+    Frame {
+        now_us: u64,
+        observation: touch_gestures::Frame,
+        #[serde(default)]
+        pose: Option<macros::HandPose>,
+    },
+}
+pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {
+    use std::{
+        fs,
+        io::{self, Write},
+    };
+    if fs::metadata(config)?.len() > 8192 {
+        return Err(io::Error::other("controller config exceeds8KiB"));
+    }
+    let mut controller =
+        Controller::new(serde_json::from_slice(&fs::read(config)?)?).map_err(io::Error::other)?;
+    let mut out = io::stdout().lock();
+    let mut publish = |frame: Output| -> io::Result<()> {
+        writeln!(
+            out,
+            "{}",
+            serde_json::json!({"schema":"wigglecontrol.controller-output/v1",
+            "camera_opened":false,"system_input":false,"output":frame})
+        )?;
+        out.flush()
+    };
+    for command in crate::intent::reader::<Command>() {
+        let frame = match command {
+            Ok(Command::Start) => controller.start(),
+            Ok(Command::Stop) => controller.stop(),
+            Ok(Command::Mode { mode }) => controller.set_mode(mode),
+            Ok(Command::SelectHand { hand_id }) => controller.select_hand(hand_id),
+            Ok(Command::Action { action }) => controller.action(action),
+            Ok(Command::Tick { now_us }) => controller.tick(now_us),
+            Ok(Command::Frame {
+                now_us,
+                observation,
+                pose,
+            }) => controller.observe(now_us, observation, pose),
+            Err(error) => {
+                publish(controller.stop())?;
+                return Err(error);
+            }
+        };
+        publish(frame)?;
+    }
+    publish(controller.stop())
+}

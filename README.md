@@ -14,7 +14,7 @@ Start here:
 - [Current roadmap](docs/ROADMAP.md): iteration goal, realistic mode/model expansion and evidence gates.
 - [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.
 - [Direct-touch intent](docs/TOUCH.md), separate from camera hand engagement.
-- [Modes and macro semantics](docs/MODES.md), with camera-free named-action replay.
+- [Modes and macro semantics](docs/MODES.md), with camera-free mode arbitration and named-action replay.
 - [Installation, manual use and rollback](docs/INSTALL.md).
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [End-to-end acceptance checkpoint](docs/ACCEPTANCE.md): evidence and remaining human trial.

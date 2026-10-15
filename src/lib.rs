@@ -5,6 +5,9 @@ pub mod filter;
 pub mod macros;
 
 #[cfg(target_os = "linux")]
+pub mod controller;
+
+#[cfg(target_os = "linux")]
 pub mod input;
 
 #[cfg(target_os = "linux")]
@@ -145,7 +148,8 @@ pub enum Event {
     },
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub min_confidence: f64,
     pub close_ratio: f64,
@@ -369,6 +373,12 @@ impl Engine {
             });
             return events;
         }
+        if self.hand_id != Some(hand.id) {
+            events.extend(self.cancel("hand_changed"));
+            self.hand_id = Some(hand.id);
+            self.cursor = Some(hand.cursor);
+            self.cursor_filter.reset(hand.cursor);
+        }
         if self.scrolling != hand.scrolling {
             if self.held {
                 events.push(Event::Button { down: false });
@@ -381,12 +391,7 @@ impl Engine {
             self.cursor = Some(hand.cursor);
             self.cursor_filter.reset(hand.cursor);
         }
-        if self.hand_id != Some(hand.id) {
-            events.extend(self.cancel("hand_changed"));
-            self.hand_id = Some(hand.id);
-            self.cursor = Some(hand.cursor);
-            self.cursor_filter.reset(hand.cursor);
-        } else if let (Some(previous), Some(last)) = (self.cursor, self.last_source) {
+        if let (Some(previous), Some(last)) = (self.cursor, self.last_source) {
             let dt = (observation.source_us - last) as f64;
             let alpha = if self.config.smoothing_us == 0.0 {
                 1.0

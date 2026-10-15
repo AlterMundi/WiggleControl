@@ -35,7 +35,7 @@ with explicit uncertainty over a plausible but unqualified 3D reconstruction.
 | Layer | Implemented / observed | Unfinished |
 | --- | --- | --- |
 | Perception | Native ONNX CPU palm/hand inference; ROI tracking; up to two tracks; confidence/ambiguity; source-linked models and ARM64 measurements | Temporal model accuracy, crossing/occlusion, varying hands/backgrounds; pinching pose bias remains |
-| Gesture meaning | Open-before-press; hysteresis/confirmation; drag/scroll; loss/stale/Stop release; independent contacts; replayable named macro hold/rearm/cooldown | Comfortable precision/latency balance; mode arbitration, visual macro classification and actual action adapters |
+| Gesture meaning | Open-before-press; hysteresis/confirmation; drag/scroll; loss/stale/Stop release; independent contacts; replayable named macro hold/rearm/cooldown | Comfortable precision/latency balance; native mode-arbiter/writer integration, visual macro classification and actual action adapters |
 | Mapping | Shared diagonal calibration, guided review, saved profile/rollback, matching native overlay target | Complete corners/comfort acceptance; participant-specific workspaces |
 | Delivery | Real virtual mouse on Chromium Wayland/VLC XWayland; type-B two-contact writer and touch-aware client scale/rotation | Camera-driven multitouch acceptance; actual fallback per application |
 | Operation | Finite and selected until-stop controls, private rolling recordings, existing local panel, independent physical input | Final receiving configuration and sustained accepted-hand resources |
@@ -113,11 +113,11 @@ These are a product roadmap, not claims that all modes are implemented.
 | One-hand pointer | Move, pinch click/drag, thumb-middle scroll | Existing baseline; finish precision and real comfort |
 | One-hand direct contact | One deliberate contact in the calibrated workspace | Existing writer/meaning; physical acceptance pending |
 | Two-hand touchscreen | One deliberate contact per hand; client interprets pan/zoom/rotation | Two-contact implementation; temporal vision and physical acceptance pending |
-| Precision / clutch | Temporarily lower gain or reposition the hand without moving the target; visible mode | Proposed; compare effort/target acquisition and avoid surprise jumps |
+| Precision / clutch | Temporarily lower gain or reposition the hand without moving the target; visible mode | Relative precision and open-before-move arbiter replay implemented; absolute mapping/native integration and effort acceptance pending |
 | Bimanual tools | Dominant hand selects/draws; other hand explicitly controls pan, scale or a modifier | Proposed; mutually exclusive with raw two-contact routing |
 | Two participants, one hand each | Each claims an input/workspace; stable role until release/handover | Proposed; no identity inference from handedness; compositor support checked |
 | Dwell / accessibility | Optional deliberate dwell selection, larger targets, configurable hold times | Proposed; compare false activations and fatigue; not default auto-click |
-| Macro layer | Held deliberate poses/chords trigger configured named actions | Semantic hold/rearm replay implemented; visual classifier, chords and actual action adapter pending |
+| Macro layer | Held deliberate poses/chords trigger configured named actions | Semantic hold/rearm and local mode/pause routing implemented in replay; visual classifier, chords and native action adapter pending |
 | Four-hand / shared canvas | Two participants with two hands; application-aware canvas where useful | Later branch; expand two-track/two-slot limits and measure hardware capacity |
 
 Candidate macros: recenter, toggle precision, enter/leave scroll, open launcher,

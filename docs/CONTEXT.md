@@ -47,6 +47,15 @@ stay separated by at least approximately2mm; full anatomy, views and real human
 intent remain unqualified. The TV retains this corrected sequence. See the
 [articulated reference correction](research/controller-evolution-2026-10.md#articulated-skin-reference-and-human-correction).
 
+Current mode increment: an exclusive arbiter now reuses pointer/contact/macro
+engines for pointer, relative precision, explicit scroll, one contact and two
+contacts. Replay verifies neutral mode transitions, open-before-move/repress,
+stable/manual hand claims and local macro mode/pause controls. The corrected
+closure observations retain one press/release and exact0.25 precision scaling;
+mode interruption releases without a duplicate click. Native session/device
+switching, absolute precision, visual pose classification and participant roles
+remain to be connected. The installed fixed-mode runtime is unchanged.
+
 Older dated checkpoints below preserve history; they do not override this roadmap.
 
 Latest visible-research checkpoint (2026-10-15): the offline workbench on

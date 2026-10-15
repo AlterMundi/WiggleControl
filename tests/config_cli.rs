@@ -81,3 +81,39 @@ fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     assert!(String::from_utf8_lossy(&result.stderr).contains("touch workspace"));
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn controller_preflight_rejects_divergent_settings_without_acquiring_any_receiving_path() {
+    let root = std::env::temp_dir().join(format!(
+        "wigglecontrol-controller-config-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&root).unwrap();
+    let session = root.join("session.json");
+    let modes = root.join("modes.json");
+    fs::write(&session,serde_json::json!({"camera":"/fictional/unavailable-camera","models":"/fictional/unavailable-models","runtime":"/fictional/unavailable-runtime","fps":10,"gain":2000}).to_string()).unwrap();
+    fs::write(&modes, "{}").unwrap();
+    let check = || {
+        Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .arg("config-check-controller")
+            .arg(&session)
+            .arg(&modes)
+            .output()
+            .unwrap()
+    };
+    let result = check();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(report["valid"], true);
+    assert_eq!(report["camera_opened"], false);
+    assert_eq!(report["system_input"], false);
+    fs::write(&modes, r#"{"gestures":{"close_m":0.045,"open_m":0.065}}"#).unwrap();
+    let result = check();
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("must match the session"));
+    fs::remove_dir_all(root).unwrap();
+}

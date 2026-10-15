@@ -1,5 +1,5 @@
 //! Explicit finite camera sessions with a latest-frame slot and independent writer.
-use crate::{vision::Perception, Config, Engine, Event, Observation};
+use crate::{intent::monotonic_us, vision::Perception, Config, Engine, Event, Observation};
 use serde::{Deserialize, Serialize};
 use std::{
     error::Error,
@@ -194,16 +194,6 @@ struct Mailbox {
     frames: u64,
     source_kind: Option<&'static str>,
 }
-fn monotonic_us() -> io::Result<u64> {
-    let mut ts = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) } != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(ts.tv_sec as u64 * 1_000_000 + ts.tv_nsec as u64 / 1000)
-}
 fn camera(
     config: &SessionConfig,
     stop: Arc<AtomicBool>,
@@ -289,6 +279,7 @@ struct Summary {
     timestamp_to_intent_p95_ms: Option<f64>,
     injected: bool,
     touch_mode: bool,
+    controller_modes: bool,
     ambiguous_frames: u64,
     max_hands: usize,
     fresh_processed: u64,
@@ -343,17 +334,57 @@ fn write_events(
     }
     Ok(presses)
 }
+#[derive(Default)]
+struct Options<'a> {
+    seconds: Option<u64>,
+    inject: bool,
+    touch: bool,
+    preview_port: Option<u16>,
+    profile_path: Option<&'a Path>,
+    guided: bool,
+    controller_path: Option<&'a Path>,
+}
 pub fn run(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, Some(seconds), inject, false, None, None, false)
+    run_mode(
+        path,
+        Options {
+            seconds: Some(seconds),
+            inject,
+            ..Default::default()
+        },
+    )
 }
 pub fn run_touch(path: &Path, seconds: u64, inject: bool) -> Result<(), Box<dyn Error>> {
-    run_mode(path, Some(seconds), inject, true, None, None, false)
+    run_mode(
+        path,
+        Options {
+            seconds: Some(seconds),
+            inject,
+            touch: true,
+            ..Default::default()
+        },
+    )
 }
 pub fn preview(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, Some(seconds), false, false, Some(port), None, false)
+    run_mode(
+        path,
+        Options {
+            seconds: Some(seconds),
+            preview_port: Some(port),
+            ..Default::default()
+        },
+    )
 }
 pub fn feedback(path: &Path, seconds: u64, port: u16) -> Result<(), Box<dyn Error>> {
-    run_mode(path, Some(seconds), true, false, Some(port), None, false)
+    run_mode(
+        path,
+        Options {
+            seconds: Some(seconds),
+            inject: true,
+            preview_port: Some(port),
+            ..Default::default()
+        },
+    )
 }
 pub fn calibrated(
     path: &Path,
@@ -363,27 +394,95 @@ pub fn calibrated(
 ) -> Result<(), Box<dyn Error>> {
     run_mode(
         path,
-        Some(seconds),
-        true,
-        false,
-        Some(port),
-        Some(profile),
-        false,
+        Options {
+            seconds: Some(seconds),
+            inject: true,
+            preview_port: Some(port),
+            profile_path: Some(profile),
+            ..Default::default()
+        },
     )
 }
 pub fn calibrated_until_stop(path: &Path, port: u16, profile: &Path) -> Result<(), Box<dyn Error>> {
-    run_mode(path, None, true, false, Some(port), Some(profile), false)
+    run_mode(
+        path,
+        Options {
+            inject: true,
+            preview_port: Some(port),
+            profile_path: Some(profile),
+            ..Default::default()
+        },
+    )
 }
 pub fn guided(path: &Path, port: u16, profile: &Path) -> Result<(), Box<dyn Error>> {
     run_mode(
         path,
-        Some(120),
-        false,
-        false,
-        Some(port),
-        Some(profile),
-        true,
+        Options {
+            seconds: Some(120),
+            preview_port: Some(port),
+            profile_path: Some(profile),
+            guided: true,
+            ..Default::default()
+        },
     )
+}
+pub fn controller(
+    path: &Path,
+    settings: &Path,
+    seconds: Option<u64>,
+    port: u16,
+    inject: bool,
+) -> Result<(), Box<dyn Error>> {
+    run_mode(
+        path,
+        Options {
+            seconds,
+            inject,
+            preview_port: Some(port),
+            controller_path: Some(settings),
+            ..Default::default()
+        },
+    )
+}
+/// Shared pre-acquisition validation; incompatible gesture authorities are refused.
+pub fn controller_config(
+    config: &SessionConfig,
+    path: &Path,
+) -> Result<crate::controller::Controller, Box<dyn Error>> {
+    let settings = crate::controller::Settings::load(path)?;
+    if config.prayer_enabled {
+        return Err("prayer requires its separate calibrated workflow".into());
+    }
+    if serde_json::to_value(settings.gestures)? != serde_json::to_value(config.gestures())? {
+        return Err("controller gesture settings must match the session".into());
+    }
+    if serde_json::to_value(settings.workspace)? != serde_json::to_value(config.touch_workspace)? {
+        return Err("controller workspace settings must match the session".into());
+    }
+    Ok(crate::controller::Controller::new(settings)?)
+}
+fn write_controller(
+    output: &mut Option<std::process::ChildStdin>,
+    publisher: &mut crate::delivery::Publisher,
+    frame: &crate::controller::Output,
+    source: Option<u64>,
+) -> io::Result<u64> {
+    let packet = publisher.packet(frame, monotonic_us()?, source)?;
+    let presses = if matches!(packet, Some(crate::delivery::Packet::Frame { .. })) {
+        frame
+            .mouse
+            .iter()
+            .filter(|e| matches!(e, Event::Button { down: true }))
+            .count() as u64
+    } else {
+        0
+    };
+    if let (Some(out), Some(packet)) = (output, packet) {
+        serde_json::to_writer(&mut *out, &packet)?;
+        writeln!(out)?;
+        out.flush()?;
+    }
+    Ok(presses)
 }
 fn write_absolute(
     output: &mut Option<std::process::ChildStdin>,
@@ -413,15 +512,16 @@ fn write_contacts(
     }
     Ok(())
 }
-fn run_mode(
-    path: &Path,
-    seconds: Option<u64>,
-    inject: bool,
-    touch: bool,
-    preview_port: Option<u16>,
-    profile_path: Option<&Path>,
-    guided: bool,
-) -> Result<(), Box<dyn Error>> {
+fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
+    let Options {
+        seconds,
+        inject,
+        touch,
+        preview_port,
+        profile_path,
+        guided,
+        controller_path,
+    } = options;
     let until_stop = seconds.is_none();
     let seconds = seconds.unwrap_or(0);
     if !until_stop && !(1..=120).contains(&seconds) {
@@ -434,6 +534,13 @@ fn run_mode(
     }
     let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
+    if controller_path.is_some() && (touch || profile_path.is_some() || guided) {
+        return Err("controller and legacy calibration/touch workflows are separate".into());
+    }
+    let mut controller = controller_path
+        .map(|settings| controller_config(&config, settings))
+        .transpose()?;
+
     let mut calibration = profile_path
         .map(|profile| {
             crate::calibration_runtime::Runtime::new(
@@ -509,7 +616,22 @@ fn run_mode(
     let mut writer = if inject {
         Some(
             Command::new(std::env::current_exe()?)
-                .args(if until_stop {
+                .args(if controller.is_some() {
+                    if until_stop {
+                        vec![
+                            "controller-stream-until-stop".into(),
+                            config.gain.to_string(),
+                            config.freshness_ms.to_string(),
+                        ]
+                    } else {
+                        vec![
+                            "controller-stream".into(),
+                            writer_seconds.to_string(),
+                            config.gain.to_string(),
+                            config.freshness_ms.to_string(),
+                        ]
+                    }
+                } else if until_stop {
                     vec![
                         "absolute-stream-until-stop".into(),
                         config.freshness_ms.to_string(),
@@ -542,6 +664,23 @@ fn run_mode(
         None
     };
     let mut output = writer.as_mut().and_then(|w| w.stdin.take());
+    let mut publisher = crate::delivery::Publisher::default();
+    if let Some(controller) = &mut controller {
+        let initial = controller.start_at(monotonic_us()?);
+        if until_stop || preview.is_none() {
+            write_controller(&mut output, &mut publisher, &initial, None)?;
+        }
+        if let Some(preview) = &preview {
+            preview.enable_controller_controls();
+        }
+        if let (Some(settings), Some(base)) = (controller_path, &config.recording_directory) {
+            let marker = fs::read_to_string(Path::new(base).join("last-recording.path"))?;
+            crate::recording::private_file(
+                &Path::new(marker.trim()).join("controller-settings.json"),
+            )?
+            .write_all(&fs::read(settings)?)?;
+        }
+    }
     let mailbox = Arc::new(Mutex::new(Mailbox::default()));
     let camera = camera(&config, stop.clone(), mailbox.clone(), recording_frames);
     let period = Duration::from_secs_f64(1.0 / config.fps as f64);
@@ -554,6 +693,7 @@ fn run_mode(
     let mut summary = Summary {
         injected: inject,
         touch_mode: touch,
+        controller_modes: controller.is_some(),
         ..Default::default()
     };
     let mut latency = Vec::with_capacity(2400);
@@ -575,6 +715,14 @@ fn run_mode(
                 ) {
                     engine.stop();
                     engine.start();
+                    if let Some(controller) = controller.as_mut().filter(|c| c.is_running()) {
+                        write_controller(
+                            &mut output,
+                            &mut publisher,
+                            &controller.start_at(monotonic_us()?),
+                            None,
+                        )?;
+                    }
                     preview_press_baseline = summary.button_down_intents;
                 }
             }
@@ -583,6 +731,34 @@ fn run_mode(
                     write_events(&mut output, engine.stop(), false)?;
                     engine.start();
                     let _ = calibration.control(action);
+                }
+            }
+            if let (Some(preview), Some(controller)) = (&preview, &mut controller) {
+                if let Some(control) = preview.take_controller_control() {
+                    let control_time = monotonic_us()?;
+                    let command = serde_json::to_value(&control)?;
+                    let frame = match control {
+                        crate::preview::ControllerControl::Mode(mode) => {
+                            controller.set_mode_at(mode, control_time)
+                        }
+                        crate::preview::ControllerControl::SelectHand(id) => {
+                            controller.select_hand_at(id, control_time)
+                        }
+                        crate::preview::ControllerControl::Pause => controller.stop(),
+                        crate::preview::ControllerControl::Resume => {
+                            controller.start_at(control_time)
+                        }
+                    };
+                    if let Some(file) = &mut recording_observations {
+                        serde_json::to_writer(
+                            &mut *file,
+                            &serde_json::json!({"schema":"wigglecontrol.controller-control/v1","source":"preview_control","issued_us":control_time,"command":command,"controller":frame}),
+                        )?;
+                        writeln!(file)?;
+                    }
+                    if until_stop || preview_clock.as_ref().is_some_and(|c| c.started.is_some()) {
+                        write_controller(&mut output, &mut publisher, &frame, None)?;
+                    }
                 }
             }
             if let Some(writer) = writer.as_mut() {
@@ -599,7 +775,12 @@ fn run_mode(
                     return Err("device writer exited".into());
                 }
             }
-            if touch {
+            if let Some(controller) = &mut controller {
+                let frame = controller.tick(monotonic_us()?);
+                if until_stop || preview_clock.as_ref().is_some_and(|c| c.started.is_some()) {
+                    write_controller(&mut output, &mut publisher, &frame, None)?;
+                }
+            } else if touch {
                 write_contacts(&mut output, touches.tick(monotonic_us()?))?;
             } else {
                 write_events(&mut output, engine.tick(monotonic_us()?), false)?;
@@ -632,7 +813,101 @@ fn run_mode(
             }
             let decode_ms = decode_started.elapsed().as_secs_f64() * 1000.0;
             let now;
-            if touch {
+            if let Some(controller) = &mut controller {
+                let inference_started = Instant::now();
+                let detected = perception.infer_many(&image)?;
+                let inference_ms = inference_started.elapsed().as_secs_f64() * 1000.0;
+                if !until_stop
+                    && Instant::now()
+                        >= preview_clock
+                            .as_ref()
+                            .map(PreviewClock::deadline)
+                            .unwrap_or(start + Duration::from_secs(seconds))
+                {
+                    break;
+                }
+                now = monotonic_us()?;
+                summary.processed += 1;
+                summary.detected += detected.hands.len() as u64;
+                summary.max_hands = summary.max_hands.max(detected.hands.len());
+                summary.tracked += detected.hands.iter().filter(|h| h.tracked).count() as u64;
+                summary.ambiguous_frames += u64::from(detected.ambiguous);
+                let hands = detected
+                    .hands
+                    .iter()
+                    .filter_map(|h| {
+                        config
+                            .observation(Some(h), image.width(), image.height(), frame.source_us)
+                            .hand
+                    })
+                    .collect();
+                let state = controller.observe(
+                    now,
+                    crate::touch_gestures::Frame {
+                        version: 1,
+                        source_us: frame.source_us,
+                        ambiguous: detected.ambiguous,
+                        hands,
+                    },
+                    None,
+                );
+                let prepared =
+                    until_stop || preview_clock.as_ref().is_some_and(|c| c.started.is_some());
+                if prepared {
+                    summary.button_down_intents += write_controller(
+                        &mut output,
+                        &mut publisher,
+                        &state,
+                        Some(frame.source_us),
+                    )?;
+                }
+                let primary = state
+                    .primary_hand
+                    .and_then(|id| detected.hands.iter().find(|h| h.id == id))
+                    .or_else(|| detected.hands.first());
+                let interpreted = primary.and_then(|h| {
+                    config
+                        .observation(Some(h), image.width(), image.height(), frame.source_us)
+                        .hand
+                });
+                let pinch_state = if matches!(
+                    state.mode,
+                    crate::controller::Mode::OneContact | crate::controller::Mode::TwoContacts
+                ) {
+                    if state.contacts.is_empty() {
+                        "touch"
+                    } else {
+                        "pressed"
+                    }
+                } else {
+                    state.pointer_state
+                };
+                let data = serde_json::json!({"active":true,"input_enabled":inject && prepared && state.running,
+                    "input_available":inject, "width":image.width(),"height":image.height(),"sequence":frame.sequence,
+                    "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0, "fresh":frame.source_us<=now && now-frame.source_us<config.gestures().stale_us,
+                    "freshness_ms":config.freshness_ms, "decode_ms":decode_ms,"inference_ms":inference_ms,
+                    "landmarks":primary.map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),
+                    "cursor":state.pointer_cursor,"confidence":primary.map(|h|h.confidence),
+                    "eligible":interpreted.as_ref().is_some_and(|h|h.engaged && h.pinch_eligible),
+                    "pinch_ratio":interpreted.as_ref().map(|h|h.thumb_tip.distance(h.index_tip)/h.palm_width),
+                    "pinch_state":pinch_state,"presses":summary.button_down_intents,
+                    "confirmation_elapsed_ms":state.confirmation_elapsed_us/1000,"confirmation_required_ms":config.gestures().confirm_us/1000,
+                    "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason,
+                    "test_phase":if until_stop {"manual"} else if prepared {"testing"} else {"preparing"},
+                    "recording":config.recording_directory.is_some(), "source_us":frame.source_us,
+                    "frame_age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
+                    "controller":state, "visual_macros":false, "pointer_model":"relative",
+                    "perception":detected.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),"world_landmarks":h.world_landmarks})).collect::<Vec<_>>(),
+                    "detected":!detected.hands.is_empty(), "gesture_state":if state.button_down {"pressed"}else if state.pointer_ready {"open"}else {"open_first"},
+                    "press_intents":summary.button_down_intents,"remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now())),"until_stop":until_stop});
+                if let Some(file) = &mut recording_observations {
+                    serde_json::to_writer(&mut *file, &data)?;
+                    writeln!(file)?;
+                }
+                if let Some(preview) = &preview {
+                    preview.publish(frame.bytes, data)?;
+                }
+            } else if touch {
                 let detected = perception.infer_many(&image)?;
                 if !until_stop
                     && Instant::now()
@@ -880,7 +1155,9 @@ fn run_mode(
     })();
     let interrupted = stop.load(Ordering::Relaxed);
     stop.store(true, Ordering::Relaxed);
-    let release = if touch {
+    let release = if let Some(controller) = &mut controller {
+        write_controller(&mut output, &mut publisher, &controller.stop(), None).map(|_| ())
+    } else if touch {
         write_contacts(&mut output, touches.stop())
     } else {
         write_events(&mut output, engine.stop(), false).map(|_| ())

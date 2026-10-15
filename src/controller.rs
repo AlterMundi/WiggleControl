@@ -35,6 +35,15 @@ pub struct Settings {
     pub workspace: touch_gestures::Workspace,
     pub macros: Option<macros::Config>,
 }
+impl Settings {
+    pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
+        use std::{fs, io};
+        if fs::metadata(path)?.len() > 8192 {
+            return Err(io::Error::other("controller config exceeds8KiB"));
+        }
+        Ok(serde_json::from_slice(&fs::read(path)?)?)
+    }
+}
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -60,6 +69,10 @@ pub struct Output {
     pub transition: bool,
     pub reason: Option<&'static str>,
     pub primary_hand: Option<u64>,
+    pub claimed_hand: Option<u64>,
+    pub pointer_cursor: Option<crate::Point>,
+    pub pointer_state: &'static str,
+    pub confirmation_elapsed_us: u64,
     pub pointer_ready: bool,
     pub button_down: bool,
     pub mouse: Vec<Event>,
@@ -113,6 +126,10 @@ impl Controller {
             transition,
             reason: None,
             primary_hand: self.primary,
+            claimed_hand: self.claimed,
+            pointer_cursor: self.pointer.cursor_position(),
+            pointer_state: self.pointer.pinch_state(),
+            confirmation_elapsed_us: self.pointer.confirmation_elapsed_us(),
             pointer_ready: self.pointer_ready,
             button_down: self.pointer.pinch_state() == "pressed",
             mouse,
@@ -142,6 +159,38 @@ impl Controller {
         output.reason = Some(reason);
         output
     }
+    fn transition_at(&mut self, now: u64, change: impl FnOnce(&mut Self) -> Output) -> Output {
+        let previous = self.tick(now);
+        // Manual controls are wall-clock events: a queued pre-control camera
+        // frame must not supply the new mode's open-before-press evidence.
+        self.watermark = Some(
+            self.watermark
+                .unwrap_or(now)
+                .max(now)
+                .max(self.last_now.unwrap_or(now)),
+        );
+        let mut output = change(self);
+        output.mouse.splice(0..0, previous.mouse);
+        output
+    }
+    pub fn start_at(&mut self, now: u64) -> Output {
+        self.transition_at(now, Self::start)
+    }
+    pub fn set_mode_at(&mut self, mode: Mode, now: u64) -> Output {
+        if mode == self.mode {
+            return self.output(Vec::new(), false);
+        }
+        self.transition_at(now, |this| this.set_mode(mode))
+    }
+    pub fn select_hand_at(&mut self, id: Option<u64>, now: u64) -> Output {
+        if id == self.claimed {
+            return self.output(Vec::new(), false);
+        }
+        self.transition_at(now, |this| this.select_hand(id))
+    }
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
     pub fn start(&mut self) -> Output {
         self.running = true;
         self.neutralize("started")
@@ -164,6 +213,21 @@ impl Controller {
         }
         self.claimed = id;
         self.neutralize("hand_selected")
+    }
+    pub fn command(&mut self, command: Command) -> Output {
+        match command {
+            Command::Start => self.start(),
+            Command::Stop => self.stop(),
+            Command::Mode { mode } => self.set_mode(mode),
+            Command::SelectHand { hand_id } => self.select_hand(hand_id),
+            Command::Action { action } => self.action(action),
+            Command::Tick { now_us } => self.tick(now_us),
+            Command::Frame {
+                now_us,
+                observation,
+                pose,
+            } => self.observe(now_us, observation, pose),
+        }
     }
     pub fn action(&mut self, action: macros::Action) -> Output {
         let (mut output, handled) = match action {
@@ -352,14 +416,17 @@ impl Controller {
             if output.action.as_ref().is_some_and(|a| a.handled) {
                 return output;
             }
-            let mut output = self.output(mouse, false);
+            let mut output = self.output(mouse, tick.transition);
+            output.reason = tick.reason;
             output.action = Some(ActionResult {
                 action,
                 handled: false,
             });
             return output;
         }
-        self.output(mouse, false)
+        let mut output = self.output(mouse, tick.transition);
+        output.reason = tick.reason;
+        output
     }
 }
 
@@ -388,15 +455,8 @@ pub enum Command {
     },
 }
 pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {
-    use std::{
-        fs,
-        io::{self, Write},
-    };
-    if fs::metadata(config)?.len() > 8192 {
-        return Err(io::Error::other("controller config exceeds8KiB"));
-    }
-    let mut controller =
-        Controller::new(serde_json::from_slice(&fs::read(config)?)?).map_err(io::Error::other)?;
+    use std::io::{self, Write};
+    let mut controller = Controller::new(Settings::load(config)?).map_err(io::Error::other)?;
     let mut out = io::stdout().lock();
     let mut publish = |frame: Output| -> io::Result<()> {
         writeln!(
@@ -409,17 +469,7 @@ pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {
     };
     for command in crate::intent::reader::<Command>() {
         let frame = match command {
-            Ok(Command::Start) => controller.start(),
-            Ok(Command::Stop) => controller.stop(),
-            Ok(Command::Mode { mode }) => controller.set_mode(mode),
-            Ok(Command::SelectHand { hand_id }) => controller.select_hand(hand_id),
-            Ok(Command::Action { action }) => controller.action(action),
-            Ok(Command::Tick { now_us }) => controller.tick(now_us),
-            Ok(Command::Frame {
-                now_us,
-                observation,
-                pose,
-            }) => controller.observe(now_us, observation, pose),
+            Ok(command) => controller.command(command),
             Err(error) => {
                 publish(controller.stop())?;
                 return Err(error);

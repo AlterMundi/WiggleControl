@@ -3,8 +3,9 @@
 The current runtime separately selects pointer or direct-touch output. The mode
 expansion and application constraints are in [ROADMAP.md](ROADMAP.md).
 The new controller arbiter joins existing pointer, contact and named macro engines
-in camera-free replay. Native acquisition/writer switching and visual pose
-classification remain to be connected and qualified.
+in camera-free replay. The opt-in [native controller session](CONTROLLER-NATIVE.md) now connects acquisition,
+manual controls and the independent writer. Receiving qualification and visual
+pose classification remain pending.
 
 ## Exclusive controller modes
 
@@ -68,8 +69,8 @@ mouse events, complete contacts and optional action outcome under
 `camera_opened:false` and `system_input:false`. An adapter must process the old
 release frame before routing subsequent observations. Precision currently scales
 relative intent; applying it to saved absolute calibration needs its own adapter.
-The installed session still selects its fixed pointer/touch path. It has not
-adopted this arbiter or any new macro control.
+The installed session still selects its fixed pointer/touch path. Source adds an
+opt-in native controller entry point; receiving adoption remains pending.
 
 ## Standalone macro replay
 
@@ -104,7 +105,7 @@ They are never arbitrary command strings. `pause_controller` means this local
 controller; no coordinated global Stop action exists in the vocabulary.
 
 Remaining work: compare a real pose classifier on independently labelled images;
-show candidate/hold/action progress in the native view; connect the new mode arbiter to native session/writer switching; connect
-selected configured actions to supported native adapters; qualify actual actions and comfort. The existing prayer
+show candidate/hold/action progress in the native view; qualify native controller/session delivery on the receiver; connect selected
+configured actions to supported native action adapters; qualify actual actions and comfort. The existing prayer
 candidate/calibration workflow remains separately owned and disabled pending its
 physical acceptance. No macro can start an idle camera.

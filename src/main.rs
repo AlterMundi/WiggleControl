@@ -80,6 +80,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .map_err(Into::into);
         }
+        Some("config-check-controller") if args.len() == 3 => {
+            let config =
+                wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[1]))?;
+            wigglecontrol::session::controller_config(&config, std::path::Path::new(&args[2]))?;
+            println!(
+                "{}",
+                serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,"pointer_model":"relative","visual_macros":false})
+            );
+            return Ok(());
+        }
+        Some("run-controller") | Some("camera-check-controller") if args.len() == 5 => {
+            return wigglecontrol::session::controller(
+                std::path::Path::new(&args[2]),
+                std::path::Path::new(&args[3]),
+                Some(args[1].parse()?),
+                args[4].parse()?,
+                args[0] == "run-controller",
+            );
+        }
+        Some("run-controller-until-stop") if args.len() == 4 => {
+            return wigglecontrol::session::controller(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+                None,
+                args[3].parse()?,
+                true,
+            );
+        }
         Some("config-check") if args.len() == 2 => {
             let config =
                 wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[1]))?;
@@ -198,6 +226,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some("touch-replay") if args.len() == 1 => {
             return Ok(wigglecontrol::touch_gestures::replay_stdin()?)
         }
+        Some("controller-stream") if args.len() == 4 => {
+            return Ok(wigglecontrol::delivery::stream(
+                Some(args[1].parse()?),
+                args[2].parse()?,
+                args[3].parse()?,
+            )?);
+        }
+        Some("controller-stream-until-stop") if args.len() == 3 => {
+            return Ok(wigglecontrol::delivery::stream(
+                None,
+                args[1].parse()?,
+                args[2].parse()?,
+            )?);
+        }
+        Some("pipeline-replay") if args.len() == 4 => {
+            return Ok(wigglecontrol::delivery::pipeline_replay_stdin(
+                std::path::Path::new(&args[1]),
+                args[2].parse()?,
+                args[3].parse()?,
+            )?);
+        }
+        Some("delivery-replay") if args.len() == 3 => {
+            return Ok(wigglecontrol::delivery::replay_stdin(
+                args[1].parse()?,
+                args[2].parse()?,
+            )?);
+        }
         Some("mode-replay") if args.len() == 2 => {
             return Ok(wigglecontrol::controller::replay_stdin(
                 std::path::Path::new(&args[1]),
@@ -310,9 +365,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
     #[cfg(target_os = "linux")]
-    println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol macro-replay CONFIG < named-poses.jsonl (no actions executed)\n       wigglecontrol mode-replay CONFIG < controller.jsonl (intent only)\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");
+    println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol macro-replay CONFIG < named-poses.jsonl (no actions executed)\n       wigglecontrol mode-replay CONFIG < controller.jsonl (intent only)\n       wigglecontrol pipeline-replay SETTINGS GAIN WATCHDOG_MS < controller.jsonl (device-free)\n       wigglecontrol delivery-replay GAIN WATCHDOG_MS < packets.jsonl (device-free)\n       wigglecontrol controller-stream SECONDS GAIN WATCHDOG_MS\n       wigglecontrol controller-stream-until-stop GAIN WATCHDOG_MS\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]
-    println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol sequence-check SEQUENCE CONFIG (camera-free temporal vision)\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE|--repeat N]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
+    println!("       wigglecontrol config-check-controller CONFIG SETTINGS (no acquisition)\n       wigglecontrol camera-check-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller-until-stop CONFIG SETTINGS PORT\n       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol sequence-check SEQUENCE CONFIG (camera-free temporal vision)\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE|--repeat N]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
     println!(
         "Replay and help open no camera/device or models. Sessions are finite (1..120 seconds)."
     );

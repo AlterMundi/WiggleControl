@@ -52,9 +52,21 @@ engines for pointer, relative precision, explicit scroll, one contact and two
 contacts. Replay verifies neutral mode transitions, open-before-move/repress,
 stable/manual hand claims and local macro mode/pause controls. The corrected
 closure observations retain one press/release and exact0.25 precision scaling;
-mode interruption releases without a duplicate click. Native session/device
-switching, absolute precision, visual pose classification and participant roles
-remain to be connected. The installed fixed-mode runtime is unchanged.
+mode interruption releases without a duplicate click. The first increment was replay-only; the opt-in native connection is described
+below. Absolute precision, visual pose classification, participant roles and
+receiving qualification remain open. The installed fixed-mode runtime is unchanged.
+
+Current native integration: opt-in controller session commands now connect the
+existing camera/recording loop to the arbiter, same-origin mode/hand/pause controls
+and a single independent mouse/touch writer. Writer expiry releases and latches
+until transition; source/packet sequence and mode checks prevent old/mixed input.
+Manual controls fence pre-control camera frames before open rearm. Full device-free
+pipeline replay serializes/decodes packets and verifies actual Linux event codes.
+The UI passed actual1920x1080 Cuevanico checks using retained synthetic images,
+without sensors/devices; its finite fixture was stopped and the workbench restored.
+See [CONTROLLER-NATIVE.md](CONTROLLER-NATIVE.md). Receiving runtime deployment and
+combined-device/real-hand acceptance are pending; existing binaries/calibration
+remain unchanged. Absolute precision, participants and visual macros remain open.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.
 

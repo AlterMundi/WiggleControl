@@ -8,6 +8,9 @@ pub mod macros;
 pub mod controller;
 
 #[cfg(target_os = "linux")]
+pub mod delivery;
+
+#[cfg(target_os = "linux")]
 pub mod input;
 
 #[cfg(target_os = "linux")]

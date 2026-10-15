@@ -92,7 +92,7 @@ impl State {
         self.frame(&[]).unwrap_or_default()
     }
 }
-fn create() -> io::Result<VirtualDevice> {
+pub(crate) fn create() -> io::Result<VirtualDevice> {
     let mut builder = VirtualDevice::builder()?
         .name("WiggleControl Touch")
         .with_keys(&AttributeSet::from_iter([KeyCode::BTN_TOUCH]))?

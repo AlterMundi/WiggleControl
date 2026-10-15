@@ -341,11 +341,43 @@ release and blocked further movement/press until opening; no duplicate click
 occurred. All cases ended neutral at EOF.
 
 The owning contract and command examples are in [MODES.md](../MODES.md).
-Next integration: route native session controls and independent device writers
-through this arbiter, retain visible mode/rearm state, then qualify real actions.
+The following increment now routes opt-in native session controls and independent
+device writers through this arbiter. Receiving real-action qualification remains
+pending; see [CONTROLLER-NATIVE.md](../CONTROLLER-NATIVE.md).
 Absolute precision mapping, participant roles and visual pose recognition remain
 separate incomplete work. No receiving runtime, sensor, input or calibration
 changed in this source-only increment.
+
+## Native control-to-event integration
+
+The opt-in native controller entry points now reuse the existing camera, recording,
+preview and teardown loop. A same-origin queue handles mode, hand claim and
+input pause/resume. Settings must agree with the session's gesture/workspace
+configuration before inference/capture. Manual control time fences prevent a
+queued pre-control open observation from rearming a now-closed hand.
+
+The independent writer owns the existing evdev mouse/touch encoders and devices.
+Mode transitions release both; frames require matching mode, monotonic sequence,
+fresh issued/source times and one compatible input stream. Watchdog expiry
+latches input off until another transition. Full pipeline replay serializes and
+decodes actual packets and emits actual Linux event codes without opening uinput.
+The tests include two-slot removal, cleanup after malformed input, clock/source
+integrity and recovery from a stalled producer without replaying held contacts.
+
+The native page was tested on the actual Cuevanico browser with the device-free
+Rust pipeline and the corrected synthetic reference. Five modes, explicit hand
+selection, switching while held, open rearm and pause/resume were observed.
+1920x1080 retained all controls with scroll height1080/footer1056 and no console
+exceptions;390px had no horizontal overflow and21px control text. The view clearly
+said UI TEST / sensors off / system input off. Delayed feedback no longer presents
+cached hold state as current. The temporary fixture/server was stopped and the
+owned browser restored. No camera, microphone, virtual device, production binary,
+threshold, calibration or power change occurred.
+
+This verifies source integration, protocol meaning and UI operation. It does not
+qualify the combined devices in the compositor, live native camera control,
+physical gesture accuracy, absolute precision or visual gesture macros. ARM
+packaging/receiving preparation and fresh human trials remain required.
 
 ## Reuse and research curation
 

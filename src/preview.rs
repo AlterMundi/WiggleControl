@@ -1,12 +1,22 @@
 //! Finite loopback-only live feedback; frames exist only in the latest memory slot.
 use crate::calibration::Control;
 use serde_json::Value;
+#[derive(Debug, serde::Serialize)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
+pub enum ControllerControl {
+    Mode(crate::controller::Mode),
+    SelectHand(Option<u64>),
+    Pause,
+    Resume,
+}
 #[derive(Default)]
 struct Controls {
     enabled: bool,
     pending: Option<Control>,
     guided: bool,
     painted_step: Option<usize>,
+    controller_enabled: bool,
+    pending_controller: Option<ControllerControl>,
 }
 use std::{
     io::{self, Read, Write},
@@ -103,6 +113,12 @@ impl Preview {
     }
     pub fn take_control(&self) -> Option<Control> {
         self.controls.lock().unwrap().pending.take()
+    }
+    pub fn enable_controller_controls(&self) {
+        self.controls.lock().unwrap().controller_enabled = true;
+    }
+    pub fn take_controller_control(&self) -> Option<ControllerControl> {
+        self.controls.lock().unwrap().pending_controller.take()
     }
     pub fn view_ready(&self) -> bool {
         self.ready.load(Ordering::Relaxed)
@@ -239,6 +255,81 @@ fn serve(
             } else {
                 respond(stream, "204 No Content", "text/plain", b"", "")
             }
+        }
+        path if path.starts_with("POST /controller/") && path.ends_with(" HTTP/1.1") => {
+            let origin = format!("http://{host}");
+            if !headers
+                .iter()
+                .any(|(k, v)| k.eq_ignore_ascii_case("origin") && v.trim() == origin)
+            {
+                return respond(
+                    stream,
+                    "403 Forbidden",
+                    "text/plain",
+                    b"Same origin required",
+                    "",
+                );
+            }
+            let mut controls = controls.lock().unwrap();
+            if !controls.controller_enabled {
+                return respond(
+                    stream,
+                    "403 Forbidden",
+                    "text/plain",
+                    b"Controller mode not enabled",
+                    "",
+                );
+            }
+            if controls.pending_controller.is_some() {
+                return respond(
+                    stream,
+                    "409 Conflict",
+                    "text/plain",
+                    b"A controller control is pending",
+                    "",
+                );
+            }
+            let route = path
+                .strip_prefix("POST /controller/")
+                .unwrap()
+                .strip_suffix(" HTTP/1.1")
+                .unwrap();
+            let action = if let Some(mode) = route.strip_prefix("mode/") {
+                serde_json::from_value::<crate::controller::Mode>(Value::String(mode.to_owned()))
+                    .ok()
+                    .map(ControllerControl::Mode)
+            } else if let Some(id) = route.strip_prefix("hand/") {
+                if id == "auto" {
+                    Some(ControllerControl::SelectHand(None))
+                } else {
+                    id.parse()
+                        .ok()
+                        .map(|id| ControllerControl::SelectHand(Some(id)))
+                }
+            } else {
+                match route {
+                    "pause" => Some(ControllerControl::Pause),
+                    "resume" => Some(ControllerControl::Resume),
+                    _ => None,
+                }
+            };
+            let Some(action) = action else {
+                return respond(
+                    stream,
+                    "400 Bad Request",
+                    "text/plain",
+                    b"Unknown controller control",
+                    "",
+                );
+            };
+            controls.pending_controller = Some(action);
+            respond(
+                stream,
+                "200 OK",
+                "text/plain",
+                b"Queued; await observed controller state",
+                "",
+            )
         }
         "POST /stop HTTP/1.1"
         | "POST /ready HTTP/1.1"
@@ -484,6 +575,43 @@ mod tests {
         let port = preview.port;
         drop(preview);
         assert!(TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port)).is_err());
+    }
+    #[test]
+    fn controller_controls_require_enabled_same_origin_and_one_pending_command() {
+        let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();
+        let status = |route, origin| {
+            String::from_utf8_lossy(&request(preview.port, route, origin))
+                .split_whitespace()
+                .nth(1)
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(status("POST /controller/mode/precision", true), "403");
+        preview.enable_controller_controls();
+        assert_eq!(status("POST /controller/mode/precision", false), "403");
+        assert_eq!(status("POST /controller/mode/unknown", true), "400");
+        assert_eq!(status("POST /controller/mode/precision", true), "200");
+        assert_eq!(status("POST /controller/pause", true), "409");
+        assert!(matches!(
+            preview.take_controller_control(),
+            Some(ControllerControl::Mode(crate::controller::Mode::Precision))
+        ));
+        assert_eq!(status("POST /controller/hand/9", true), "200");
+        assert!(matches!(
+            preview.take_controller_control(),
+            Some(ControllerControl::SelectHand(Some(9)))
+        ));
+        assert_eq!(status("POST /controller/pause", true), "200");
+        assert!(matches!(
+            preview.take_controller_control(),
+            Some(ControllerControl::Pause)
+        ));
+        assert_eq!(status("POST /controller/resume", true), "200");
+        assert!(matches!(
+            preview.take_controller_control(),
+            Some(ControllerControl::Resume)
+        ));
+        assert!(!preview.stop.load(Ordering::Relaxed));
     }
     #[test]
     fn calibration_control_requires_selected_mode_origin_and_bounded_consumption() {

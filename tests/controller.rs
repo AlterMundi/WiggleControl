@@ -343,3 +343,31 @@ fn pose_evidence_cannot_invent_a_neutral_hand_or_upgrade_its_confidence() {
         }
     }
 }
+
+#[test]
+fn queued_open_frame_from_before_manual_mode_change_cannot_rearm_a_closed_hand() {
+    let mut c = controller(Mode::Pointer);
+    press(&mut c);
+    assert!(up(&c.set_mode_at(Mode::OneContact, 80_001)));
+    let queued = c.observe(90_001, frame(70_001, vec![hand(7, false, 0.5, 0.5)]), None);
+    assert!(queued.contacts.is_empty());
+    assert_eq!(queued.reason, Some("invalid_observation"));
+    for (source, now) in [(100_001, 110_001), (140_001, 150_001)] {
+        assert!(c
+            .observe(now, frame(source, vec![hand(7, true, 0.5, 0.5)]), None)
+            .contacts
+            .is_empty());
+    }
+    c.observe(
+        170_001,
+        frame(160_001, vec![hand(7, false, 0.5, 0.5)]),
+        None,
+    );
+    c.observe(190_001, frame(180_001, vec![hand(7, true, 0.5, 0.5)]), None);
+    assert_eq!(
+        c.observe(230_001, frame(220_001, vec![hand(7, true, 0.5, 0.5)]), None)
+            .contacts
+            .len(),
+        1
+    );
+}

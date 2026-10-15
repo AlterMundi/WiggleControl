@@ -15,6 +15,7 @@ Start here:
 - [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.
 - [Direct-touch intent](docs/TOUCH.md), separate from camera hand engagement.
 - [Modes and macro semantics](docs/MODES.md), with camera-free mode arbitration and named-action replay.
+- [Native controller session](docs/CONTROLLER-NATIVE.md): opt-in modes, manual controls and independent delivery.
 - [Installation, manual use and rollback](docs/INSTALL.md).
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [End-to-end acceptance checkpoint](docs/ACCEPTANCE.md): evidence and remaining human trial.

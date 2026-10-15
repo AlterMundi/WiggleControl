@@ -117,7 +117,7 @@ impl MouseState {
         }
     }
 }
-fn create(absolute: bool) -> io::Result<VirtualDevice> {
+pub(crate) fn create(absolute: bool) -> io::Result<VirtualDevice> {
     let builder = VirtualDevice::builder()?;
     if absolute {
         builder

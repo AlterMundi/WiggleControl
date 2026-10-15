@@ -317,23 +317,26 @@ pub(crate) struct Frame {
     pub sequence: u32,
 }
 #[derive(Default)]
-struct Mailbox {
-    frame: Option<Frame>,
-    error: Option<String>,
-    dropped: u64,
-    frames: u64,
-    source_kind: Option<&'static str>,
+pub(crate) struct Mailbox {
+    pub frame: Option<Frame>,
+    pub error: Option<String>,
+    pub dropped: u64,
+    pub frames: u64,
+    pub source_kind: Option<&'static str>,
+    pub opened: bool,
 }
-fn camera(
+pub(crate) fn camera(
     config: &SessionConfig,
     stop: Arc<AtomicBool>,
     mailbox: Arc<Mutex<Mailbox>>,
     mut recording: Option<crate::recording::Frames>,
+    deadline: Option<Instant>,
 ) -> thread::JoinHandle<()> {
     let path = config.camera.clone();
     thread::spawn(move || {
         let work = (|| -> Result<(), Box<dyn Error>> {
             let device = Device::with_path(path)?;
+            mailbox.lock().unwrap().opened = true;
             let mut format = device.format()?;
             format.width = 640;
             format.height = 480;
@@ -345,12 +348,16 @@ fn camera(
             device.set_params(&v4l::video::capture::Parameters::with_fps(30))?;
             let mut stream = MmapStream::with_buffers(&device, Type::VideoCapture, 2)?;
             stream.set_timeout(Duration::from_millis(250));
-            while !stop.load(Ordering::Relaxed) {
+            while !stop.load(Ordering::Relaxed) && deadline.is_none_or(|end| Instant::now() < end) {
                 let (buffer, metadata) = match stream.next() {
                     Ok(v) => v,
                     Err(e) if e.kind() == io::ErrorKind::TimedOut => continue,
                     Err(e) => return Err(e.into()),
                 };
+                if stop.load(Ordering::Relaxed) || deadline.is_some_and(|end| Instant::now() >= end)
+                {
+                    break;
+                }
                 if metadata.flags.contains(Flags::ERROR) {
                     continue;
                 }
@@ -591,7 +598,7 @@ pub fn controller_config(
     }
     Ok(crate::controller::Controller::new(settings)?)
 }
-fn write_controller(
+pub(crate) fn write_controller(
     output: &mut Option<std::process::ChildStdin>,
     publisher: &mut crate::delivery::Publisher,
     frame: &crate::controller::Output,
@@ -613,6 +620,22 @@ fn write_controller(
         out.flush()?;
     }
     Ok(presses)
+}
+
+pub(crate) fn controller_writer(
+    config: &SessionConfig,
+    seconds: Option<u64>,
+) -> io::Result<std::process::Child> {
+    let mut args = match seconds {
+        Some(seconds) => vec!["controller-stream".to_owned(), seconds.to_string()],
+        None => vec!["controller-stream-until-stop".to_owned()],
+    };
+    args.extend([config.gain.to_string(), config.freshness_ms.to_string()]);
+    Command::new(std::env::current_exe()?)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()
 }
 fn write_absolute(
     output: &mut Option<std::process::ChildStdin>,
@@ -748,25 +771,15 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
         crate::recording::private_file(&Path::new(marker.trim()).join("config.json"))?
             .write_all(&fs::read(path)?)?;
     }
-    let mut writer = if inject {
+    let mut writer = if inject && controller.is_some() {
+        Some(controller_writer(
+            &config,
+            (!until_stop).then_some(writer_seconds),
+        )?)
+    } else if inject {
         Some(
             Command::new(std::env::current_exe()?)
-                .args(if controller.is_some() {
-                    if until_stop {
-                        vec![
-                            "controller-stream-until-stop".into(),
-                            config.gain.to_string(),
-                            config.freshness_ms.to_string(),
-                        ]
-                    } else {
-                        vec![
-                            "controller-stream".into(),
-                            writer_seconds.to_string(),
-                            config.gain.to_string(),
-                            config.freshness_ms.to_string(),
-                        ]
-                    }
-                } else if until_stop {
+                .args(if until_stop {
                     vec![
                         "absolute-stream-until-stop".into(),
                         config.freshness_ms.to_string(),
@@ -817,7 +830,20 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
         }
     }
     let mailbox = Arc::new(Mutex::new(Mailbox::default()));
-    let camera = camera(&config, stop.clone(), mailbox.clone(), recording_frames);
+    let capture_deadline = (!until_stop).then(|| {
+        preview_clock
+            .as_ref()
+            .map_or(start + Duration::from_secs(seconds), |clock| {
+                clock.opened + clock.maximum
+            })
+    });
+    let camera = camera(
+        &config,
+        stop.clone(),
+        mailbox.clone(),
+        recording_frames,
+        capture_deadline,
+    );
     let period = Duration::from_secs_f64(1.0 / config.fps as f64);
     let mut due = Instant::now();
     let mut engine = Engine::new(config.gestures())?;
@@ -1394,7 +1420,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn check_writer_exit(
+pub(crate) fn check_writer_exit(
     status: Option<std::process::ExitStatus>,
     interrupted: bool,
 ) -> io::Result<()> {

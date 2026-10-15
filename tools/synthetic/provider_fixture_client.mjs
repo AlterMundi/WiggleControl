@@ -2,23 +2,22 @@
 import {workerSource} from '/provider/worker-tools.mjs';
 const base = location.origin+'/';
 const text = (id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
-document.querySelector('h1').textContent='WIGGLECONTROL // REAL-CLOCK FIXTURE';
 let model,runId;
 const post=(path,fields={})=>fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({run_id:runId,...fields}),signal:AbortSignal.timeout(2000)});
 const run = async()=>{
   const config = await (await fetch('/provider/config')).json();
   runId=config.run_id;
+  document.querySelector('h1').textContent=config.camera_source?'WIGGLECONTROL // CAMERA WORKER':'WIGGLECONTROL // REAL-CLOCK FIXTURE';
   const bytes = await (await fetch('/hand_landmarker.task')).arrayBuffer();
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if(hash!==config.model_sha256)throw Error('Provider model digest differs');
-  text('capture-status','Preparing GPU worker · synthetic frames only');
+  text('capture-status',config.camera_source?'Preparing GPU worker · camera not acquired':'Preparing GPU worker · synthetic frames only');
   model=await workerSource(base,bytes,config.delegate,config.max_hands);
   // Compile/warm the graph on the displayed public reference before real-clock
   // acquisition begins. Warmup points never enter Rust meaning.
-  const warmResponse=await fetch('/frame',{cache:'no-store'});
-  const warmState=JSON.parse(warmResponse.headers.get('X-Wiggle-State'));
-  if(!warmState.ui_fixture)throw Error('Warmup requires an explicit synthetic reference');
+  const warmResponse=await fetch('/provider/warmup',{cache:'no-store'});
+  if(!warmResponse.ok||warmResponse.headers.get('X-Wiggle-Synthetic')!=='1')throw Error('Warmup requires an explicit synthetic reference');
   const warmBlob=await warmResponse.blob();const warmStart=performance.now();
   for(let i=0;i<3;i++){
     const image=await createImageBitmap(warmBlob);
@@ -32,7 +31,11 @@ const run = async()=>{
   while(true){
     const began=performance.now();
     const response=await fetch('/provider/frame',{cache:'no-store',signal:AbortSignal.timeout(2000)});
-    if(response.status===410)break;
+    if(response.status===410){
+      const terminal=await response.json();
+      if(terminal.error)throw Error('Producer error: '+terminal.error);
+      break;
+    }
     if(response.status===204){await new Promise(r=>setTimeout(r,10));continue;}
     if(!response.ok)throw Error('Frame lease rejected: '+await response.text());
     const ticket=JSON.parse(response.headers.get('X-Wiggle-Source'));
@@ -64,7 +67,7 @@ const run = async()=>{
 void(async()=>{
   try{await run();}
   catch(error){window.wiggleProviderResult={state:'error',error:String(error)};
-    text('capture-status','Synthetic provider error · '+error.message);
+    text('capture-status','Provider error · '+error.message);
     try{await post('/provider/stop');}catch{}
   }finally{
     let acknowledged=false;

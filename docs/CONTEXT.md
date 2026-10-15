@@ -2,6 +2,16 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+New [finite camera-worker source](PROVIDER-TRANSPORT.md#explicit-finite-camera-source)
+connects the qualified lease seam to existing driver-monotonic capture/private
+recording, controller modes and independent native writer. A distinct synthetic
+warmup endpoint avoids using a human image for graph preparation. Explicit
+provider-camera-preflight performs no acquisition or device creation; live
+provider-camera requires fresh human readiness, recording and optional --inject.
+Camera/recording state stays distinct from the retained warmup image. Final
+neutral/error feedback remains visible. Source integration is not physical
+acceptance or an everyday runtime selection; receiving checks remain pending.
+
 Latest [real-clock receiving comparison](research/realtime-worker-2026-10.md)
 qualifies actual synthetic JPEG→GPU worker→Rust on Pi. At identical one-contact
 settings, explicit maxHands1 improves6.97Hz/154.3ms median to13.70–13.98Hz/

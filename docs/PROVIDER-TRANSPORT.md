@@ -3,7 +3,8 @@
 The experimental `provider-fixture` command connects a finite JPEG source, the
 existing loopback feedback server, the pinned browser GPU worker and actual Rust
 tracking/meaning. It opens no camera or virtual input device. It is not a live
-camera backend or accepted receiving runtime.
+accepted receiving runtime. The explicit camera source below shares its transport;
+physical camera-to-input acceptance remains separate.
 
 ```sh
 wigglecontrol provider-fixture SEQUENCE.json SESSION.json SETTINGS.json ASSET_ROOT PORT [MAX_HANDS]
@@ -74,13 +75,63 @@ recorded separately from finite server/process termination.
 Source tests cover one-in-flight/latest-slot accounting, immutable host-time
 association, wrong/repeated/expired results, actual receipt acknowledgment,
 body/header/origin bounds, partial-body expiry and existing preview behavior.
-Actual same-host ARM64 worker/transport timing, quality across skipped frames,
-delayed-result held-release behavior and visible1080p receiving qualification
-must be recorded after execution. Camera integration, broader negatives/crossings,
-image-depth/macros, participants and human/application acceptance remain open.
+Actual same-host ARM64 timing, skipped-frame quality, delayed-result release and
+1080p fixture execution are recorded in [the receiving report](research/realtime-worker-2026-10.md).
+Broader negatives/crossings, image-depth/macros, participants and physical/application
+acceptance remain open.
 
 Initial ARM64 execution atd1d4265 reaches its finite worker-preparation timeout
 without starting inference. Inspection of the served page finds the existing
 HTML omits its optional `</body>` tag, so the client insertion never occurred.
 The fixture now inserts before the actual `</html>` tag, with a served-view/client
 route regression. This startup failure is not a measured GPU/transport result.
+
+## Explicit finite camera source
+
+The same bridge now supports the existing V4L camera producer, private raw recorder,
+controller modes and independent native controller writer:
+
+```sh
+wigglecontrol provider-camera-preflight SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject]
+wigglecontrol provider-camera SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject]
+```
+
+Preflight validates the matched policy, pinned assets and synthetic JPEG without
+opening a listener, camera, recorder or input device. It does not establish camera
+availability, writer permissions or physical accuracy. Duration must be1..90seconds;
+recording_directory is required. MAX_HANDS is explicit1/2 for the entire session.
+The live command requires a fresh human ready acknowledgment after receiving
+preparation; --inject additionally enables the existing system writer for that
+coordinated desktop trial. Omitting it retains local meaning/feedback only.
+There is no startup service or implicit camera activation in either fixture or
+preflight. Original native workflows remain supported.
+
+The owned `/provider/view` warms the graph only through `/provider/warmup`, an
+explicit selected synthetic JPEG with its own response marker. It never warms on
+the current preview/camera image. Only after worker-ready does the producer start
+640×480 MJPEG/30 capture with the existing driver-monotonic timestamp validation
+and private recorder. Every captured raw frame is recorded before the latest
+mailbox can drop it; publication/kernel-frame counts and drops remain distinct.
+The worker consumes the latest available frame when ready, rather than applying
+the legacy synchronous config.fps throttle. No driver timestamp is replaced by
+browser, receipt or decode time. Independent camera and writer deadlines bound
+the finite trial even while model execution is delayed.
+
+The shared native writer receives new source stamps only for new accepted model
+results; tick-only releases and manual controls use transition packets without
+replaying an old source. The existing source-order/mode checks and separate
+watchdog remain authoritative. A semantic HTTP receipt is not proof of OS or
+application delivery. Stop/deadline/error releases input, closes the writer and
+camera, gives the worker a bounded close-acknowledgment opportunity and retains
+final neutral/error feedback. The page distinguishes a synthetic warmup image
+from actual camera/recording state and retains the terminal frame without
+pretending inference continues.
+
+Private trial artifacts reuse recording/v1: raw MJPEG, kernel sequence/time index,
+observations/control journal, original session/controller settings and a manifest
+with backend/model/threshold attribution. Human annotations remain separate.
+Visual macros/image-depth remain unavailable on this provider; the shared
+configuration rejects a visual classifier rather than manufacturing image Z.
+Source tests and a preflight are preparation evidence only. A real camera trial,
+input delivery, application behavior and comfort must be measured before selecting
+this backend as the receiving default.

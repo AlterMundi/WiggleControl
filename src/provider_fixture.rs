@@ -1,4 +1,4 @@
-//! Finite real-clock encoded-frame/worker/meaning qualification. No camera or device.
+//! Shared finite worker transport; explicit synthetic and manually enabled camera sources.
 use crate::{
     controller,
     intent::monotonic_us,
@@ -41,6 +41,8 @@ struct State {
     ready: bool,
     cancelled: bool,
     closed: bool,
+    camera_opened: bool,
+    input_started: bool,
     eof: bool,
     error: Option<String>,
     captured: u64,
@@ -55,6 +57,9 @@ struct State {
     receipt: Option<(u64, Value)>,
 }
 struct Bridge {
+    camera_source: bool,
+    input_requested: bool,
+    warmup: Vec<u8>,
     max_hands: usize,
     run_id: String,
     state: Mutex<State>,
@@ -90,6 +95,9 @@ impl Bridge {
         max_hands: usize,
     ) -> Self {
         Self {
+            camera_source: false,
+            input_requested: false,
+            warmup: Vec::new(),
             max_hands,
             run_id,
             state: Mutex::new(State::default()),
@@ -105,10 +113,12 @@ impl Bridge {
             .checked_add(1)
             .ok_or_else(|| io::Error::other("frame sequence exhausted"))?;
         let sequence = s.captured;
+        let camera_opened = s.camera_opened;
+        let input_started = s.input_started;
         s.captures
             .push(json!({"event":"capture","sequence":sequence,
             "capture_sequence":frame.sequence,"source_us":frame.source_us,
-            "camera_opened":false,"system_input":false}));
+            "camera_opened":camera_opened,"system_input":input_started}));
         s.latest = Some(Lease {
             sequence,
             issued_us: 0,
@@ -180,11 +190,22 @@ impl Extension for Bridge {
                 body: include_bytes!("../tools/synthetic/task_hand_worker.js").to_vec(),
                 headers: String::new(),
             }),
-            ("GET", "/provider/config") => Ok(reply(
-                "200 OK",
-                json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"max_hands":self.max_hands,"package_version":"1.1.1","camera_opened":false,"system_input":false}),
-            )),
+            ("GET", "/provider/config") => {
+                let state = self.state.lock().unwrap();
+                Ok(reply(
+                    "200 OK",
+                    json!({"model_sha256":MODEL,"delegate":"GPU",
+                "run_id":self.run_id,"max_hands":self.max_hands,"package_version":"1.1.1",
+                "camera_source":self.camera_source,"camera_opened":state.camera_opened,
+                "input_requested":self.input_requested,"system_input":state.input_started}),
+                ))
+            }
+            ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "image/jpeg",
+                body: self.warmup.clone(),
+                headers: "X-Wiggle-Synthetic: 1\r\n".into(),
+            }),
             ("POST", "/provider/ready") | ("POST", "/provider/stop") => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
@@ -256,7 +277,7 @@ impl Extension for Bridge {
                         s.last_issued = lease.sequence;
                         return Ok(reply(
                             if s.eof { "410 Gone" } else { "204 No Content" },
-                            json!({"expired":true}),
+                            json!({"expired":true,"error":s.error}),
                         ));
                     }
                     s.skipped += lease.sequence.saturating_sub(s.last_issued + 1);
@@ -273,7 +294,7 @@ impl Extension for Bridge {
                         headers: format!("X-Wiggle-Source: {ticket}\r\n"),
                     })
                 } else if s.eof {
-                    Ok(reply("410 Gone", json!({"eof":true})))
+                    Ok(reply("410 Gone", json!({"eof":true,"error":s.error})))
                 } else {
                     Ok(reply("204 No Content", json!(null)))
                 }
@@ -429,7 +450,6 @@ pub fn run(
     if !(1..=2).contains(&max_hands) {
         return Err("provider max hands must be1 or2".into());
     }
-    let (config, mut controller, mut tracker) = provider::configured(session, settings, 0.5)?;
     let sequence = crate::sequence::Sequence::load(manifest)?;
     let first = sequence.frames.first().unwrap().source_us;
     let duration = sequence.frames.last().unwrap().source_us - first;
@@ -460,26 +480,146 @@ pub fn run(
         .find_map(|(_, p)| p.as_ref())
         .ok_or("fixture has no images")?;
     let initial_jpeg = jpeg(initial)?;
-    let bridge = Arc::new(Bridge::new(
+    run_engine(RunOptions {
+        session,
+        settings,
+        asset_root,
+        port,
+        max_hands,
+        initial_jpeg,
+        source: Source::Fixture { frames, duration },
+        preflight: false,
+    })
+}
+
+/// Starts acquisition only after this manually launched session's worker is ready.
+/// The caller must obtain the human's fresh ready acknowledgment before launching.
+pub struct CameraOptions<'a> {
+    pub session: &'a Path,
+    pub settings: &'a Path,
+    pub asset_root: &'a Path,
+    pub synthetic_warmup: &'a Path,
+    pub seconds: u64,
+    pub port: u16,
+    pub max_hands: usize,
+    pub inject: bool,
+    pub preflight: bool,
+}
+
+pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
+    if !(1..=90).contains(&options.seconds) {
+        return Err("camera trial duration must be1..90 seconds".into());
+    }
+    run_engine(RunOptions {
+        session: options.session,
+        settings: options.settings,
+        asset_root: options.asset_root,
+        port: options.port,
+        max_hands: options.max_hands,
+        initial_jpeg: jpeg(options.synthetic_warmup)?,
+        source: Source::Camera {
+            seconds: options.seconds,
+            inject: options.inject,
+        },
+        preflight: options.preflight,
+    })
+}
+
+enum Source {
+    Fixture {
+        frames: Vec<(u64, Option<PathBuf>)>,
+        duration: u64,
+    },
+    Camera {
+        seconds: u64,
+        inject: bool,
+    },
+}
+struct RunOptions<'a> {
+    session: &'a Path,
+    settings: &'a Path,
+    asset_root: &'a Path,
+    port: u16,
+    max_hands: usize,
+    initial_jpeg: Vec<u8>,
+    source: Source,
+    preflight: bool,
+}
+struct Journal<'a> {
+    stdout: std::io::StdoutLock<'a>,
+    recording: Option<std::fs::File>,
+}
+impl Journal<'_> {
+    fn emit(&mut self, value: Value) -> io::Result<()> {
+        if let Some(file) = &mut self.recording {
+            writeln!(file, "{value}")?;
+        }
+        writeln!(self.stdout, "{value}")?;
+        self.stdout.flush()
+    }
+}
+
+fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
+    let RunOptions {
+        session,
+        settings,
+        asset_root,
+        port,
+        max_hands,
+        initial_jpeg,
+        source,
+        preflight,
+    } = options;
+    if !(1..=2).contains(&max_hands) {
+        return Err("provider max hands must be1 or2".into());
+    }
+    let (config, mut controller, mut tracker) = provider::configured(session, settings, 0.5)?;
+    let camera_source = matches!(&source, Source::Camera { .. });
+    let inject = matches!(&source, Source::Camera { inject: true, .. });
+    if camera_source && config.recording_directory.is_none() {
+        return Err("camera worker trials require private recording_directory".into());
+    }
+    let (mut frames, duration) = match source {
+        Source::Fixture { frames, duration } => (frames, duration),
+        Source::Camera { seconds, .. } => (Vec::new(), seconds * 1_000_000),
+    };
+    let mut bridge = Bridge::new(
         assets(asset_root)?,
         config.gestures().stale_us,
         format!("{}-{}", std::process::id(), monotonic_us()?),
         max_hands,
-    ));
+    );
+    bridge.camera_source = camera_source;
+    bridge.input_requested = inject;
+    bridge.warmup = initial_jpeg.clone();
+    if preflight {
+        println!(
+            "{}",
+            json!({"preflight":"ok","camera_opened":false,"system_input":false,
+            "recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
+            "model_sha256":MODEL,"input_requested":inject,"acquisition_started":false})
+        );
+        return Ok(());
+    }
+    let bridge = Arc::new(bridge);
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
     let preview = Preview::start(port, stop.clone())?;
     preview.enable_extension(bridge.clone());
     preview.enable_controller_controls();
-    let mut log = io::stdout().lock();
-    let mut emit = |value: Value| -> io::Result<()> {
-        writeln!(log, "{value}")?;
-        log.flush()
+    let mut journal = Journal {
+        stdout: io::stdout().lock(),
+        recording: None,
     };
-    emit(
-        json!({"event":"listening","port":preview.port,"schema":"wigglecontrol.provider-fixture/v1",
-        "camera_opened":false,"system_input":false,"source_kind":"synthetic_encoded_frame_publish"}),
+    let capture_stop = Arc::new(AtomicBool::new(false));
+    let camera_mailbox = Arc::new(Mutex::new(crate::session::Mailbox::default()));
+    let mut writer: Option<std::process::Child> = None;
+    let mut writer_output = None;
+    let mut publisher = crate::delivery::Publisher::default();
+    journal.emit(
+        json!({"event":"listening","port":preview.port,"schema":if camera_source {"wigglecontrol.provider-camera/v1"}else{"wigglecontrol.provider-fixture/v1"},
+        "camera_opened":false,"system_input":false,"input_requested":inject,"source_kind":if camera_source {"kernel_monotonic_camera"}else{"synthetic_encoded_frame_publish"}}),
     )?;
     let mut feedback = Feedback {
         jpeg: initial_jpeg,
@@ -498,46 +638,121 @@ pub fn run(
     let outcome = (|| -> Result<(), Box<dyn Error>> {
         while !stop.load(Ordering::Relaxed) {
             if bridge.state.lock().unwrap().cancelled {
-                break;
+                return Err("provider worker requested cancellation".into());
             }
             let mut now = monotonic_us()?;
             if bridge.state.lock().unwrap().ready && started.is_none() {
+                let recording_frames = if camera_source {
+                    let base = Path::new(config.recording_directory.as_ref().unwrap());
+                    let (frames, observations, dir) = crate::recording::create(
+                        base,
+                        monotonic_us()?,
+                        &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
+                            "model_sha256":MODEL,"package_version":"1.1.1","max_hands":max_hands,
+                            "presence_floor":0.5,"confidence_kind":"configured_threshold_lower_bound",
+                            "width":640,"height":480,"camera_fps":30,"freshness_ms":config.freshness_ms,
+                            "input_requested":inject,"human_labels":"separate; predictions are not ground truth"}),
+                    )?;
+                    for (name, path) in [
+                        ("config.json", session),
+                        ("controller-settings.json", settings),
+                    ] {
+                        crate::recording::private_file(&dir.join(name))?
+                            .write_all(&fs::read(path)?)?;
+                    }
+                    fs::write(
+                        base.join("last-recording.path"),
+                        dir.as_os_str().as_encoded_bytes(),
+                    )?;
+                    journal.recording = Some(observations);
+                    if inject {
+                        let mut child = crate::session::controller_writer(
+                            &config,
+                            Some(duration / 1_000_000 + 3),
+                        )?;
+                        writer_output = child.stdin.take();
+                        writer = Some(child);
+                        bridge.state.lock().unwrap().input_started = true;
+                    }
+                    Some(frames)
+                } else {
+                    None
+                };
                 started = Some(Instant::now());
-                controller.start_at(now);
-                let (shared, stopped) = (bridge.clone(), stop.clone());
-                let source_frames = std::mem::take(&mut frames);
-                producer = Some(thread::spawn(move || {
-                    let begin = Instant::now();
-                    for (i, (offset, path)) in source_frames.into_iter().enumerate() {
-                        while begin.elapsed().as_micros() < (offset as u128)
-                            && !stopped.load(Ordering::Relaxed)
-                        {
-                            thread::sleep(Duration::from_millis(1));
-                        }
-                        if stopped.load(Ordering::Relaxed) {
-                            break;
-                        }
-                        if let Some(path) = path {
-                            let next = (|| -> Result<(), Box<dyn Error>> {
-                                let bytes = jpeg(&path)?;
-                                let source_us = monotonic_us()?;
-                                shared.publish(Frame {
-                                    bytes,
-                                    source_us,
-                                    sequence: i as u32,
-                                })?;
-                                Ok(())
-                            })();
-                            if let Err(error) = next {
-                                shared.state.lock().unwrap().error = Some(error.to_string());
+                let initial = controller.start_at(monotonic_us()?);
+                crate::session::write_controller(
+                    &mut writer_output,
+                    &mut publisher,
+                    &initial,
+                    None,
+                )?;
+                if camera_source {
+                    producer = Some(crate::session::camera(
+                        &config,
+                        capture_stop.clone(),
+                        camera_mailbox.clone(),
+                        recording_frames,
+                        Some(started.unwrap() + Duration::from_micros(duration)),
+                    ));
+                } else {
+                    let (shared, stopped) = (bridge.clone(), capture_stop.clone());
+                    let source_frames = std::mem::take(&mut frames);
+                    producer = Some(thread::spawn(move || {
+                        let begin = Instant::now();
+                        for (i, (offset, path)) in source_frames.into_iter().enumerate() {
+                            while begin.elapsed().as_micros() < (offset as u128)
+                                && !stopped.load(Ordering::Relaxed)
+                            {
+                                thread::sleep(Duration::from_millis(1));
+                            }
+                            if stopped.load(Ordering::Relaxed) {
                                 break;
                             }
+                            if let Some(path) = path {
+                                let next = (|| -> Result<(), Box<dyn Error>> {
+                                    let bytes = jpeg(&path)?;
+                                    let source_us = monotonic_us()?;
+                                    shared.publish(Frame {
+                                        bytes,
+                                        source_us,
+                                        sequence: i as u32,
+                                    })?;
+                                    Ok(())
+                                })();
+                                if let Err(error) = next {
+                                    shared.state.lock().unwrap().error = Some(error.to_string());
+                                    break;
+                                }
+                            }
                         }
-                    }
-                    shared.state.lock().unwrap().eof = true;
-                    shared.changed.notify_all();
-                }));
+                        shared.state.lock().unwrap().eof = true;
+                        shared.changed.notify_all();
+                    }));
+                }
             }
+            if camera_source
+                && started.is_some_and(|s| s.elapsed() >= Duration::from_micros(duration))
+            {
+                break;
+            }
+            if let Some(child) = &mut writer {
+                if let Some(status) = child.try_wait()? {
+                    return Err(
+                        format!("controller writer exited during camera trial: {status}").into(),
+                    );
+                }
+            }
+            let camera_opened = {
+                let mut mailbox = camera_mailbox.lock().unwrap();
+                bridge.state.lock().unwrap().camera_opened = mailbox.opened;
+                if let Some(error) = &mailbox.error {
+                    return Err(error.clone().into());
+                }
+                if let Some(frame) = mailbox.frame.take() {
+                    bridge.publish(frame)?;
+                }
+                mailbox.opened
+            };
             if started.is_none() && prepared.elapsed() > Duration::from_secs(30) {
                 return Err("worker preparation timeout".into());
             }
@@ -551,9 +766,12 @@ pub fn run(
             }
             tracker.tick(now);
             for capture in std::mem::take(&mut bridge.state.lock().unwrap().captures) {
-                emit(capture)?;
+                journal.emit(capture)?;
             }
             let submission = bridge.state.lock().unwrap().submission.take();
+            // Tick-only releases carry no new source. Reusing the previous source
+            // would violate the native writer's strictly increasing frame contract.
+            let delivery_source = submission.as_ref().map(|s| s.lease.frame.source_us);
             now = monotonic_us()?;
             let output = if let Some(submission) = submission {
                 let lease = submission.lease;
@@ -591,24 +809,30 @@ pub fn run(
                 let receipt = json!({"sequence":lease.sequence,"source_us":packet.source_us,"now_us":now,
                     "age_ms":(feedback.meaning_us-packet.source_us)as f64/1000.0,"contacts":state.contacts,"mode":state.mode});
                 bridge.finish(lease.sequence, receipt);
-                emit(
+                journal.emit(
                     json!({"event":"frame","sequence":lease.sequence,"capture_sequence":lease.frame.sequence,
                     "source_us":packet.source_us,"issued_us":lease.issued_us,"received_us":submission.received_us,"now_us":now,"meaning_us":feedback.meaning_us,
                     "ambiguous":found.ambiguous,"ambiguity_reason":found.ambiguity_reason,"hands":hands,
-                    "perception":feedback.raw,"controller":state,"camera_opened":false,"system_input":false}),
+                    "perception":feedback.raw,"controller":state,"camera_opened":camera_opened,"system_input":inject}),
                 )?;
                 state
             } else {
                 controller.tick(now)
             };
+            crate::session::write_controller(
+                &mut writer_output,
+                &mut publisher,
+                &output,
+                delivery_source,
+            )?;
             let active = (
                 output.contacts.iter().map(|c| c.id).collect::<Vec<_>>(),
                 output.button_down,
             );
             if active != previous_active {
-                emit(
+                journal.emit(
                     json!({"event":"intent_transition","now_us":now,"last_source_us":feedback.source_us,
-                    "controller":output,"camera_opened":false,"system_input":false}),
+                    "controller":output,"camera_opened":camera_opened,"system_input":inject}),
                 )?;
                 previous_active = active;
             }
@@ -621,8 +845,8 @@ pub fn run(
                 {
                     let lease = s.lease.take().unwrap();
                     s.expired += 1;
-                    emit(json!({"event":"lease_expired","sequence":lease.sequence,
-                        "source_us":lease.frame.source_us,"now_us":now,"camera_opened":false,"system_input":false}))?;
+                    journal.emit(json!({"event":"lease_expired","sequence":lease.sequence,
+                        "source_us":lease.frame.source_us,"now_us":now,"camera_opened":camera_opened,"system_input":inject}))?;
                 }
                 if s.eof
                     && s.lease.is_none()
@@ -636,12 +860,19 @@ pub fn run(
             }
             if last_publish.elapsed() > Duration::from_millis(40) {
                 let remain = started.map_or(30000, |s| {
-                    (duration / 1000 + 2000).saturating_sub(s.elapsed().as_millis() as u64)
+                    (duration / 1000 + if camera_source { 0 } else { 2000 })
+                        .saturating_sub(s.elapsed().as_millis() as u64)
                 });
-                preview.publish(
-                    feedback.jpeg.clone(),
-                    metadata(&config, &output, &feedback, now, remain, started.is_some()),
-                )?;
+                let mut data =
+                    metadata(&config, &output, &feedback, now, remain, started.is_some());
+                data["ui_fixture"] = (!camera_source).into();
+                data["synthetic_frame"] = (feedback.source_us == 0).into();
+                data["camera_source"] = camera_source.into();
+                data["camera_opened"] = camera_opened.into();
+                data["input_available"] = (inject && writer.is_some()).into();
+                data["input_enabled"] = (inject && writer.is_some() && output.running).into();
+                data["recording"] = journal.recording.is_some().into();
+                preview.publish(feedback.jpeg.clone(), data)?;
                 last_publish = Instant::now();
             }
             if ended.is_some_and(|s| s.elapsed() > Duration::from_secs(1)) {
@@ -659,24 +890,82 @@ pub fn run(
                     crate::preview::ControllerControl::Pause => controller.stop(),
                     crate::preview::ControllerControl::Resume => controller.start_at(control_time),
                 };
-                emit(
-                    json!({"event":"control","now_us":control_time,"controller":result,"camera_opened":false,"system_input":false}),
+                crate::session::write_controller(
+                    &mut writer_output,
+                    &mut publisher,
+                    &result,
+                    None,
+                )?;
+                journal.emit(
+                    json!({"event":"control","now_us":control_time,"controller":result,"camera_opened":camera_opened,"system_input":inject}),
                 )?;
             }
             thread::sleep(Duration::from_millis(5));
         }
         Ok(())
     })();
-    stop.store(true, Ordering::Relaxed);
-    if let Some(p) = producer {
-        let _ = p.join();
-    }
+    capture_stop.store(true, Ordering::Relaxed);
     let final_state = controller.stop();
+    let release =
+        crate::session::write_controller(&mut writer_output, &mut publisher, &final_state, None);
+    drop(writer_output);
+    let writer_exit = writer.map(|mut child| child.wait()).transpose();
+    let joined = producer
+        .map(|p| p.join())
+        .transpose()
+        .map_err(|_| "frame producer panicked");
+    let outcome = outcome.and_then(|_| {
+        joined?;
+        release?;
+        crate::session::check_writer_exit(writer_exit?, stop.load(Ordering::Relaxed))?;
+        Ok(())
+    });
+    {
+        let mut s = bridge.state.lock().unwrap();
+        s.eof = true;
+        s.error = outcome.as_ref().err().map(ToString::to_string);
+        if s.lease.take().is_some() {
+            s.expired += 1;
+        }
+        s.submission = None;
+        s.latest = None;
+        s.skipped += s.captured.saturating_sub(s.last_issued);
+        s.last_issued = s.captured;
+        s.camera_opened = camera_mailbox.lock().unwrap().opened;
+    }
+    let mut terminal = metadata(&config, &final_state, &feedback, monotonic_us()?, 0, true);
+    terminal["active"] = false.into();
+    terminal["ui_fixture"] = (!camera_source).into();
+    terminal["synthetic_frame"] = (feedback.source_us == 0).into();
+    terminal["camera_source"] = camera_source.into();
+    terminal["camera_opened"] = camera_mailbox.lock().unwrap().opened.into();
+    terminal["test_phase"] = if outcome.is_ok() { "complete" } else { "error" }.into();
+    terminal["input_available"] = false.into();
+    terminal["recording"] = false.into();
+    terminal["session_error"] = outcome.as_ref().err().map(ToString::to_string).into();
+    // Keep the listener available for the browser's real EOF/worker-close receipt.
+    let terminal_publish = preview.publish(feedback.jpeg.clone(), terminal);
+    let until = Instant::now() + Duration::from_millis(2000);
+    while !stop.load(Ordering::Relaxed)
+        && !bridge.state.lock().unwrap().closed
+        && Instant::now() < until
+    {
+        thread::sleep(Duration::from_millis(5));
+    }
+    stop.store(true, Ordering::Relaxed);
     let s = bridge.state.lock().unwrap();
-    emit(
-        json!({"event":"stop","controller":final_state,"captured":s.captured,"issued":s.issued,"skipped":s.skipped,"expired":s.expired,
-        "worker_closed":s.closed,"error":outcome.as_ref().err().map(ToString::to_string),"camera_opened":false,"system_input":false}),
+    for capture in &s.captures {
+        journal.emit(capture.clone())?;
+    }
+    let camera = camera_mailbox.lock().unwrap();
+    journal.emit(
+        json!({"event":"stop","controller":final_state,"captured":s.captured,
+        "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,
+        "error":outcome.as_ref().err().map(ToString::to_string),"camera_opened":s.camera_opened,
+        "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
+        "source_kind":camera.source_kind,"system_input":s.input_started}),
     )?;
+    terminal_publish?;
     outcome
 }
 
@@ -725,6 +1014,86 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn camera_configuration_does_not_claim_acquisition_or_input_before_start() {
+        let mut b = Bridge::new(BTreeMap::new(), 300_000, "camera".into(), 1);
+        b.camera_source = true;
+        b.input_requested = true;
+        let response = b.respond("GET", "/provider/config", &[]).unwrap();
+        let config: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(config["camera_source"], true);
+        assert_eq!(config["input_requested"], true);
+        assert_eq!(config["camera_opened"], false);
+        assert_eq!(config["system_input"], false);
+    }
+
+    #[test]
+    fn producer_failure_is_retained_in_the_worker_eof_response() {
+        let b = bridge();
+        {
+            let mut state = b.state.lock().unwrap();
+            state.ready = true;
+            state.eof = true;
+            state.error = Some("camera unavailable".into());
+        }
+        let response = b.respond("GET", "/provider/frame", &[]).unwrap();
+        assert_eq!(response.status, "410 Gone");
+        assert_eq!(
+            serde_json::from_slice::<Value>(&response.body).unwrap()["error"],
+            "camera unavailable"
+        );
+    }
+
+    #[test]
+    fn warmup_stays_on_the_selected_synthetic_image_after_camera_frames_arrive() {
+        let mut b = Bridge::new(BTreeMap::new(), 300_000, "warmup".into(), 1);
+        b.camera_source = true;
+        b.warmup = b"explicit synthetic warmup".to_vec();
+        b.publish(Frame {
+            bytes: b"different camera bytes".to_vec(),
+            source_us: monotonic_us().unwrap(),
+            sequence: 1,
+        })
+        .unwrap();
+        let response = b.respond("GET", "/provider/warmup", &[]).unwrap();
+        assert_eq!(response.body, b"explicit synthetic warmup");
+        assert_eq!(response.headers, "X-Wiggle-Synthetic: 1\r\n");
+        assert_eq!(b.state.lock().unwrap().last_issued, 0);
+    }
+
+    #[test]
+    fn camera_policy_rejects_missing_recording_before_loading_assets_or_starting_io() {
+        let root =
+            std::env::temp_dir().join(format!("wiggle-camera-policy-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let session = root.join("session.json");
+        let settings = root.join("settings.json");
+        fs::write(&session, br#"{"camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded","fps":10,"gain":2000,"gesture_min_confidence":0.5}"#).unwrap();
+        let config = SessionConfig::load(&session).unwrap();
+        fs::write(
+            &settings,
+            json!({"version":1,"gestures":config.gestures()}).to_string(),
+        )
+        .unwrap();
+        let result = run_engine(RunOptions {
+            session: &session,
+            settings: &settings,
+            asset_root: Path::new("/not-loaded"),
+            port: 0,
+            max_hands: 1,
+            initial_jpeg: Vec::new(),
+            source: Source::Camera {
+                seconds: 1,
+                inject: true,
+            },
+            preflight: true,
+        });
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("require private recording_directory"));
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn fixture_view_bootstraps_client_when_the_existing_html_omits_body_end_tag() {
         let b = bridge();

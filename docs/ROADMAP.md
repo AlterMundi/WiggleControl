@@ -25,9 +25,11 @@ holds and44% of expected near wall time. Delayed-result releases at302.739ms
 
 [The receiving report](research/realtime-worker-2026-10.md) preserves initial
 failures, controlled comparisons and reproducible scoring. No camera or OS input
-is opened. Next: reuse the existing timestamp-validated capture/private-recording
-path through this worker seam, with explicit graph selection, then broaden negative/
-ownership coverage and qualify human/application use. Keep live calibration,
+is opened. The explicit finite camera source now reuses timestamp-validated capture/private
+recording and the independent native writer through this seam, with a sensor-free
+preflight and fixed graph selection. Receiving camera/input execution is not yet
+qualified. Next: verify the staged source, broaden negative/ownership coverage
+and qualify human/application use. Keep live calibration,
 selected runtime and original prepared trial intact; do not stretch freshness
 to hide processing cost.
 

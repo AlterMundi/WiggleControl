@@ -19,7 +19,7 @@ assert hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest()==json.loads(Pa
 PY
 mkdir "$output/source"
 tar -xf "$output/source.tar.gz" -C "$output/source" --strip-components=1
-meson setup "$output/build" "$output/source" --buildtype=debugoptimized -Dtest=enabled -Dman-pages=disabled -Dxwayland=enabled
+meson setup "$output/build" "$output/source" --prefix=/usr --sysconfdir=/etc --buildtype=debugoptimized -Dtest=enabled -Dman-pages=disabled -Dxwayland=enabled
 meson compile -C "$output/build" -j2
 meson test -C "$output/build" --print-errorlogs
 install -m755 "$output/build/labwc" "$output/labwc-baseline"
@@ -37,6 +37,7 @@ m={'schema':'wigglecontrol.compositor-candidate/v1','source':json.loads((root/'s
    'architecture':platform.machine(),'compiler':subprocess.check_output(['gcc-14','--version'],text=True).splitlines()[0],
    'packages':subprocess.check_output(['dpkg-query','-W'],text=True).splitlines(),
    'sha256':{name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in files},
+   'build_options':['--prefix=/usr','--sysconfdir=/etc','--buildtype=debugoptimized','-Dtest=enabled','-Dman-pages=disabled','-Dxwayland=enabled'],
    'receiving_qualified':False,'upstream_merged':False}
 (root/'manifest.json').write_text(json.dumps(m,indent=2)+'\n')
 PY

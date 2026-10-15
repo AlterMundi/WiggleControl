@@ -66,3 +66,37 @@ stationary handoff or human camera acceptance is claimed from these build checks
 The external GPL experiment is excluded from the original Rust Cargo package.
 Retirement removes only the staged version and archive; no desktop startup or
 system binary has been changed by staging.
+
+
+## Nested behavioral comparison —2026-10-15
+
+The existing staged baseline and patch were each run in a bounded nested Wayland
+session on the Pi. A private runtime/config/profile, explicit disabled activation-
+environment updates and empty session hooks preserved the main desktop. Its owned
+window was selected/fullscreened through foreign-toplevel requests and displayed
+the existing LCARS input client at1920x1080. Touch traveled through the actual
+uinput writer and parent Wayland backend; mouse clicks used the child compositor's
+virtual-pointer protocol directly, avoiding the parent's own focus-loss defect.
+
+All five direct stationary cases failed on baseline and passed on the patch:
+one contact with0/600ms delay; two contacts with0/200/600ms delay. These are five
+controlled protocol/client cases, not five independent human participants. The
+extra two requested zero-displacement controls are **not a zero-motion test**:
+[wlrctl0.2.2](https://sources.debian.org/src/wlrctl/0.2.2-2/pointer.c/) suppresses
+zero motion before sending. They were no-operation controls, failing on baseline
+and passing on the patch; the effect of an actually transmitted zero-motion
+request remains unqualified. No such workaround was adopted.
+
+Additional patched-session observations: no mouse press while one/two contacts
+remained, including release of only one of a pair; one press after the final
+contact; a DOM capture/acquire/release pair; and a click while the client held a
+pointer lock followed by successful unlock. Session-lock security, every native
+popup/grab and all application types are not proved by that pointer-lock test.
+Both normal comparisons and guard input writers exited successfully. Temporary
+nested sessions closed and the main owned workbench remained available.
+
+Next receiving gate: build with distribution `/usr` and `/etc` resource prefixes,
+retain/reverse the vendor package selection, then verify the complete native
+uinput→libinput→main compositor→client handoff. The nested result does not claim
+main-desktop activation or physical camera acceptance. The vendor wrapper and
+its existing GPU/environment policy must be preserved.

@@ -80,7 +80,9 @@ open qualification passed; a real reboot is still pending in#4. No original
 binary/config/profile changed. Five handoff cases now retain actual kernel button
 events but no stationary client press until motion. A source-pinned local labwc
 focus candidate passed its ARM64 build and receiving loader preflight for#5;
-nested behavioral comparison is pending and the current desktop compositor remains selected.
+nested comparison now gives5/5 stationary patched clicks versus0/5 baseline, plus
+active-touch exclusion, DOM capture and client pointer-lock guards. Complete
+uinput handoff on the main desktop remains pending; its vendor compositor remains selected.
 See CONTROLLER-NATIVE.md and tools/labwc/README.md for exact evidence and limits.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.

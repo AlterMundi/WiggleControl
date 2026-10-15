@@ -222,3 +222,13 @@ receiving loader/version preflight. Exact binary hashes and scope are retained i
 [the candidate guide](../tools/labwc/README.md#candidate-readiness-2026-10-15).
 The active compositor PID and system binary hash stayed unchanged; no patched
 desktop was started. Nested behavioral comparison remains the next gate for#5.
+
+
+The subsequent nested comparison delivered the stationary press in5/5 patched
+cases versus0/5 baseline. One/two contacts and0/200/600ms gaps were controlled;
+touch used the real writer/parent backend and mouse used the child virtual-pointer
+protocol. Active-contact exclusion, final-contact re-entry, DOM capture and client
+pointer-lock lifecycle passed. An attempted zero-motion control was discovered to
+be omitted by wlrctl, so it does not qualify that alternative. See the candidate
+guide for method/limits. Main desktop activation and actual native uinput handoff
+remain the next receiving gate; no camera acceptance follows from these tests.

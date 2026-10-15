@@ -7,3 +7,4 @@
 
 /runtime/
 /models/*.download
+__pycache__/

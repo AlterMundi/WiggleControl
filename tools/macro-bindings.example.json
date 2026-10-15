@@ -1,0 +1,12 @@
+{
+  "hold_us": 500000,
+  "neutral_us": 200000,
+  "cooldown_us": 800000,
+  "stale_us": 150000,
+  "bindings": [
+    {"pose": "victory", "action": "toggle_precision"},
+    {"pose": "thumbs_up", "action": "volume_up"},
+    {"pose": "thumbs_down", "action": "volume_down"},
+    {"pose": "open_palm", "action": "pause_controller"}
+  ]
+}

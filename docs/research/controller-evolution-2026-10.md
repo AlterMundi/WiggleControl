@@ -1,0 +1,222 @@
+# Controller evolution: current candidates and first temporal benchmark
+
+Sources inspected 2026-10-15. This is an engineering comparison, not a claim to
+have exhaustively benchmarked all current models. Current model/runtime pins and
+historical qualification remain in the original [research](state-of-the-art.md)
+and [qualification](../QUALIFICATION.md). The active [roadmap](../ROADMAP.md)
+owns implementation order and incomplete work.
+
+## Practical candidates
+
+| Candidate | Primary source evidence | Current decision |
+| --- | --- | --- |
+| Existing ONNX CPU palm/hand baseline | This repository's actual ARM64 qualification, crop invariance and pose-bias records | Keep as measured baseline; do not retune physical thresholds from joint-marker renders |
+| Current MediaPipe Tasks Hand Landmarker | [Official API](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/python) supports multiple hands, timestamped video/live modes and separate presence/tracking thresholds; video tracking avoids repeated palm detection | Useful paired backend comparison; no performance improvement assumed from changing wrapper/model |
+| WiLoR | [Official repository](https://github.com/rolpotamias/WiLoR) publishes reconstruction code/checkpoints and a March2026 fast option. Its documented tested stack is PyTorch/CUDA, with external MANO assets and distinct licenses | Offline comparison candidate after asset/access/hardware check; not a demonstrated Pi input backend |
+| HaMeR | [Official repository](https://github.com/geopavlakos/hamer) publishes reconstruction/evaluation code; setup requires checkpoints and separately registered MANO assets, with a CUDA-oriented example | Useful independent reconstruction comparison; do not equate a plausible mesh with correct pinch contact or intent |
+| Meta hand-tracking toolkit / HOT3D | [Toolkit](https://github.com/facebookresearch/hand_tracking_toolkit) provides dataset/evaluation utilities; [HOT3D](https://github.com/facebookresearch/hot3d) contains egocentric multi-view annotations | Reuse evaluation ideas and eligible independent data; this camera/view domain differs from a fixed consumer webcam |
+| EgoForce /4DHands | [EgoForce's official2026 implementation](https://github.com/dfki-av/EgoForce) studies forearm-guided monocular egocentric reconstruction; [4DHands](https://4dhands.github.io/) studies interacting-hand reconstruction from video | Relevant temporal/interaction comparison leads; neither a measured low-latency Pi backend nor an executed candidate here |
+| 1€ cursor filter | [Authors' description and implementations](https://gery.casiez.net/1euro/) explicitly trade slow-motion jitter against high-speed lag | Independently implemented as opt-in Rust filter; compare against the existing timestamp-based exponential baseline |
+
+This table supports an incremental local-first decision. It does not claim that
+WiLoR/HaMeR were executed here, that CUDA is available on the Pi, or that monocular
+estimated metric landmarks are calibrated physical measurements. Newer dataset
+or avatar releases alone do not establish a usable low-latency controller.
+
+## Reproducible engine benchmark
+
+`wigglecontrol-simulate NEW_DIRECTORY` exercises the actual gesture engine with
+an independent analytic1920x1080 cursor target, scheduled pinch, bounded seeded
+observation noise and irregular source times. It needs no camera or uinput.
+The first retained revision used sixteen profiles × three rates × three noise
+amplitudes × three seeds =432 cases. Seeds11/29 were development candidates;
+101 was initially retained separately. Later iterations inspected that seed, so
+it is now development data. This is a controlled benchmark, not a broad
+unseen-scene validation set. The current tool's expanded revision is described below.
+
+Fixed filters use0/30/60/100ms time constants. Adaptive filters use minimum
+cutoffs0.5/1/2Hz, beta2/5/10/20 in normalized camera units, derivative cutoff1Hz.
+All432 cases produced exactly one scheduled press and one release. Rate affects
+onset delay independently of cursor smoothing: the held-out noisy10Hz case has
+101.7ms press delay versus51.7ms at 20Hz, because confirmation needs a later frame.
+These are source-time delays, not camera-to-screen latency measurements.
+
+Selected held-out results at 20Hz, normalized uniform noise amplitude0.009:
+
+| Profile | Stationary RMS px | Moving RMS px |
+| --- | --- | --- |
+| Existing exponential30ms | 9.52 | 12.47 |
+| Exponential100ms | 5.48 | 43.27 |
+| Adaptive0.5Hz beta20 | 4.32 | 18.95 |
+| Adaptive1Hz beta10 | 4.57 | 26.04 |
+| Adaptive1Hz beta20 | 5.10 | 17.77 |
+
+The adaptive0.5Hz/beta20 candidate reduces stationary error by about 55% against
+the existing30ms baseline in this case, at the cost of increased moving error.
+It improves both measures against the fixed100ms alternative. At10Hz it gives
+6.78/19.08px, versus11.40/11.34px for the30ms baseline. There is no universal winner
+and no deployment selection yet. Temporal image noise, camera timing, pinch-induced
+movement and seated preference still need measurement. The live default remains
+the existing filter; `adaptive_smoothing` is optional and absent in old configs.
+
+The retained report includes every row and selected full trajectories. The TV view
+shows measurements and a separately labelled saved replay, not fabricated work.
+
+## First rendered temporal vision sequence
+
+The MHR renderer now supports a 25-frame right-hand-only rigid motion with lateral
+translation and yaw, source timestamps at 20Hz, unchanged open articulation and
+invariant113.184mm rig joint-tip separation. Images remain640x480 with the pinned
+CPU Blender setup. Geometry source, projection and per-frame markers are retained.
+
+`sequence-check SEQUENCE CONFIG` runs those consecutive images through the actual
+multi-hand perception and direct-contact meaning, without opening a camera or
+input device. This differs from repeatedly cold-loading isolated images. Source
+time is simulated; processing wall time is measured separately. Missing frames,
+ordering and path bounds are explicit in the manifest contract.
+
+First result:25/25 frames detected, one track ID, zero ambiguity reports, zero
+contact frames. All rig markers remained in frame; actual source frames were
+visually inspected on the receiving view. Debug-build processing median was
+159.83ms on the VPS during this run. This is not a Pi throughput result and does
+not establish real-time20Hz processing. Projected rig-palm versus observed cursor
+RMS was23.07 output pixels; joint-marker anatomical correspondence remains a limit.
+
+This is an open-hand tracking scenario. It neither supplies anatomically certified
+skin tips nor qualifies closure/contact detection, two-hand crossing or physical
+comfort. Those are the next benchmark layers. No live config, calibration,
+production model or receiving runtime binary was replaced by these experiments.
+
+## Two-hand crossing and fixture correction
+
+A mirrored independent rig now crosses the first hand in image space. The first
+25-frame trial used 25mm depth separation without checking skin overlap. It was
+retained as an unqualified geometric stress case:24frames with any detection,
+16with two detections, one ambiguity and four observed track IDs. Do not treat
+its shape/contact behavior as a natural two-hand ground truth.
+
+The corrected trial uses 140mm separation and checks the evaluated masked skin
+vertices' camera-depth intervals at every frame. Those intervals do not overlap,
+so the two meshes cannot interpenetrate. In the first frame the ranges are
+0.5840..0.6658m and0.7240..0.8058m. Actual first/middle/final images were inspected;
+the occluding hand is visible and both separated hands remain recognizable.
+
+Corrected result:25/25 frames with a detection,15/25 with two detections, no
+ambiguity reports, three observed track IDs, no contact frames; VPS debug median
+processing175.59ms. The rear hand disappears for ten frames around occlusion and
+returns with a new ID. An ID count alone does not prove a switch, and nearest
+reference-palm assignment is indeterminate when projections are closer than the
+localization error. The current behavior cannot be called continuous two-hand
+control through occlusion. Open-hand renders cannot prove held-contact ownership.
+Retain the missing interval as a benchmark case for the next perception iteration.
+
+This fixes a concrete fixture uncertainty; it is not a rerender to animate the TV.
+Raw first/corrected scenes and predictions remain separately retained.
+
+## Macro semantic core
+
+The typed named-pose macro engine and bounded `macro-replay` command are now
+implemented. A confident neutral hold must arm the engine, a deliberate held
+configured pose produces one named action intent, and another neutral hold plus
+cooldown is required. Tracking loss, contact activity, ambiguity, identity/time
+failure cancel the candidate. Unit scenarios cover those interruptions. This
+core executes no actual host action; visual pose classification, mode arbitration
+and the selected native action adapters remain pending. See [MODES.md](../MODES.md).
+
+## Executed current Tasks comparison
+
+[MediaPipe1.1.1](https://pypi.org/project/mediapipe/1.1.1/) was published 2026-10-14.
+The optional comparison executed its supported Python CPU VIDEO API on the exact
+same 25 corrected separated-pair images, without a camera. Package, transitive
+comparison dependencies, model URL and hashes were retained. The hand-landmarker
+bundle SHA-256 is `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`.
+Python is justified here by the provider's actual API, rather than a rewrite of
+its native inference stack; the ordinary Rust runtime remains unchanged.
+
+Tasks detected a hand in 25/25 frames and two hands in 16/25, losing the rear hand
+for nine frames. Its sequential VPS run had64.19ms median processing, including
+image loading. The earlier Rust debug run's175.59ms is not a fair production
+speed comparison; an optimized Rust build is needed before selecting on cost.
+Host load also varied between sequential runs. This comparison does not prove
+a substantial occlusion-coverage improvement: one additional two-hand frame in
+a 25-frame single scene is limited evidence.
+
+The API's hand array positions are not stable identities. This run therefore
+does not fabricate track IDs or report zero identity switches. It also supplies
+no ambiguity classification or Rust gesture/contact result; those fields stay
+unknown. Choosing a different model wrapper cannot by itself solve occlusion or
+participant ownership. Physical Pi performance and comfort remain unqualified.
+
+## Optimized native cost and rediscovery
+
+The optimized native build on the identical separated pair retained25/25 any-hand
+and15/25 two-hand detections, three IDs and no ambiguity. Processing median was
+30.90ms and p95 was77.80ms in its sequential VPS pass. These observations support
+retaining the existing native backend as the development baseline; the original
+debug timings do not justify rewriting it in another language or changing models.
+They do not establish a universal speed ranking or real Pi performance.
+
+The sequence probe can now vary the missing-hand palm rediscovery interval
+independently of the live default of five frames. The controlled comparison
+retains exact interval settings, observations and results. Search cadence cannot
+make hidden fingers observable; evaluate both coverage and processing cost before
+selecting a production change. Source/API bounds do not change the receiving config.
+
+| Missing-hand search interval | Two-hand frames | Median processing ms | p95 processing ms |
+| --- | --- | --- | --- |
+| 1 frame | 15/25 | 41.77 | 106.19 |
+| 2 frames | 15/25 | 43.30 | 103.84 |
+| Existing5 frames | 15/25 | 30.90 | 77.80 |
+| 10 frames | 15/25 | 29.48 | 76.22 |
+
+More frequent detection did not improve coverage in this scene and increased
+cost. Keep the existing default; this experiment does not justify a production
+cadence change. The10-frame candidate needs a new-hand-entry benchmark before
+its lower cost could justify slower discovery. The same external-load caveat applies.
+
+## Fine motion and a second filter iteration
+
+Revision2 added a fine0.01-unit/second trajectory beside the original fast
+0.3-unit/second trajectory, plus a speed floor for increasing the adaptive cutoff.
+The floor affects the cutoff, not spatial motion: tiny intentional movement
+still reaches the cursor. This addresses noise-driven high cutoff at rest.
+The1080-case intermediate run is retained separately.
+
+Revision3 fixed28 profiles, three rates, three noise amplitudes, four seeds and
+two trajectories, for2016 cases. Development seeds are11/29/101; the new313 seed
+is scored only after selecting a profile on development data. The selector
+minimizes the worst normalized rest/fast/fine RMS against fixed5/20/10px budgets,
+using10/20Hz high-noise rows. This is a ranking rule, not proof of broad robustness.
+
+Selected candidate: cutoff0.3Hz, beta40, derivative cutoff1Hz, speed floor0.05.
+Its worst development budget ratio is0.994; the separately evaluated313 seed
+gives0.971. Both are below one, with a narrow development margin. On that seed:
+
+| Input | Fast-case rest RMS px | Fast moving RMS px | Fine moving RMS px |
+| --- | --- | --- | --- |
+| Existing30ms /10Hz | 9.88 | 11.53 | 11.58 |
+| Candidate /10Hz | 2.34 | 19.43 | 6.12 |
+| Existing30ms /20Hz | 8.95 | 11.82 | 9.50 |
+| Candidate /20Hz | 3.55 | 18.15 | 5.57 |
+
+All2016 scheduled pinch cases still produce one press/release. The stationary
+improvement costs fast-motion error against the low-lag baseline; it is not a
+dominant winner on every measure. The candidate meets these particular analytic
+budgets, not a physical acceptance gate. A new scene/noise model, pinch-induced
+movement, calibration and human preference remain independent tests. Neither
+the selector nor the workbench writes a receiving configuration.
+
+The benchmark maps a full normalized camera workspace to1920x1080. It has not
+yet evaluated the selected receiving calibration's narrower bounds. Workspace
+mapping amplifies camera-coordinate noise and changes effective velocity units;
+the next filter qualification must include calibrated ranges and edges before
+using these numerical budgets as receiving claims.
+
+## Reuse and research curation
+
+The portable finding and methodology are candidates for collective research once
+the temporal/contact comparison is coherent. Keep this owning repository as the
+canonical technical source. A curated research record should link source/version,
+independent labels, selected aggregate results, failure corrections and limits;
+private footage, receiving routes and native conversation history stay private.
+Publishing a report does not prove collective-research ingestion or deployment.

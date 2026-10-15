@@ -49,6 +49,8 @@ pub struct SessionConfig {
     pub pinch_close_ratio: f64,
     #[serde(default = "default_open_ratio")]
     pub pinch_open_ratio: f64,
+    #[serde(default)]
+    pub adaptive_smoothing: Option<crate::filter::OneEuroConfig>,
 }
 fn default_close_m() -> f64 {
     0.02
@@ -73,6 +75,7 @@ impl SessionConfig {
             open_m: self.pinch_open_m,
             close_ratio: self.pinch_close_ratio,
             open_ratio: self.pinch_open_ratio,
+            adaptive_smoothing: self.adaptive_smoothing,
             ..Config::default()
         }
     }

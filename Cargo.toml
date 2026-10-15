@@ -19,6 +19,10 @@ native-probe = ["dep:tract-onnx"]
 native-ort = ["dep:ort"]
 native-vision = ["native-ort", "dep:image", "dep:v4l", "dep:signal-hook"]
 
+[[bin]]
+name = "wigglecontrol-simulate"
+path = "src/bin/simulate.rs"
+
 [dependencies.tract-onnx]
 version = "=0.21.15"
 optional = true

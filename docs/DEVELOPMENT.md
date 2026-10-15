@@ -1,5 +1,10 @@
 # WiggleControl development plan
 
+Current execution order and mode/model roadmap: [ROADMAP.md](ROADMAP.md), updated
+2026-10-15. The six milestones below preserve the original design. Their actual
+implementation and remaining physical acceptance are tracked in
+[ACCEPTANCE.md](ACCEPTANCE.md); this historical proposal is not current status.
+
 ## Intended result
 
 A manually enabled Rust input device translates camera-observed hands into
@@ -9,8 +14,8 @@ Existing applications do not integrate a new SDK. The initial target is Linux
 ARM64 on Pi 5 with labwc/Wayland; other platforms require their own adapters.
 
 [Research and evidence](research/state-of-the-art.md) explain these decisions.
-This is the selected development direction; all milestone acceptance below is
-pending. No implementation or device benchmark is claimed by publishing the plan.
+This was the selected initial development direction. Implementation and receiving
+evidence have since advanced; publishing the original plan alone claimed neither.
 
 ## Proposed component boundaries
 

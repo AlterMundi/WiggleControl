@@ -1,5 +1,36 @@
 # Project context — 2026-10-13
 
+## Active controller-evolution goal —2026-10-15
+
+Nicolás authorized a new native Cuevanico goal to evolve the complete camera
+controller through simulation, perception/model comparisons, useful modes,
+multi-participant input and macros. The goal is active; it does not complete or
+resume the earlier blocked Shared Resources goal. The maintained entry point is
+[ROADMAP.md](ROADMAP.md), with implemented versus pending modes in [MODES.md](MODES.md)
+and measured results in [the evolution report](research/controller-evolution-2026-10.md).
+
+Implemented in this increment: opt-in speed-adaptive Rust cursor filtering,
+2016-case analytic benchmark with explicit development/held-out seeds and a
+reproducible profile selector; camera-free temporal image replay through actual
+perception/direct-touch meaning; open-hand single/pair3D motion controls; bounded
+typed macro hold/rearm/cooldown replay. The current paired render checks disjoint
+evaluated skin-depth intervals; its earlier close-depth stress scene remains
+unqualified. MediaPipe1.1.1 CPU was actually compared on the same retained images.
+Native optimized processing was30.90ms median on the VPS versus64.19ms for Tasks'
+sequential pass; this is not a Pi benchmark or universal backend ranking.
+
+The TV's owned experiment browser now shows measured filter tradeoffs, actual
+moving-reference processing, retained completion and explicitly saved replay.
+No new camera/microphone/input session, runtime binary, live thresholds, power
+mode or saved calibration was deployed by these experiments. The selected
+45/65mm receiving pinch experiment remains as before. The new adaptive candidate
+meets particular analytic budgets; real noise/calibrated-workspace amplification,
+anatomical contact truth, occlusion ownership, physical comfort and application
+acceptance remain distinct work. Macro visual classification and actual native
+action adapters remain pending; replay action intents have `executed:false`.
+
+Older dated checkpoints below preserve history; they do not override this roadmap.
+
 Latest visible-research checkpoint (2026-10-15): the offline workbench on
 Cuevanico now follows actual VPS rendering/inference and retains completion or
 delayed/error state, without sensors or a Pi model runtime. Nicolás's TV review

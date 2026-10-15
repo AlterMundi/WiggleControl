@@ -93,3 +93,70 @@ keeps the rest of the body out of the experiment. See the dated correction in
 `docs/POSITION-BIAS.md`: the old negative-pitch images are body-occluded invalid
 hand-visibility inputs, not valid detector-miss cases. Joint-marker distances
 alone never qualify visibility or physical contact.
+
+## Controller iteration and temporal images
+
+Current scope, mode expansion and evidence gates: [the roadmap](../../docs/ROADMAP.md).
+`cargo run --locked --bin wigglecontrol-simulate -- NEW_DIRECTORY` currently runs2016
+camera-free observation scenarios through the actual Rust gesture engine, across
+fixed/adaptive filters, input rates, noise amplitudes and seeds. Its output
+contains raw trajectories and separate rest/motion error and pinch timing.
+This is analytic observation simulation, not a rendered vision accuracy test.
+It includes fast/fine motion and a speed-floor variant of the adaptive cutoff;
+the floor does not suppress small spatial movement. Development seeds11/29/101
+and the separately evaluated313 seed are explicit in the retained report.
+`select_controller_profile.py REPORT` selects using development rows and fixed
+rest/fast/fine error budgets, then reports the selected candidate's held-out rows.
+It does not alter live settings. The original432-case and intermediate1080-case
+revisions remain separately retained evidence.
+
+`render_hand_reference.py ASSET NEW_DIRECTORY --hand-only --motion-steps 25` renders an open
+hand's lateral/yaw trajectory and writes a bounded `sequence.json` manifest with
+20Hz source time. Optional `--pair-motion` instead renders independently
+transformed mirrored open hands crossing in image space. Their evaluated visible
+skin camera-depth intervals must not overlap; this rules out interpenetration
+between the two meshes. It does not certify joint anatomy or physical contact.
+The original close-depth pair was retained as an unqualified stress fixture;
+only the corrected separated pair has that explicit geometry check.
+
+`wigglecontrol sequence-check SEQUENCE CONFIG` uses native-vision to consume those
+images sequentially with one perception instance and the real direct-touch
+meaning. It never opens a camera or virtual input device. Source timestamps are
+simulated; processing time is measured separately. Manifests are version1 with
+1..10000 strictly ordered frames, at most1MiB, relative image paths confined to
+the manifest root and at most4096 pixels per image axis. An image value of null
+is missing acquisition and releases gesture state. The EOF record is neutral.
+Raw observations, landmarks, world estimates, ambiguity and contact intent remain
+distinct from renderer truth.
+Optional `--rediscovery N` on `sequence-check`, or the visible runner, varies the
+native missing-hand detector interval within1..30 frames. The ordinary runtime
+default remains five; this is an experiment setting, not a new live default.
+
+`build_controller_workbench.py REPORT NEW_DIRECTORY --asset-license LICENSE`
+packages the retained filter report with `controller.html`, its result data,
+the3D asset license and a ready state. Copy that owned offline directory through
+the receiving host's established authorized route and open its `index.html`.
+The same display/transport scope and private-artifact rules above apply.
+Optional repeated `--vision-report LABEL REPORT` adds source-hashed retained
+comparison summaries. The original filter report hash stays in the package.
+
+`run_visible_motion.py RENDER_DIRECTORY CONFIG NEW_RESULT_DIRECTORY --help`
+documents exact receiving-local SSH/display arguments. It can accompany an
+already-started owned render, then evaluates its manifest once. It bounds render
+observation to ten minutes and retains local errors. Rendering publishes actual
+completed images; inference publishes each actual model result. Completion
+persists and optional replay explicitly says it uses saved frames. The transport
+is an owned finite stdin writer, not a new background service. Source images and
+the full report are retained privately; `run-results.json` holds the current run.
+
+For the optional independent MediaPipe Tasks CPU comparison, the exact pinned
+Python3.11 environment is `mediapipe-requirements.lock`. This use of Python wraps
+the provider's native supported API for comparative research; it does not replace
+the Rust runtime. Cache that environment with uv, then pass
+`--mediapipe-model TASK_FILE --model-sha256 EXPECTED_SHA256` to the visible runner.
+The script checks version1.1.1 and the explicit model hash. The model download
+and source manifest are kept in the private experiment directory; no assets are
+committed. This backend reports raw detector arrays, not stable identity,
+ambiguity classification or Rust contact semantics. Those unavailable fields
+stay unknown. Compare the same retained images and do not confuse debug-build
+cost, model stack or sequential VPS load with a controlled Pi benchmark.

@@ -59,6 +59,22 @@ to an older binary. The receiving config is preserved by installation/rollback.
 
 ## Manual use
 
+The2026-10-15 source adds optional experimental `adaptive_smoothing`:
+
+```json
+"adaptive_smoothing": {"min_cutoff_hz": 0.5, "beta": 20.0, "derivative_cutoff_hz": 1.0}
+```
+
+This is a configuration entry, not a complete file. Omission retains the existing
+30ms exponential filter. Cutoffs must be0.01..120Hz and beta0..1000 in normalized
+camera units. Optional `speed_floor` defaults to0 and must be0..1 normalized
+units/second; it prevents low estimated speed from raising cutoff, without a
+spatial dead zone. Validation occurs before resource loading. It affects filtered
+cursor/scroll displacement in the shared gesture engine, not pinch thresholds.
+The example is a simulation candidate, not a physically accepted profile. Older
+receiving binaries reject the field; preserve the selected live config until
+the matching artifact and human behavior are qualified.
+
 Before starting a capture, validate a configuration edit without opening any
 sensor/device or loading a model/runtime:
 

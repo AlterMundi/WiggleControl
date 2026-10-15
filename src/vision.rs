@@ -179,6 +179,7 @@ pub struct Perception {
     id: u64,
     tracks: Vec<TrackedHand>,
     search_frames: u32,
+    rediscovery_interval: u32,
     pub palm_score: Option<f64>,
     pub hand_score: Option<f64>,
     pub side_score: Option<f64>,
@@ -225,6 +226,7 @@ impl Perception {
             id: 0,
             tracks: Vec::new(),
             search_frames: 0,
+            rediscovery_interval: 5,
             palm_score: None,
             hand_score: None,
             side_score: None,
@@ -232,6 +234,15 @@ impl Perception {
             palm_rois: Vec::new(),
             skipped_rois: Vec::new(),
         })
+    }
+    /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
+    pub fn with_rediscovery_interval(models: &Path, interval: u32) -> Result<Self, Box<dyn Error>> {
+        if !(1..=30).contains(&interval) {
+            return Err("rediscovery interval must be 1..30 frames".into());
+        }
+        let mut model = Self::new(models)?;
+        model.rediscovery_interval = interval;
+        Ok(model)
     }
     fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<Roi>, Box<dyn Error>> {
         let side = image.width().max(image.height()) as f64;
@@ -398,7 +409,9 @@ impl Perception {
         }
         self.search_frames = self.search_frames.wrapping_add(1);
         // Find a missing/new hand periodically; existing ROI identities do not follow detector order.
-        if next.len() < 2 && (next.is_empty() || self.search_frames % 5 == 0) {
+        if next.len() < 2
+            && (next.is_empty() || self.search_frames % self.rediscovery_interval == 0)
+        {
             for roi in self.detect_palms(image)? {
                 if next
                     .iter()

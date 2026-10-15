@@ -1,6 +1,9 @@
 //! Replayable gesture meaning, independent of camera and operating-system grants.
 use serde::{Deserialize, Serialize};
 
+pub mod filter;
+pub mod macros;
+
 #[cfg(target_os = "linux")]
 pub mod input;
 
@@ -37,6 +40,9 @@ mod intent;
 
 #[cfg(feature = "native-vision")]
 pub mod vision;
+
+#[cfg(feature = "native-vision")]
+pub mod sequence;
 
 #[cfg(feature = "native-vision")]
 pub mod session;
@@ -149,6 +155,8 @@ pub struct Config {
     pub confirm_us: u64,
     pub stale_us: u64,
     pub smoothing_us: f64,
+    /// Opt-in experiment; None preserves the original exponential filter.
+    pub adaptive_smoothing: Option<filter::OneEuroConfig>,
     pub scroll_steps_per_unit: f64,
 }
 impl Default for Config {
@@ -162,6 +170,7 @@ impl Default for Config {
             confirm_us: 40_000,
             stale_us: 150_000,
             smoothing_us: 30_000.0,
+            adaptive_smoothing: None,
             scroll_steps_per_unit: 12.0,
         }
     }
@@ -176,6 +185,7 @@ pub struct Engine {
     last_received: Option<u64>,
     hand_id: Option<u64>,
     cursor: Option<Point>,
+    cursor_filter: filter::OneEuro,
     armed: bool,
     held: bool,
     candidate: Option<u64>,
@@ -185,6 +195,9 @@ pub struct Engine {
 }
 impl Engine {
     pub fn new(config: Config) -> Result<Self, &'static str> {
+        if let Some(filter) = config.adaptive_smoothing {
+            filter.validate()?;
+        }
         if !config.min_confidence.is_finite()
             || !(0.0..=1.0).contains(&config.min_confidence)
             || !config.close_ratio.is_finite()
@@ -214,6 +227,7 @@ impl Engine {
             last_received: None,
             hand_id: None,
             cursor: None,
+            cursor_filter: filter::OneEuro::default(),
             armed: false,
             held: false,
             candidate: None,
@@ -365,11 +379,13 @@ impl Engine {
             self.scrolling = hand.scrolling;
             self.scroll_remainder = 0.0;
             self.cursor = Some(hand.cursor);
+            self.cursor_filter.reset(hand.cursor);
         }
         if self.hand_id != Some(hand.id) {
             events.extend(self.cancel("hand_changed"));
             self.hand_id = Some(hand.id);
             self.cursor = Some(hand.cursor);
+            self.cursor_filter.reset(hand.cursor);
         } else if let (Some(previous), Some(last)) = (self.cursor, self.last_source) {
             let dt = (observation.source_us - last) as f64;
             let alpha = if self.config.smoothing_us == 0.0 {
@@ -377,9 +393,18 @@ impl Engine {
             } else {
                 1.0 - (-dt / self.config.smoothing_us).exp()
             };
-            let next = Point {
-                x: previous.x + alpha * (hand.cursor.x - previous.x),
-                y: previous.y + alpha * (hand.cursor.y - previous.y),
+            let next = if let Some(filter) = self.config.adaptive_smoothing {
+                self.cursor_filter.apply(
+                    filter,
+                    previous,
+                    hand.cursor,
+                    observation.source_us - last,
+                )
+            } else {
+                Point {
+                    x: previous.x + alpha * (hand.cursor.x - previous.x),
+                    y: previous.y + alpha * (hand.cursor.y - previous.y),
+                }
             };
             let (dx, dy) = (next.x - previous.x, next.y - previous.y);
             if hand.scrolling {

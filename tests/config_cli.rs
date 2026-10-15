@@ -33,6 +33,18 @@ fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     assert!(report.get("camera").is_none());
     assert_eq!(report["pinch_close_ratio"], 0.25);
     assert_eq!(report["pinch_open_ratio"], 0.4);
+    assert!(report["adaptive_smoothing"].is_null());
+    config["adaptive_smoothing"] =
+        serde_json::json!({"min_cutoff_hz":0.5,"beta":20.0,"derivative_cutoff_hz":1.0});
+    fs::write(&path, config.to_string()).unwrap();
+    let result = check();
+    assert!(result.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(report["adaptive_smoothing"]["beta"], 20.0);
+    config["adaptive_smoothing"]["beta"] = (-1).into();
+    fs::write(&path, config.to_string()).unwrap();
+    assert!(!check().status.success());
+    config.as_object_mut().unwrap().remove("adaptive_smoothing");
     config["freshness_ms"] = serde_json::json!(300);
     fs::write(&path, config.to_string()).unwrap();
     assert!(check().status.success());

@@ -64,9 +64,14 @@ Manual controls fence pre-control camera frames before open rearm. Full device-f
 pipeline replay serializes/decodes packets and verifies actual Linux event codes.
 The UI passed actual1920x1080 Cuevanico checks using retained synthetic images,
 without sensors/devices; its finite fixture was stopped and the workbench restored.
-See [CONTROLLER-NATIVE.md](CONTROLLER-NATIVE.md). Receiving runtime deployment and
-combined-device/real-hand acceptance are pending; existing binaries/calibration
-remain unchanged. Absolute precision, participants and visual macros remain open.
+See [CONTROLLER-NATIVE.md](CONTROLLER-NATIVE.md). ARM64 candidate2f63f29 is now
+staged separately and passed help/preflight. Finite actual mouse/two-touch delivery,
+mode release and watchdog were observed in the owned Wayland client; stationary
+first-click handoff remains unresolved in#5. The existing named uinput ACL needed
+restoration; persistent startup/rollback is tracked in#4. All devices were removed,
+the workbench restored and sensors observed inactive after the test. Selected
+production/calibration binaries and original profile/config remain unchanged.
+Live native hand control, absolute precision, participants and visual macros remain open.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.
 

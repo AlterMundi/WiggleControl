@@ -4,8 +4,8 @@ The current runtime separately selects pointer or direct-touch output. The mode
 expansion and application constraints are in [ROADMAP.md](ROADMAP.md).
 The new controller arbiter joins existing pointer, contact and named macro engines
 in camera-free replay. The opt-in [native controller session](CONTROLLER-NATIVE.md) now connects acquisition,
-manual controls and the independent writer. Receiving qualification and visual
-pose classification remain pending.
+manual controls and the independent writer. A separately staged ARM64 candidate has partial scripted device qualification;
+stationary handoff, live hand control and visual pose classification remain pending.
 
 ## Exclusive controller modes
 

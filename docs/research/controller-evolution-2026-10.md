@@ -374,10 +374,24 @@ cached hold state as current. The temporary fixture/server was stopped and the
 owned browser restored. No camera, microphone, virtual device, production binary,
 threshold, calibration or power change occurred.
 
-This verifies source integration, protocol meaning and UI operation. It does not
-qualify the combined devices in the compositor, live native camera control,
-physical gesture accuracy, absolute precision or visual gesture macros. ARM
-packaging/receiving preparation and fresh human trials remain required.
+The first fixture verified source integration, protocol meaning and UI operation.
+The later separately staged ARM64 candidate2f63f29 passed98 native tests and its
+source-bound CI build, then help/preflight on the Pi. A finite actual combined
+writer test delivered trusted mouse button release on mode change, two contacts
+(client scale1.50438/rotation4.33389degrees), touch release on transition and an
+independent watchdog release. Devices were removed and the workbench restored;
+sensors were observed inactive. Selected original binaries/config/profile and
+silent power remained preserved. Details and exact candidate provenance are in
+[CONTROLLER-NATIVE.md](../CONTROLLER-NATIVE.md#receiving-candidate-checkpoint-2026-10-15).
+
+The first stationary mouse press after touch did not reach the client; fresh
+pointer movement made the repeated press/release work. This unresolved boundary
+is tracked in#5, not a universal successful handoff. The initial test generator's
+accidental watchdog timeout was corrected with explicit fresh synthetic test
+frames and a deliberate stall. The existing named uinput grant needed manual
+restoration after boot;#4 tracks persistent startup/upgrade/rollback. Live native
+camera control, physical accuracy/comfort, absolute precision and visual macros
+still require their own qualification and fresh acknowledged human trials.
 
 ## Reuse and research curation
 

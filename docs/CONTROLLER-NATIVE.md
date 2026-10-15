@@ -2,8 +2,9 @@
 
 This opt-in source path connects native perception, the exclusive controller,
 manual preview controls and an independent mouse/touch writer. The existing
-fixed-mode and calibrated commands remain available. Receiving deployment,
-combined-device compositor behavior and real-hand comfort still need qualification.
+fixed-mode and calibrated commands remain available. The2026-10-15 ARM64 candidate is staged separately and has partial scripted
+receiving qualification below. Live perception/control and real-hand comfort remain
+unqualified.
 
 ## Prepare and start
 
@@ -126,3 +127,52 @@ verify the run's source commit and manifest hash, compare the target's libc with
 the binary's requirements, then stage at a separate user-local path and run help
 and config-only preflight. Retain the selected prior binary and configurations.
 Camera/input acceptance follows the existing human-ready and receiving rules.
+
+## Receiving candidate checkpoint —2026-10-15
+
+Candidate [2f63f29](https://github.com/AlterMundi/WiggleControl/commit/2f63f29)
+passed [CI38711639096](https://github.com/AlterMundi/WiggleControl/actions/runs/38711639096),
+including native ARM64 tests/build and existing x86/default/installer checks.
+The native suite has98 tests. The binary SHA256 is
+`6d424ef94ca62b362e69e4b0409059366262d46afee15991e72c3e073c25a31b`.
+It requires glibc through2.39; the receiving Pi reports2.41. Help and camera-free
+controller preflight succeeded there. The candidate, copied session/settings,
+licenses and manifest are retained at a separate versioned user-local location
+in the Shared Resources receiving overlay. Existing production/calibration
+executables, thresholds and saved profile were preserved. Only the candidate
+copy explicitly uses the saved diagonal rectangle as its touch workspace.
+
+A finite scripted writer test used the owned Chromium Wayland qualification
+page at1920x1080. CDP prepared/read that page; actual events came through the new
+native writer, uinput, libinput and labwc. Observed:
+
+- Mouse button down followed by up on a pointer→precision transition.
+- Two simultaneous trusted contacts and movement interpreted by the client as
+  scale1.50438 and rotation4.33389degrees; changing back to pointer ended both.
+- With fresh pointer movement after touch, another mouse down/up pair and an
+  independent watchdog release after the scripted producer stopped updating.
+- Successful finite writer exit, no remaining WiggleControl input device and
+  the owned browser restored to the research workbench. No console exceptions.
+
+One attempt deliberately reported here as incomplete: a stationary first mouse
+press after touch did not reach the client. Adding fresh pointer motion made the
+repeat work; the responsible boundary is not localized. [#5](https://github.com/AlterMundi/WiggleControl/issues/5)
+tracks stationary handoff acceptance. The first test generator also accidentally
+exceeded the300ms watchdog before its next frame; input correctly remained
+latched off and the writer terminated on rejected continuation. The corrected
+scripted generator maintained explicit fresh test frames, then deliberately
+stopped them for the watchdog check. This was not a camera-data replay.
+
+The pre-existing named-operator uinput ACL was missing after boot despite its
+installed udev rule. It was restored without widening access. Device registration
+became visible after opening the node; startup/module bootstrap remains a
+hypothesis and [#4](https://github.com/AlterMundi/WiggleControl/issues/4) owns
+persistent install/upgrade/rollback qualification. No reboot was performed.
+
+The independent panel observed camera/microphone inactive after this test,
+silent mode, fan0RPM and1.5GHz. No camera/microphone session ran. Combined-device
+scripted delivery does not qualify live native session switching, hand accuracy,
+stationary handoff, absolute precision, participant routing, visual macros or
+comfort. The candidate is opt-in and incomplete, with no startup service.
+To retire it, remove its versioned candidate directory/archive and test artifacts;
+there is no active process to disable and the selected original runtime remains.

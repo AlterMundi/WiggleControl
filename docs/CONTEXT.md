@@ -2,6 +2,16 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+Latest [palm correspondence/GPU work](research/palm-correspondence-gpu-2026-10.md)
+uses five actual proximal points for duplicate reconstruction comparison. It
+recovers4/5 adverse actual10Hz holds under the paired policy and preserves all
+1042 retained mixed-model contacts under a uniform palm/1.2 policy. Actual Pi
+Tasks GPU processing medians132.2ms one-hand/102.9ms two-hand improve on matched
+CPU221.6/206.0ms; conditional Rust replay retains4/5 adverse GPU near contacts.
+The browser provider has no stable IDs or complete native/worker integration.
+Crossings still fail and retain five unscored same-side contact frames. No
+receiving runtime/calibration/power or original trial changes; goal remains active.
+
 Latest [fixed-tensor/mixed-model work](research/fixed-tensor-mixed-model-2026-10.md)
 exports exact native tensors, reproduces286 retained native gaps exactly and
 validates all four converted Tasks outputs against LiteRT on all286 inputs.

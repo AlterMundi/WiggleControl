@@ -644,3 +644,25 @@ retaining raw own confidence/eligibility and the original primary owner/cursor.
 It reuses ONNX Runtime, without a receiving Python/Tasks stack. Optional secondary
 metric feedback is now visible in the owned offline workbench. This is not a
 selected live runtime, general ownership fix or accepted human control.
+
+### Receiving browser CPU/GPU comparison
+
+`browser_hand_sequence.mjs` exports `runBrowserHandSequence(baseUrl, manifest)`
+for an explicitly owned experiment page. The optional pinned Tasks Vision1.1.1
+package/model and synthetic inputs are served read-only on receiving loopback;
+the helper opens no camera and emits no input. The manifest contains
+`package_version`, `model_sha256`, and `scenes:[{name,reference,frames}]`; each
+frame has `image`, `source_us` and `sha256`. The server exposes `telemetry` with
+`temperature_c` and serves `package/vision_bundle.mjs`, `package/wasm/`,
+`hand_landmarker.task` and `SCENE/IMAGE`. Verify the npm archive and retained
+asset hashes before serving. Each scene is bounded9–121 frames/60seconds, with
+an80°C temperature cutoff; use a separate finite server lifetime as well.
+
+Each delegate/scene uses a fresh VIDEO model, records fetch/hash/decode and
+inference/readback costs separately, and closes it on completion/failure. Returned
+world/pixel points and handedness are observations; array indices are never
+stable hand identities. Optional workbench feedback shows actual producer
+progress and a retained last image. Save the returned report independently of
+the display. The [receiving measurements](../../docs/research/palm-correspondence-gpu-2026-10.md)
+establish a hardware-WebGL speed improvement and a narrow conditional metric
+replay, not an accelerated system-input backend or physical qualification.

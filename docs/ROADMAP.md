@@ -12,7 +12,18 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
-Current perception work: [fixed tensors and mixed models](research/fixed-tensor-mixed-model-2026-10.md)
+Latest [palm correspondence/GPU comparison](research/palm-correspondence-gpu-2026-10.md)
+fixes a false second-hand reconstruction without an additional inference. The
+uniform palm/1.2 policy preserves all1042 retained mixed-model contact decisions
+and recovers the adverse one-hand4/5 hold that the old palm policy lost. Actual
+Pi hardware-WebGL comparison lowers Tasks processing medians221.6→132.2ms for
+one hand and206.0→102.9ms for two, with expected detections on every input.
+Conditional Rust replay retains the GPU metric's4/5 adverse hold. This is not an
+integrated accelerated backend or accepted live control. Next: evaluate an
+optional worker/IPC perception path with bounded timing/ownership, address
+held-release/crossing uncertainty, then physical/application acceptance.
+
+Earlier perception work: [fixed tensors and mixed models](research/fixed-tensor-mixed-model-2026-10.md)
 now isolate crop/model effects and validate a converted Tasks landmark model on
 286 exact native inputs. The default-off Rust/ORT secondary model reaches116/117
 near frames at20Hz and17/18 on actual10Hz hard scenes, versus115/117 and12/18

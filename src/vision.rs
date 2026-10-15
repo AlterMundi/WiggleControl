@@ -213,16 +213,17 @@ fn duplicate_prediction(a: &DetectedHand, b: &DetectedHand) -> bool {
                 .max(h.landmarks[0].distance(h.landmarks[9]))
         })
         .fold(0.0_f64, f64::max);
-    let error = a
-        .landmarks
-        .iter()
-        .zip(b.landmarks)
-        .map(|(p, q)| p.distance(q).powi(2))
+    // Finger predictions can differ with the crop during a pinch. Ownership
+    // correspondence must use the same proximal palm points as proposal matching.
+    let palm = [0, 5, 9, 13, 17];
+    let error = palm
+        .into_iter()
+        .map(|i| a.landmarks[i].distance(b.landmarks[i]).powi(2))
         .sum::<f64>();
     scale >= 8.0
         && scale.is_finite()
         && error.is_finite()
-        && (error / 21.0).sqrt() / scale < 0.10
+        && (error / palm.len() as f64).sqrt() / scale < 0.10
         && (a.handedness - b.handedness).abs() < 0.2
 }
 /// Current-frame inference/search evidence, never an accepted hand observation.
@@ -1157,6 +1158,11 @@ mod tests {
         let mut other = hand.clone();
         for point in &mut other.landmarks {
             point.x += 1.0;
+        }
+        assert!(duplicate_prediction(&hand, &other));
+        // Crop-sensitive distal estimates do not create another palm/owner.
+        for i in [4, 7, 8, 11, 12, 15, 16, 19, 20] {
+            other.landmarks[i].y += 60.0;
         }
         assert!(duplicate_prediction(&hand, &other));
         // Same handedness cannot merge a distinct, nearby projected hand.

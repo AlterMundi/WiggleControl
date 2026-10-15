@@ -396,8 +396,15 @@ still require their own qualification and fresh acknowledged human trials.
 ## Reuse and research curation
 
 The distinction between marker distance, selected skin clearance and plausible
-motion merits a collective-research record with the retained human correction.
-The owning report is its entry point; ingestion is not claimed here. Keep this owning repository as the
+motion was selected for collective research with the retained human correction.
+The record also relates actual kernel/client handoff evidence. Operation
+`controller-evidence-corrections-20261015-v1` was inspected and accepted through
+the configured CompAII route, then published in curated index/UI generation5.
+Exact document bytes, targeted search, corrected map and Atlas graph were verified.
+The logical document is
+`research/wigglecontrol/compaii/controller-evidence-corrections-20261015-v1.md`;
+the shared discovery/client resolves the authorized reader. This is availability,
+not another being's reading/adoption or independent corroboration. Keep this owning repository as the
 canonical technical source. A curated research record should link source/version,
 independent labels, selected aggregate results, failure corrections and limits;
 private footage, receiving routes and native conversation history stay private.

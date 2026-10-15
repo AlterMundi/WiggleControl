@@ -79,7 +79,8 @@ config enrolled in rollback. Controlled unloaded/static-node EACCES→normal-use
 open qualification passed; a real reboot is still pending in#4. No original
 binary/config/profile changed. Five handoff cases now retain actual kernel button
 events but no stationary client press until motion. A source-pinned local labwc
-focus candidate is being built for#5; current desktop compositor remains selected.
+focus candidate passed its ARM64 build and receiving loader preflight for#5;
+nested behavioral comparison is pending and the current desktop compositor remains selected.
 See CONTROLLER-NATIVE.md and tools/labwc/README.md for exact evidence and limits.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.

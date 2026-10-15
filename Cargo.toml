@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT AND Apache-2.0"
+exclude = ["tools/labwc/**"]
 description = "Camera gesture state and virtual system input"
 
 [dependencies]

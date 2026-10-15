@@ -214,3 +214,11 @@ adds re-entry before a stationary press when contacts have ended and focus is
 missing. A separate off-host workflow builds baseline and patched ARM64 binaries;
 there is no automatic desktop activation or compositor restart. Physical camera
 control and the full roadmap remain unfinished.
+
+
+The local candidate build subsequently passed as CI38716105142/source691540e.
+Baseline and patched ARM64 binaries each passed three upstream helper suites and
+receiving loader/version preflight. Exact binary hashes and scope are retained in
+[the candidate guide](../tools/labwc/README.md#candidate-readiness-2026-10-15).
+The active compositor PID and system binary hash stayed unchanged; no patched
+desktop was started. Nested behavioral comparison remains the next gate for#5.

@@ -43,3 +43,26 @@ The patch and the included labwc source/license are GPL-2.0-only, preserving
 [upstream provenance](https://github.com/labwc/labwc/tree/97f28877a343e062f3178d201f0248cd9c2610cf).
 They are not relicensed under WiggleControl's original Rust license. The local
 build helper is original project tooling; the resulting compositor is GPL.
+
+
+## Candidate readiness —2026-10-15
+
+[Build38716105142](https://github.com/AlterMundi/WiggleControl/actions/runs/38716105142)
+passed on source691540e: native ARM64/GCC14.2.0, labwc0.20.2/wlroots0.20.2.
+Baseline and patched builds each passed the three upstream suites for buffer,
+string and XML helpers. Those suites do not exercise pointer focus. The artifact
+contains source and GPL provenance plus both binaries. Baseline SHA256:
+`12f13bed09db5f0c1b27bafa323dde551a348ad65c765d1bed96d02fa00bfce0`;
+patched SHA256:
+`6b9b09872f8b32e21bdef932461f83a664b28371396b671b1f0cd5644dbf17e0`.
+
+Both were staged at a separate receiving user-local version and passed the dynamic
+loader/`--version` check with matching xwayland/nls/rsvg/libsfdo support. No compositor
+was started by preflight; the active compositor PID and system binary hash stayed
+unchanged. Next qualify the focus behavior in a bounded nested desktop, retaining
+base-versus-patch results before choosing ordinary receiving activation. No successful
+stationary handoff or human camera acceptance is claimed from these build checks.
+
+The external GPL experiment is excluded from the original Rust Cargo package.
+Retirement removes only the staged version and archive; no desktop startup or
+system binary has been changed by staging.

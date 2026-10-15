@@ -11,4 +11,4 @@ Private Barehands/ProyectoRPi AGPL code has not been copied into this runtime.
 
 The local compositor candidate under tools/labwc preserves labwc's GPL-2.0-only
 license and pinned upstream provenance. Its patch is a separate experiment;
-it is not part of the original Rust runtime's MIT/Apache-2.0 license grant.
+it is excluded from the original Rust Cargo package and its MIT/Apache-2.0 grant.

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Compare pinch metrics on retained predictions through the actual Rust controller.
 
-No inference, camera, rendering or OS input. Palm-length trials encode a unitless
-ratio as ratio*0.1 in the existing replay distance field, with correspondingly
-encoded thresholds. Those values are NOT corrected physical meters. This is an
+No inference, camera, rendering or OS input. World or optional pixel palm-length
+trials encode a unitless ratio as ratio*0.1 in the existing replay distance field,
+with correspondingly encoded thresholds. Those values are NOT corrected physical meters. This is an
 offline interpretation probe, not a production metric or threshold selection.
 """
 import argparse
@@ -47,13 +47,15 @@ def matched_geometry(reference, measured):
 def encoded_hands(row, normalized):
     hands = copy.deepcopy(row['hands'])
     if normalized:
+        if normalized is not True and normalized != 'screen':
+            raise ValueError('Unknown normalized metric')
         raw = {h['id']: h for h in row['perception']}
         for hand in hands:
-            world = raw[hand['id']]['world_landmarks']
-            palm = math.dist(world[0], world[9])
-            gap = math.dist(world[4], world[8])
+            points = raw[hand['id']]['landmarks' if normalized == 'screen' else 'world_landmarks']
+            palm = math.dist(points[0], points[9])
+            gap = math.dist(points[4], points[8])
             if not math.isfinite(palm) or palm <= 1e-6 or not math.isfinite(gap):
-                raise ValueError('Unqualified world palm/gap')
+                raise ValueError('Unqualified palm/gap')
             hand['pinch_distance_m'] = gap/palm*0.1
     return hands
 
@@ -123,7 +125,11 @@ def main():
     parser.add_argument('--geometry', type=Path,
                         help='Replacement labels for ONE result only; full geometry must match')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--screen-ratio', type=float, nargs=2, metavar=('CLOSE', 'OPEN'),
+                        help='Compare raw vs one fixed pixel-gap/pixel-palm ratio, instead of the world grid')
     args = parser.parse_args()
+    if args.screen_ratio and not (0 < args.screen_ratio[0] < args.screen_ratio[1] <= 2):
+        parser.error('Screen ratios require0<CLOSE<OPEN<=2')
     if args.geometry and len(args.results) != 1:
         parser.error('--geometry requires exactly one results file')
     inputs = [args.binary, args.settings, *args.results, *([args.geometry] if args.geometry else [])]
@@ -146,9 +152,13 @@ def main():
         for stride, offset in ((1, 0), (2, 0), (2, 1)):
             candidates = [('raw_meters', False, settings['gestures']['close_m'],
                            settings['gestures']['open_m'], original_confirm)]
-            candidates += [('palm_length_ratio', True, close*0.1, close*1.5*0.1, confirm)
-                           for close in (0.30, 0.35, 0.38, 0.40, 0.42, 0.45)
-                           for confirm in sorted({original_confirm, 80000, 120000})]
+            if args.screen_ratio:
+                candidates.append(('screen_palm_ratio', 'screen', args.screen_ratio[0]*0.1,
+                                   args.screen_ratio[1]*0.1, original_confirm))
+            else:
+                candidates += [('palm_length_ratio', True, close*0.1, close*1.5*0.1, confirm)
+                               for close in (0.30, 0.35, 0.38, 0.40, 0.42, 0.45)
+                               for confirm in sorted({original_confirm, 80000, 120000})]
             for metric, normalized, close, open_, confirm in candidates:
                 scored = score(reference, replay(args.binary.resolve(), settings, rows,
                                                 normalized, close, open_, stride, offset, confirm))

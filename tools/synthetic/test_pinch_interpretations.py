@@ -47,6 +47,25 @@ class PinchInterpretationEvidence(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unqualified'):
             encoded_hands(row, True)
 
+    def test_pixel_ratio_is_distinct_from_world_ratio_and_keeps_native_authority(self):
+        world = [[0, 0, 0] for _ in range(21)]
+        world[9], world[4] = [0, .1, 0], [.02, 0, 0]
+        pixels = [[0, 0] for _ in range(21)]
+        pixels[9], pixels[4] = [0, 100], [40, 0]
+        row = dict(hands=[dict(id=7, confidence=.91, pinch_eligible=True, pinch_distance_m=.02)],
+                   perception=[dict(id=7, world_landmarks=world, landmarks=pixels)])
+        before = copy.deepcopy(row)
+        screen = encoded_hands(row, 'screen')
+        self.assertTrue(math.isclose(screen[0]['pinch_distance_m'], .04))
+        self.assertTrue(math.isclose(encoded_hands(row, True)[0]['pinch_distance_m'], .02))
+        self.assertEqual(row, before)
+        expected = copy.deepcopy(row['hands'])
+        expected[0]['pinch_distance_m'] = screen[0]['pinch_distance_m']
+        self.assertEqual(screen, expected)
+        pixels[9] = [0,0]
+        with self.assertRaisesRegex(ValueError, 'Unqualified'):
+            encoded_hands(row, 'screen')
+
 
 if __name__ == '__main__':
     unittest.main()

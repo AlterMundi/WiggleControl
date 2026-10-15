@@ -17,6 +17,15 @@ positives. Its114ms median VPS forward cost does not justify adoption. Both
 experiments are finite and camera/device-free; receiving runtime/profile are
 preserved. Accurate interactive perception and physical acceptance remain open.
 
+The subsequent [execution/screen-space report](research/wilor-cpu-execution-2026-10.md)
+records a measured97% backbone cost and the rejected interactive CPU selection:
+dynamic-int8 blocks keep eight selected distinctions but still take2.89s/frame.
+Pixel-ratio replay is also unadopted: new left-position pinch coverage remains9/9
+at20Hz but falls5/5→4/5 at10Hz phase0. A naive eligibility guard cancels every
+useful pinch; keep open-before-press semantics. Actual new yawed-V/left-pinch
+geometry/render/controller results, observation failure and finite recovery
+remain distinct. No selected runtime, calibration or human acceptance changes.
+
 Implemented in this increment: opt-in speed-adaptive Rust cursor filtering,
 2016-case analytic benchmark with explicit development/held-out seeds and a
 reproducible profile selector; camera-free temporal image replay through actual

@@ -40,6 +40,16 @@ cgroup peak are lighter, but useful pinch coverage rejects direct replacement.
 No threshold/profile/runtime change follows; accurate low-latency reconstruction
 and physical acceptance remain open.
 
+The [CPU execution and screen-space continuation](research/wilor-cpu-execution-2026-10.md)
+measures97% of WiLoR forward time in its backbone. Dynamic-int8 transformer
+blocks preserve eight selected near/far distinctions but still cost2.89s/frame
+median and5GiB load peak. A fixed pixel-gap/palm ratio removes the development
+negative but loses useful near frames; a new side-position control retains9/9
+at20Hz yet loses one of five near frames at10Hz phase0. A new yawed negative
+already passes baseline. Neither CPU optimization nor this screen interpretation
+is adopted. Reproducible stage/precision probes and fixed-config evidence remain
+available; practical accurate perception, temporal/ownership and human gates stay open.
+
 ## Outcome and today's goal
 
 Two moving hands should comfortably manipulate ordinary applications as deliberate

@@ -60,6 +60,9 @@ def main():
     parser.add_argument('--repo', type=Path, required=True)
     parser.add_argument('--assets', type=Path, required=True)
     parser.add_argument('--focal', choices=('both', 'provider_default', 'known_renderer'), default='both')
+    parser.add_argument('--execution', choices=('float32', 'dynamic_int8'), default='float32',
+                        help='Optional CPU comparison: quantize only transformer-block Linear layers')
+    parser.add_argument('--profile', action='store_true', help='Time backbone/refinement/MANO CPU calls')
     args = parser.parse_args()
     selection = load_selection(args.selection)
     revision = subprocess.check_output(['git', '-C', str(args.repo), 'rev-parse', 'HEAD'], text=True).strip()
@@ -103,11 +106,41 @@ def main():
             raise ValueError('Missing trained parameters: '+str(sorted(missing_parameters)))
         del checkpoint
         model.eval()
+        checkpoint_load_s = time.monotonic()-started
+        execution = dict(mode=args.execution, quantized_linear_layers=0)
+        if args.execution == 'dynamic_int8':
+            if 'x86' not in torch.backends.quantized.supported_engines:
+                raise ValueError('This CPU comparison requires the declared x86 quantization engine')
+            event(status='running', phase='quantizing', camera_opened=False, system_input=False)
+            torch.backends.quantized.engine = 'x86'
+            before = sum(isinstance(m, torch.nn.Linear) for m in model.backbone.blocks.modules())
+            model.backbone.blocks = torch.ao.quantization.quantize_dynamic(
+                model.backbone.blocks, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
+            converted = sum(isinstance(m, torch.ao.nn.quantized.dynamic.Linear)
+                            for m in model.backbone.blocks.modules())
+            if not before or converted != before:
+                raise ValueError('Requested transformer Linear conversion was incomplete')
+            execution.update(quantized_linear_layers=converted, engine='x86',
+                             scope='backbone.blocks Linear only; remaining model float32')
+        profile = {}
+        if args.profile:
+            def attach(name, module):
+                starts = []
+                def enter(_module, _inputs):
+                    starts.append(time.monotonic())
+                def leave(_module, _inputs, _output):
+                    profile.setdefault(name, []).append((time.monotonic()-starts.pop())*1000)
+                module.register_forward_pre_hook(enter)
+                module.register_forward_hook(leave)
+            for name in ('backbone', 'refine_net', 'mano'):
+                attach(name, getattr(model, name))
         load_s = time.monotonic()-started
         (args.output/'load.json').write_text(json.dumps(dict(source_commit=revision,
             model_manifest=manifest, selection_sha256=sha256(args.selection),
             missing_keys=loaded.missing_keys, unexpected_keys=loaded.unexpected_keys,
-            load_seconds=load_s, torch=torch.__version__, python=sys.version), indent=2)+'\n')
+            load_seconds=load_s, checkpoint_load_seconds=checkpoint_load_s,
+            execution=execution, profile=args.profile,
+            torch=torch.__version__, python=sys.version), indent=2)+'\n')
         root = args.selection.resolve().parent
         with (args.output/'raw.jsonl').open('x') as raw, torch.inference_mode():
             for index, case in enumerate(selection['cases']):
@@ -138,6 +171,7 @@ def main():
                     event(status='running', phase='inference', frame=index, total=len(selection['cases']),
                           case=case['name'], focal=focal_label)
                     tick = time.monotonic()
+                    profile.clear()
                     output = {k:v.cpu().float().numpy() for k,v in model(tensor).items()}
                     elapsed_ms = (time.monotonic()-tick)*1000
                     world = output['pred_keypoints_3d'][0]
@@ -154,6 +188,7 @@ def main():
                         crop_source=case.get('crop_source', 'independent_reference_skin_bounds'),
                         handedness_source='reference_right_hand',
                         focal=focal_label, focal_normalized=focal, processing_ms=elapsed_ms,
+                        execution=args.execution, stage_processing_ms=dict(profile),
                         image_sha256=sha256(image_path), bbox=case['bbox'], crop_transform=transform.tolist(),
                         world_landmarks=world.tolist(), landmarks=projected.tolist(),
                         gap_m=float(np.linalg.norm(world[4]-world[8])),
@@ -169,6 +204,7 @@ def main():
                           reference_skin_gap_m=row['reference_skin_gap_m'], processing_ms=elapsed_ms)
         result = dict(schema='wigglecontrol.mesh-reference-report/v1', camera_opened=False,
                       system_input=False, source_commit=revision, load_seconds=load_s,
+                      execution=execution, profile=args.profile,
                       max_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024,
                       predictions=rows, limits='Known crops/right hands, static reconstruction only; '
                       'no detector, gesture semantics, calibrated physical scale or receiving acceptance')

@@ -461,6 +461,31 @@ they are not WiLoR confidence or ownership evidence. Partial producer appends ar
 read only through complete lines and incomplete groups are rejected. This is
 conditional offline evidence, not a real-time runtime adapter or human intent.
 
+`wilor_probe.py --profile` records CPU backbone/refinement/MANO call times;
+`--execution dynamic_int8` converts only transformer-block Linear layers through
+PyTorch2.5's x86 dynamic qint8 API. Default remains float32. All original trained
+weights still load first and no quantized checkpoint is published. This is an
+optional x86 CPU execution comparison, not Pi support or live adoption. The
+[execution report](../../docs/research/wilor-cpu-execution-2026-10.md) records exact
+static output reproduction, accuracy changes and still-unsuitable latency.
+
+`project_mesh_probe.py SELECTION PRODUCER_RESULTS --evidence NEW_DIRECTORY
+--backend LABEL --ssh-host HOST --ssh-identity KEY --display-dir OWNED_WORKBENCH`
+can be started before the finite producer. It follows actual atomic progress and
+complete JSONL appends, sending the current source image and measured gap. It
+starts no inference and sends a small measured summary rather than raw mesh
+vertices on completion. Explicit finite `--timeout` defaults to600s; timeout ends
+only the observer, never proves the independently launched model stopped. Inspect
+the actual model task before any retry. New evidence directories prevent mixing
+observations. Reuse the owned receiving browser/SSH binding, not another tab.
+
+`compare_pinch_interpretations.py ... --screen-ratio CLOSE OPEN` compares raw
+meters with one fixed pixel-gap/pixel-palm interpretation instead of the default
+world-ratio/dwell grid. It preserves actual native eligibility/confidence/ID and
+open-before-press semantics. The encoded field is ratio×0.1, **not meters**;
+selected source-clock20Hz/both10Hz phases are offline only. Keep developmental
+parameter selection separate from fresh configuration/anatomy/human acceptance.
+
 ### Optional MobRecon SpiralConv comparison
 
 `mobrecon-assets.json` pins the author source/checkpoint and locally prepared

@@ -25,5 +25,17 @@
     }
   },
   "receiving_qualified": false,
-  "physical_acceptance": false
+  "physical_acceptance": false,
+  "arm64_image_benchmark": {
+    "source_commit": "340a5aadc4750212b714d0f666a09e9105eb82c7",
+    "ci_run": 38805784454,
+    "binary_sha256": "0437b914d6e193ed54e086d19c6eb079458846de21eed08fdd321e3889cb5566",
+    "cpu_cap_ghz": 1.5,
+    "matched_one_hand_near_contacts": "4/5",
+    "matched_one_hand_median_ms": 138.510276,
+    "two_hand_median_ms": 268.717968,
+    "synchronous_adoption": false,
+    "camera_opened": false,
+    "system_input": false
+  }
 }

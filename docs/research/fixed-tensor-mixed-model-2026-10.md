@@ -112,6 +112,51 @@ The TV shows actual stages, both gap estimates and explicitly retained replay;
 its owned1920×1080 page was checked with loaded imagery and no whole-page scroll.
 No camera, microphone, system input or external action was activated.
 
+## ARM64 receiving cost and a policy control
+
+Source340a5aa passed [replay/native/ARM64 CI38805784454](https://github.com/AlterMundi/WiggleControl/actions/runs/38805784454)
+under Rust1.85.1. Its source-bound ARM64 artifact was staged separately and its
+binary/model digests verified. Existing primary model digests match the VPS
+manifests. A finite image-only benchmark executed on the receiving Pi5 at its
+unchanged1.5GHz cap, without a compiler, camera, microphone, input device or
+visual pose classifier. These are processing costs, not capture-to-event latency.
+
+| Receiving source policy | One hand,21 frames: median/p95 ms | Two hands,31 frames: median/p95 ms |
+| --- | --- | --- |
+| Primary only |54.5 /132.0 |103.0 /107.1 |
+| Shared-model dual crop |103.8 /177.5 |200.4 /206.8 |
+| Mixed models |135.9 /215.0 |268.7 /275.8 |
+
+All three policies preserve31/31 two-hand detections, two stable tracks and20/20
+stable-hold contact counts in this actual10Hz paired sequence. It is a finite
+separated-pair test, not crossing or participant acceptance. The six cases take
+about26.2s in total, with observed temperature59.5–64.45°C. No power/fan setting
+was written. A later hardware probe reads PWM0 and fan0RPM; kernel cooling request
+state1 alone is not actual fan speed. This is not sustained fanless qualification.
+
+The first benchmark deliberately used the paired palm-landmark policy for both
+layouts. Its single-hand case loses the expected gain: at frame9, that policy
+accepts two reconstructions of the one synthetic hand and reports `pair_overlap`,
+resetting confirmation. The same policy failure reproduces on the VPS. A separate
+receiving control restores the VPS single-hand default (`roi`,0.8 guard), retains
+one track and reproduces4/5 near contacts; its median is138.5ms,p95214.8ms.
+Changing only the guard/policy factors on the VPS separates this from a claim
+that the model conversion itself failed on ARM. Keep the failed paired-policy
+receipt; do not silently combine single-hand and paired qualification.
+
+The synchronous mixed producer is rejected for fluent receiving selection:
+its median exceeds the100ms budget for10FPS even with one hand. Initial processing
+samples reach341/352ms, above the selected300ms freshness budget before camera
+transport is added. Do not increase freshness to conceal this cost. The staged
+candidate/configurations remain manually usable for **offline experiments only**;
+no service/autostart or new live-camera profile was installed. Selected controller,
+calibration, power and original8c569ae prepared physical trial remain preserved.
+
+Next: reduce secondary inference cost while retaining the fast primary lane,
+qualify acquisition/ownership against the new false-split/reacquisition traces,
+and compare supported acceleration/quantization or scheduled verification before
+a new live trial. No accelerated backend is claimed available or accepted here.
+
 ## Reproduce and next qualification
 
 Use an experimental copy of the existing session, retaining the calibration:
@@ -152,7 +197,7 @@ TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 OMP_NUM_THREADS=1 uv run --no-
 
 Model binaries and raw experiment evidence remain outside Git. Preserve their
 source/model terms; the independently maintained Rust runtime is unchanged.
-Receiving ARM64 image-only latency/thermal qualification is next. Broader
+The finite ARM64 image-only qualification above rejects synchronous adoption. Broader
 conflicting poses/backgrounds, release behavior, occlusion ownership, macro
 recognition and fresh human/application acceptance remain open. The original
 pending physical trial and the full modes/macros/participant roadmap remain intact.

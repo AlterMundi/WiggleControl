@@ -11,8 +11,11 @@ on the hard actual10Hz scenes, with explicit provider/gesture confidence0.5.
 All1042 primary observations/ambiguity remain exact; V/open controls stay contact-
 free and separated pairs retain41/41 stable counts each. Crossings still have
 0/13 dual near holds; same-side crossing adds five contact frames with unscored
-ownership. General adoption remains rejected. Next: receiving ARM64 image-only
-cost, conflict/release and ownership controls, then fresh human/application
+ownership. General adoption remains rejected. ARM64 CI/source-bound receiving images
+reproduce the matched-policy4/5 adverse hold, but mixed-model medians138.5ms
+one-hand/268.7ms two-hand exceed the10FPS budget at1.5GHz. The paired policy also
+false-splits that single-hand case; controls reproduce it on the VPS. Next: reduce
+secondary cost, qualify acquisition/release/ownership, then human/application
 acceptance. Selected runtime/profile, original trial and the full roadmap remain
 intact. Earlier source/analytic checkpoints below retain their dated scope.
 

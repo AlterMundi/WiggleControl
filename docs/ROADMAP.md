@@ -19,8 +19,11 @@ near frames at20Hz and17/18 on actual10Hz hard scenes, versus115/117 and12/18
 for shared-model dual crop. Primary1042-frame observations remain exact, with
 no V/open contacts. Separated pairs stay qualified on their existing synthetic
 holds; crossings still fail, adding five unscored contact frames in one layout.
-Do not adopt generally. Next: receiving cost, conflicting release/pose controls
-and ownership handling, then fresh human/application acceptance. Native macros,
+Do not adopt generally. Receiving ARM64 image-only measurement reaches138.5ms
+one-hand/268.7ms two-hand under1.5GHz, exceeding the10FPS budget. Matched-policy
+quality reproduces4/5, while the paired policy false-splits the single-hand case.
+Next: reduce secondary cost without extending freshness, qualify acquisition/
+release/ownership, then fresh human/application acceptance. Native macros,
 participants and every broader roadmap requirement below remain active. Selected
 runtime/calibration and the original prepared trial are preserved.
 

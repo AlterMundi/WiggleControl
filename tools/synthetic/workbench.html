@@ -35,7 +35,7 @@ body.single main{grid-template-columns:1fr}body.single nav label,body.single #pr
 <section><p id="finding" class="finding"></p><p class="note">Each column keeps its rig-marker gap fixed across views. Columns use different articulations.</p><p class="note">Rig joints are geometric references; skin contact and anatomical fingertip mapping remain unqualified.</p></section>
 <section><div class="legend"><span><i class="swatch rig"></i>Rig reference</span><span><i class="swatch model"></i>Model estimate</span></div><p class="note">Trace: 10 repeated inferences of the same image, cold → tracked. No corrected values are shown.</p><p id="tour-state" role="status">Inspection ready · camera and system input are not used by this view.</p><div class="progress" aria-hidden="true"><div id="progress"></div></div></section>
 </footer>
-<details><summary>Sources, raw measurements and limits</summary><p>This is a completed offline experiment, not live model processing or physical gesture acceptance. Missed detections stay visible. No correction or 45/65 mm threshold change has been deployed.</p><p>Renderer: Blender 4.5.3 / public MHR v1.0.1. Reference: declared rig-joint markers. All 33 retained frames are reachable through the view selector.</p><div id="sources"></div><p><a href="data.json">View data + source SHA-256 manifest</a> · <a href="MHR-LICENSE.txt">MHR asset license</a></p></details>
+<details><summary>Sources, raw measurements and limits</summary><p>This is a completed offline experiment, not live model processing or physical gesture acceptance. Missed detections stay visible. No correction or 45/65 mm threshold change has been deployed.</p><p>Renderer: Blender 4.5.3 / public MHR v1.0.1. Reference: declared rig-joint markers. All 33 retained frames are reachable through the view selector.</p><p><a id="current-source" href="run-results.json" hidden>Current run: exact source geometry and model measurements</a></p><div id="sources"></div><p><a href="data.json">View data + source SHA-256 manifest</a> · <a href="MHR-LICENSE.txt">MHR asset license</a></p></details>
 <p id="fatal" role="alert"></p>
 <script id="experiment-data" type="application/json">__WORKBENCH_DATA__</script>
 <script>
@@ -82,6 +82,7 @@ window.receiveRunState=state=>{
  if(state.runId&&state.runId!==runId){runId=state.runId;runSeq=-1}
  if(state.seq<=runSeq)return;runSeq=state.seq;lastRunUpdate=performance.now();runStatus=state.status;
  if(state.status==='ready')return;
+ $('current-source').hidden=state.status!=='complete';
  if(state.kind==='yaw-sweep'){
   if(state.series)yawSeries=state.series;
   $('tour').hidden=true;

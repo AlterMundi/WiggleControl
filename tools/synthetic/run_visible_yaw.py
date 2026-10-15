@@ -107,9 +107,10 @@ def main():
                     print('Retained yaw' if retained else 'Measured yaw', frame['yaw_degrees'], 'model mm', projection[-1]['gapMm'], flush=True)
             if (render is not None and render.wait(timeout=10)) or len(rows) != 9:
                 raise RuntimeError('Incomplete rendered sweep; inspect retained log')
-            (args.output / 'results.json').write_text(json.dumps({'schema': 'wigglecontrol.visible-yaw/v1',
-                'camera_opened': False, 'system_input': False, 'rows': rows}, indent=2) + '\n')
-            publish(status='complete', phase='inference', iteration=10, trace=projection, **fields)
+            result = {'schema': 'wigglecontrol.visible-yaw/v1',
+                      'camera_opened': False, 'system_input': False, 'rows': rows}
+            (args.output / 'results.json').write_text(json.dumps(result, indent=2) + '\n')
+            publish(status='complete', phase='inference', iteration=10, trace=projection, result=result, **fields)
         except Exception as error:
             try:
                 publish(status='error', message=str(error))

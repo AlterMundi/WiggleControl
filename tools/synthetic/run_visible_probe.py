@@ -15,6 +15,11 @@ root=pathlib.Path(sys.argv[1])
 assert (root/'index.html').is_file()
 for line in sys.stdin:
  state=json.loads(line)
+ result=state.pop('result',None)
+ if result is not None:
+  report_temp=root/'run-results.json.pending'
+  report_temp.write_text(json.dumps(result,separators=(',',':'))+'\\n')
+  os.replace(report_temp,root/'run-results.json')
  image=state.pop('imagePayload',None)
  if image:
   name=state['image']
@@ -115,7 +120,7 @@ def main():
                       'rows': rows}
             (args.output / 'results.json').write_text(json.dumps(result, indent=2) + '\n')
             publish(status='complete', pose='near', case='yaw--1', iteration=60,
-                    trace=simplified)
+                    trace=simplified, result=result)
         except Exception as error:
             try:
                 publish(status='error', message=str(error))

@@ -38,6 +38,7 @@ struct Submission {
 #[derive(Default)]
 struct State {
     ready: bool,
+    cancelled: bool,
     closed: bool,
     eof: bool,
     error: Option<String>,
@@ -53,6 +54,7 @@ struct State {
     receipt: Option<(u64, Value)>,
 }
 struct Bridge {
+    run_id: String,
     state: Mutex<State>,
     changed: Condvar,
     assets: BTreeMap<String, PathBuf>,
@@ -61,6 +63,7 @@ struct Bridge {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Returned {
+    run_id: String,
     sequence: u64,
     hands: Vec<Landmarks>,
 }
@@ -78,8 +81,9 @@ fn reply(status: &'static str, body: Value) -> ExtensionResponse {
     }
 }
 impl Bridge {
-    fn new(assets: BTreeMap<String, PathBuf>, stale_us: u64) -> Self {
+    fn new(assets: BTreeMap<String, PathBuf>, stale_us: u64, run_id: String) -> Self {
         Self {
+            run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
             assets,
@@ -170,23 +174,39 @@ impl Extension for Bridge {
             ("GET", "/provider/config") => Ok(reply(
                 "200 OK",
                 json!({"model_sha256":MODEL,"delegate":"GPU",
-                "package_version":"1.1.1","camera_opened":false,"system_input":false}),
+                "run_id":self.run_id,"package_version":"1.1.1","camera_opened":false,"system_input":false}),
             )),
-            ("POST", "/provider/ready") => {
-                if !body.is_empty() {
+            ("POST", "/provider/ready") | ("POST", "/provider/stop") => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Run {
+                    run_id: String,
+                }
+                let run: Run = match serde_json::from_slice(body) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return Ok(reply("400 Bad Request", json!({"error":"run ID required"})))
+                    }
+                };
+                if run.run_id != self.run_id {
                     return Ok(reply(
-                        "400 Bad Request",
-                        json!({"error":"empty ready body required"}),
+                        "409 Conflict",
+                        json!({"error":"different provider run"}),
                     ));
                 }
-                self.state.lock().unwrap().ready = true;
+                if path == "/provider/ready" {
+                    self.state.lock().unwrap().ready = true;
+                } else {
+                    self.state.lock().unwrap().cancelled = true;
+                }
                 self.changed.notify_all();
-                Ok(reply("200 OK", json!({"ready":true})))
+                Ok(reply("200 OK", json!({"accepted":true})))
             }
             ("POST", "/provider/closed") => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
                 struct Closed {
+                    run_id: String,
                     acknowledged: bool,
                 }
                 let closed: Closed = match serde_json::from_slice(body) {
@@ -198,6 +218,12 @@ impl Extension for Bridge {
                         ))
                     }
                 };
+                if closed.run_id != self.run_id {
+                    return Ok(reply(
+                        "409 Conflict",
+                        json!({"error":"different provider run"}),
+                    ));
+                }
                 self.state.lock().unwrap().closed = closed.acknowledged;
                 self.changed.notify_all();
                 Ok(reply("200 OK", json!({"closed":closed.acknowledged})))
@@ -228,7 +254,7 @@ impl Extension for Bridge {
                     s.last_issued = lease.sequence;
                     s.issued += 1;
                     s.lease = Some(lease.clone());
-                    let ticket = json!({"sequence":lease.sequence,"source_us":lease.frame.source_us,
+                    let ticket = json!({"run_id":self.run_id,"sequence":lease.sequence,"source_us":lease.frame.source_us,
                         "width":640,"height":480,"capture_sequence":lease.frame.sequence});
                     Ok(ExtensionResponse {
                         status: "200 OK",
@@ -252,6 +278,12 @@ impl Extension for Bridge {
                         ))
                     }
                 };
+                if returned.run_id != self.run_id {
+                    return Ok(reply(
+                        "409 Conflict",
+                        json!({"error":"different provider run"}),
+                    ));
+                }
                 if returned.hands.len() > 2 {
                     return Ok(reply(
                         "400 Bad Request",
@@ -414,7 +446,11 @@ pub fn run(
         .find_map(|(_, p)| p.as_ref())
         .ok_or("fixture has no images")?;
     let initial_jpeg = jpeg(initial)?;
-    let bridge = Arc::new(Bridge::new(assets(asset_root)?, config.gestures().stale_us));
+    let bridge = Arc::new(Bridge::new(
+        assets(asset_root)?,
+        config.gestures().stale_us,
+        format!("{}-{}", std::process::id(), monotonic_us()?),
+    ));
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
@@ -446,6 +482,9 @@ pub fn run(
     let mut last_publish = Instant::now() - Duration::from_secs(1);
     let outcome = (|| -> Result<(), Box<dyn Error>> {
         while !stop.load(Ordering::Relaxed) {
+            if bridge.state.lock().unwrap().cancelled {
+                break;
+            }
             let mut now = monotonic_us()?;
             if bridge.state.lock().unwrap().ready && started.is_none() {
                 started = Some(Instant::now());
@@ -672,7 +711,7 @@ fn metadata(
 mod tests {
     use super::*;
     fn bridge() -> Arc<Bridge> {
-        Arc::new(Bridge::new(BTreeMap::new(), 1_000_000))
+        Arc::new(Bridge::new(BTreeMap::new(), 1_000_000, "test-1".into()))
     }
     fn publish(b: &Bridge, sequence: u32) -> u64 {
         b.publish(Frame {
@@ -692,7 +731,8 @@ mod tests {
             b.respond("GET", "/provider/frame", &[]).unwrap().status,
             "409 Conflict"
         );
-        b.respond("POST", "/provider/ready", &[]).unwrap();
+        b.respond("POST", "/provider/ready", br#"{"run_id":"test-1"}"#)
+            .unwrap();
         let first = b.respond("GET", "/provider/frame", &[]).unwrap();
         assert_eq!(first.status, "200 OK");
         let state = b.state.lock().unwrap();
@@ -710,7 +750,7 @@ mod tests {
             b.respond(
                 "POST",
                 "/provider/result",
-                br#"{"sequence":3,"source_us":1,"now_us":1,"hands":[]}"#
+                br#"{"run_id":"test-1","sequence":3,"source_us":1,"now_us":1,"hands":[]}"#
             )
             .unwrap()
             .status,
@@ -721,20 +761,29 @@ mod tests {
     #[test]
     fn result_is_tied_to_leased_frame_and_waits_for_actual_meaning_receipt() {
         let b = bridge();
-        b.respond("POST", "/provider/ready", &[]).unwrap();
+        b.respond("POST", "/provider/ready", br#"{"run_id":"test-1"}"#)
+            .unwrap();
         publish(&b, 8);
         b.respond("GET", "/provider/frame", &[]).unwrap();
         assert_eq!(
-            b.respond("POST", "/provider/result", br#"{"sequence":99,"hands":[]}"#)
-                .unwrap()
-                .status,
+            b.respond(
+                "POST",
+                "/provider/result",
+                br#"{"run_id":"test-1","sequence":99,"hands":[]}"#
+            )
+            .unwrap()
+            .status,
             "410 Gone"
         );
         assert!(b.state.lock().unwrap().submission.is_none());
         let worker = b.clone();
         let response = thread::spawn(move || {
             worker
-                .respond("POST", "/provider/result", br#"{"sequence":1,"hands":[]}"#)
+                .respond(
+                    "POST",
+                    "/provider/result",
+                    br#"{"run_id":"test-1","sequence":1,"hands":[]}"#,
+                )
                 .unwrap()
         });
         let deadline = Instant::now() + Duration::from_millis(150);
@@ -755,16 +804,21 @@ mod tests {
             1
         );
         assert_eq!(
-            b.respond("POST", "/provider/result", br#"{"sequence":1,"hands":[]}"#)
-                .unwrap()
-                .status,
+            b.respond(
+                "POST",
+                "/provider/result",
+                br#"{"run_id":"test-1","sequence":1,"hands":[]}"#
+            )
+            .unwrap()
+            .status,
             "410 Gone"
         );
     }
     #[test]
     fn expired_source_is_not_dispatched_and_close_requires_acknowledgment() {
         let b = bridge();
-        b.respond("POST", "/provider/ready", &[]).unwrap();
+        b.respond("POST", "/provider/ready", br#"{"run_id":"test-1"}"#)
+            .unwrap();
         b.publish(Frame {
             bytes: vec![],
             source_us: monotonic_us().unwrap() - 2_000_000,
@@ -781,11 +835,59 @@ mod tests {
             b.respond("POST", "/provider/closed", b"").unwrap().status,
             "400 Bad Request"
         );
-        b.respond("POST", "/provider/closed", br#"{"acknowledged":false}"#)
-            .unwrap();
+        b.respond(
+            "POST",
+            "/provider/closed",
+            br#"{"run_id":"test-1","acknowledged":false}"#,
+        )
+        .unwrap();
         assert!(!b.state.lock().unwrap().closed);
-        b.respond("POST", "/provider/closed", br#"{"acknowledged":true}"#)
-            .unwrap();
+        b.respond(
+            "POST",
+            "/provider/closed",
+            br#"{"run_id":"test-1","acknowledged":true}"#,
+        )
+        .unwrap();
         assert!(b.state.lock().unwrap().closed);
+    }
+    #[test]
+    fn an_old_browser_run_cannot_ready_cancel_close_or_complete_the_next_run() {
+        let b = bridge();
+        for route in ["/provider/ready", "/provider/stop"] {
+            assert_eq!(
+                b.respond("POST", route, br#"{"run_id":"old"}"#)
+                    .unwrap()
+                    .status,
+                "409 Conflict"
+            );
+        }
+        {
+            let state = b.state.lock().unwrap();
+            assert!(!state.ready && !state.cancelled);
+        }
+        assert_eq!(
+            b.respond(
+                "POST",
+                "/provider/closed",
+                br#"{"run_id":"old","acknowledged":true}"#
+            )
+            .unwrap()
+            .status,
+            "409 Conflict"
+        );
+        assert_eq!(
+            b.respond(
+                "POST",
+                "/provider/result",
+                br#"{"run_id":"old","sequence":1,"hands":[]}"#
+            )
+            .unwrap()
+            .status,
+            "409 Conflict"
+        );
+        {
+            let state = b.state.lock().unwrap();
+            assert!(!state.closed && state.submission.is_none());
+        }
     }
 }

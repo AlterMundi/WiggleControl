@@ -39,13 +39,18 @@ tool. Explicit receiving-local public-asset symlinks are supported; the server
 serves only the verified allowlist. Model/SDK binaries stay outside Git with their
 licenses and original manifest. The model digest also gets checked in the browser.
 
-Rust owns acquisition timestamps, dimensions and a monotonically increasing lease
-number. `/provider/frame` leases the latest published JPEG; only one is in flight.
-The client returns `{sequence,hands}` to `/provider/result`, with raw pixel/world
+Rust owns acquisition timestamps, dimensions, a per-process monotonic run ID and
+a monotonically increasing lease number. `/provider/frame` leases the latest
+published JPEG; only one is in flight. The client returns `{run_id,sequence,hands}`
+to `/provider/result`, with raw pixel/world
 points and a separate handedness score. It cannot submit a replacement source or
 evaluation timestamp. Result acceptance consumes the exact lease once and waits
 for the actual meaning receipt. Old leases expire; the source continues replacing
 its latest slot, and skipped/expired/processed counts remain separate.
+Provider readiness, cleanup Stop and model-close acknowledgment also carry the
+run ID. An old browser instance cannot complete a similarly numbered frame or
+cancel/close a later run on the reused loopback port. This is data association,
+not a replacement for the existing host/origin contract.
 
 The main loop ticks tracking/meaning independently of worker execution. Mode,
 hand selection and resume use existing control-time fences, so a pre-control

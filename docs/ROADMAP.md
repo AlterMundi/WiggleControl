@@ -12,7 +12,14 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
-Latest [raw provider/worker connection](research/provider-worker-2026-10.md)
+Current [real-clock transport](PROVIDER-TRANSPORT.md) implements a finite encoded-
+frame→GPU-worker→Rust fixture with host-owned run/frame leases, latest-slot
+coalescing, independent meaning ticks and timestamped release/expiry receipts.
+It reuses the existing feedback/Stop/mode server. Source protocol/preview tests
+pass; same-host ARM64 model/transport timing and skipped-frame quality still need
+actual execution before receiving selection. No camera or OS input is opened.
+
+Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing
 meaning, retaining4/5 adverse near holds and20/20 separated-pair stable counts
 without native IDs/quality/cursor. Actual classic-worker GPU processing on Pi is

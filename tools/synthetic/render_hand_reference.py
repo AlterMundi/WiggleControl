@@ -34,6 +34,10 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--closure', type=float, default=0.0,
                         help='0..1 interpolation toward a research-only near-finger pose')
+    parser.add_argument('--gesture', choices=['pinch', 'victory'], default='pinch',
+                        help='Explicit research articulation; victory requires a single-hand closing sequence')
+    parser.add_argument('--finger-spread', type=float, default=1.0,
+                        help='0..1 research V spread;0 retains the earlier parallel-finger diagnostic')
     parser.add_argument('--yaw-steps', type=int, default=0,
                         help='Optional 3..31 equally spaced yaw views from -35 to +35 degrees')
     parser.add_argument('--hand-only', action='store_true',
@@ -82,6 +86,10 @@ def main():
         parser.error('--pair-depth-offset requires a paired sequence')
     if args.closing_view != 'reference' and not args.closing_steps:
         parser.error('--closing-view requires --closing-steps')
+    if args.gesture != 'pinch' and (not args.closing_steps or args.pair_closing):
+        parser.error('--gesture victory requires single-hand --closing-steps')
+    if not 0 <= args.finger_spread <= 1 or (args.finger_spread != 1 and args.gesture != 'victory'):
+        parser.error('--finger-spread requires0..1 and --gesture victory')
     if args.skin_check:
         from skin_clearance import distal_skin_clearance
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
@@ -134,27 +142,55 @@ def main():
     limits = {'r_index1': [0, 1.0], 'r_index2': [0, 1.2], 'r_index3': [0, 1.0],
               'r_thumb0': [-1.0, 1.0], 'r_thumb1': [-0.5, 0.5],
               'r_thumb2': [0, 1.0], 'r_thumb3': [0, 1.0]}
+    if args.gesture == 'victory':
+        # A separate, explicitly unqualified macro pose. Keep index/middle
+        # extended, flex ring/pinky toward the palm and fold the thumb.
+        parameters.update(r_index1=0.0, r_index2=0.0, r_index3=0.0,
+                          r_middle1=0.0, r_thumb2=0.8, r_thumb3=0.3)
+        limits['r_middle1'] = [0, 1.0]
+        for finger in ('ring', 'pinky'):
+            for joint, angle in enumerate((0.85, 1.2, 0.9), 1):
+                parameters[f'r_{finger}{joint}'] = angle
+                limits[f'r_{finger}{joint}'] = [0, (1.0, 1.2, 1.0)[joint-1]]
     if any(not limits[n][0] <= value <= limits[n][1] for n, value in parameters.items()):
         raise ValueError('Forward pose exceeds the retained recipe bounds')
     index_rest = {n: rig.pose.bones[n].head.copy()
                   for n in ('r_index2', 'r_index3', 'r_index_null')}
+    flex_rest = {n: rig.pose.bones[n].head.copy() for n in names
+                 if any(n.startswith('r_'+finger) for finger in ('index', 'middle', 'ring', 'pinky'))
+                 and not n.endswith('1')}
     normal_local = (rig.matrix_world.to_3x3().inverted() @ normal).normalized()
     unit_scale = rig.matrix_world.to_scale().x
     children = {'r_index1': 'r_index2', 'r_index2': 'r_index3',
                 'r_index3': 'r_index_null', 'r_thumb2': 'r_thumb3',
                 'r_thumb3': 'r_thumb_null'}
+    for finger in ('index', 'middle', 'ring', 'pinky'):
+        children.update({f'r_{finger}{joint}': f'r_{finger}{joint+1}' if joint < 3
+                         else f'r_{finger}_null' for joint in (1, 2, 3)})
     axes = {}
     for name in parameters:
         axis = ((point(children[name])-point(name)).cross(normal).normalized()
                 if name in children else normal)
         axes[name] = (rig.data.bones[name].matrix_local.to_3x3().inverted() @
                       (rig.matrix_world.to_3x3().inverted() @ axis)).normalized()
-    for name, angle in parameters.items():
-        bone = rig.pose.bones[name]
-        bone.rotation_mode = 'QUATERNION'
-        bone.rotation_quaternion = Quaternion(axes[name], angle * args.closure)
+    abduction = {'r_index1': -0.20*args.finger_spread,
+                 'r_middle1': 0.15*args.finger_spread} if args.gesture == 'victory' else {}
+    abduction_axes = {n: (rig.data.bones[n].matrix_local.to_3x3().inverted() @
+                         (rig.matrix_world.to_3x3().inverted() @ normal)).normalized()
+                      for n in abduction}
+    def articulate(hand_rig, value):
+        for name, angle in parameters.items():
+            bone = hand_rig.pose.bones[name]
+            bone.rotation_mode = 'QUATERNION'
+            rotation = Quaternion(axes[name], angle * value)
+            if name in abduction:
+                rotation = Quaternion(abduction_axes[name], abduction[name]*value) @ rotation
+            bone.rotation_quaternion = rotation
+    articulate(rig, args.closure)
     bpy.context.view_layer.update()
     forward_flexion(index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
+    if args.gesture != 'pinch':
+        forward_flexion(flex_rest, {n: rig.pose.bones[n].head for n in flex_rest}, normal_local, unit_scale)
     camera_data = bpy.data.cameras.new('CalibrationCamera')
     camera = bpy.data.objects.new('CalibrationCamera', camera_data)
     scene.collection.objects.link(camera)
@@ -263,12 +299,10 @@ def main():
                 closure *= max(0.0, min(1.0, (phase - 0.15) / 0.1, (0.75 - phase) / 0.1))
                 second_closure = args.closure * max(0.0, min(1.0, (phase - 0.35) / 0.1,
                                                            (0.90 - phase) / 0.1))
-                for bone, angle in parameters.items():
-                    second_rig.pose.bones[bone].rotation_quaternion = Quaternion(axes[bone], angle * second_closure)
+                articulate(second_rig, second_closure)
             else:
                 closure *= max(0.0, min(1.0, (phase - 0.2) / 0.2, (0.8 - phase) / 0.2))
-            for bone, angle in parameters.items():
-                rig.pose.bones[bone].rotation_quaternion = Quaternion(axes[bone], angle * closure)
+            articulate(rig, closure)
 
         if args.pair_motion:
             phase = index / (args.motion_steps - 1)
@@ -302,6 +336,9 @@ def main():
             labels[-1]['view_case'] = args.closing_view
         labels[-1]['index_forward_displacement_m'] = forward_flexion(
             index_rest, {n: rig.pose.bones[n].head for n in index_rest}, normal_local, unit_scale)
+        if args.gesture != 'pinch':
+            labels[-1]['finger_forward_displacement_m'] = forward_flexion(
+                flex_rest, {n: rig.pose.bones[n].head for n in flex_rest}, normal_local, unit_scale)
         if args.skin_check:
             labels[-1]['distal_skin'] = distal_skin_clearance(mesh, bpy.context.evaluated_depsgraph_get())
         if args.hand_only and not paired:
@@ -389,7 +426,10 @@ def main():
               'pair_depth_offset_m': args.pair_depth_offset if paired else None,
               'applied_joint_angles_rad': {n: v * closure for n, v in parameters.items()},
               'target_joint_angles_rad': {n: v * args.closure for n, v in parameters.items()},
-              'pose_recipe': 'forward-flex-v2', 'joint_recipe_bounds_rad': limits,
+              'pose_recipe': 'forward-flex-v2' if args.gesture == 'pinch' else
+                             'forward-victory-v2' if args.finger_spread else 'forward-victory-v1',
+              'gesture_recipe': args.gesture, 'joint_recipe_bounds_rad': limits,
+              'macro_abduction_target_rad': abduction,
               'pose_qualification': 'Forward branch checked; selected distal skin clearance is separate from joint-limit, whole-hand collision and human acceptance',
               'camera_opened': False, 'rig_marker_gap_invariant_tolerance_m': None if args.closing_steps else 1e-6}
     (args.output/'labels.json').write_text(json.dumps(report, indent=2)+'\n')

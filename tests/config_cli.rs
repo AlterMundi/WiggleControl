@@ -118,6 +118,33 @@ fn controller_preflight_rejects_divergent_settings_without_acquiring_any_receivi
     assert_eq!(report["valid"], true);
     assert_eq!(report["camera_opened"], false);
     assert_eq!(report["system_input"], false);
+    let visual = serde_json::json!({"macros":{
+        "hold_us":500000,"neutral_us":200000,"cooldown_us":1000000,"stale_us":150000,
+        "bindings":[{"pose":"victory","action":"toggle_precision"}]},
+        "visual_macros":{"model":"/fictional/unavailable-pose-model.onnx","neutral_pose":"open_palm"}});
+    fs::write(&modes, visual.to_string()).unwrap();
+    let enabled = check();
+    assert!(
+        enabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enabled.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&enabled.stdout).unwrap();
+    assert_eq!(report["visual_macros"], true);
+    assert_eq!(report["neutral_pose"], "open_palm");
+    assert!(report.get("model").is_none());
+    for failure in 0..3 {
+        let mut invalid = visual.clone();
+        match failure {
+            0 => invalid["visual_macros"]["neutral_pose"] = "victory".into(),
+            1 => invalid["visual_macros"]["min_confidence"] = 0.79.into(),
+            _ => {
+                invalid.as_object_mut().unwrap().remove("macros");
+            }
+        }
+        fs::write(&modes, invalid.to_string()).unwrap();
+        assert!(!check().status.success());
+    }
     fs::write(&modes, r#"{"gestures":{"close_m":0.045,"open_m":0.065}}"#).unwrap();
     let result = check();
     assert!(!result.status.success());

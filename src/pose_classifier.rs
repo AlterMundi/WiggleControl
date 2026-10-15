@@ -28,6 +28,75 @@ pub struct Prediction {
     pub confidence: f32,
     pub probabilities: [f32; 8],
 }
+impl Prediction {
+    pub fn pose(&self) -> Option<crate::macros::Pose> {
+        use crate::macros::Pose;
+        match self.category {
+            "Closed_Fist" => Some(Pose::ClosedFist),
+            "Open_Palm" => Some(Pose::OpenPalm),
+            "Pointing_Up" => Some(Pose::PointingUp),
+            "Thumb_Down" => Some(Pose::ThumbsDown),
+            "Thumb_Up" => Some(Pose::ThumbsUp),
+            "Victory" => Some(Pose::Victory),
+            _ => None, // Unknown and unsupported ILoveYou are not neutral.
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct VisualState {
+    pub hand_id: u64,
+    pub prediction: Prediction,
+    pub pose_evidence_available: bool,
+}
+
+/// Shared native/offline adapter: same ownership, preprocessing and policy.
+pub struct VisualClassifier {
+    classifier: Classifier,
+    policy: crate::macros::VisualPolicy,
+}
+impl VisualClassifier {
+    pub fn configured(
+        controller: &crate::controller::Controller,
+    ) -> Result<Option<Self>, Box<dyn Error>> {
+        controller
+            .visual_policy()
+            .map(|policy| {
+                Ok(Self {
+                    classifier: Classifier::new(Path::new(&policy.model))?,
+                    policy: policy.clone(),
+                })
+            })
+            .transpose()
+    }
+    pub fn classify(
+        &mut self,
+        controller: &crate::controller::Controller,
+        observation: &crate::touch_gestures::Frame,
+        detected: &[crate::vision::DetectedHand],
+        width: u32,
+        height: u32,
+    ) -> Result<(Option<crate::macros::HandPose>, Option<VisualState>), Box<dyn Error>> {
+        let Some(hand) = controller
+            .macro_hand(observation)
+            .and_then(|id| detected.iter().find(|h| h.id == id))
+        else {
+            return Ok((None, None));
+        };
+        let prediction = self.classifier.predict_hand(hand, width, height)?;
+        let evidence = self.policy.evidence(
+            hand.id,
+            f64::from(prediction.confidence).min(hand.confidence),
+            prediction.pose(),
+        );
+        let state = VisualState {
+            hand_id: hand.id,
+            pose_evidence_available: evidence.is_some(),
+            prediction,
+        };
+        Ok((evidence, Some(state)))
+    }
+}
 
 /// Image XYZ in the provider's original, unmirrored normalized coordinates.
 /// Unknown classes are predictions, never positively observed neutral evidence.

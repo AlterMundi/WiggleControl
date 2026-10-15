@@ -11,6 +11,7 @@ jobs:
       - run: node tests/preview_timer.cjs
       - run: node tests/preview_recovery.cjs
       - run: python3 tools/synthetic/test_pair_closure.py
+      - run: python3 tools/synthetic/test_visible_motion.py
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings

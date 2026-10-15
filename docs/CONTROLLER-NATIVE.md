@@ -39,9 +39,61 @@ and recording rules before acquiring a camera. No command starts at boot.
 
 This version uses relative mouse movement/precision and the explicit direct-touch
 workspace. It does not adopt or rewrite a saved absolute pointer calibration.
-Prayer/guided calibration retain their separate existing workflow. Visual macro
-classification is not connected in this path (`visual_macros:false`); no gesture
-can start an idle camera.
+Prayer/guided calibration retain their separate existing workflow. Visual macros
+are optional and disabled when `visual_macros` is absent/null in mode settings.
+No gesture can start an idle camera.
+
+## Optional visual macros
+
+The source now connects the [reproduced pose backend](research/gesture-classifier-2026-10.md)
+to the same controller/ownership path used by camera-free `controller-sequence`.
+This is an experimental connection, not accepted recognition or physical usability;
+[the integration report](research/native-visual-macros-2026-10.md) retains both failed
+macro sequences and an important separated-fingertip contact counterexample.
+
+Enable only in an explicit candidate settings copy:
+
+```json
+"visual_macros": {
+  "model": "models/gesture_classifier.onnx",
+  "neutral_pose": "open_palm",
+  "min_confidence": 0.8
+}
+```
+
+Configured macro bindings are required. The neutral pose cannot also have an
+action binding; confidence must be0.8..1. Config checks validate this without
+loading the model, probing resources or acquiring a camera. Their `visual_macros`
+flag reports configuration selection, not recognition success. Native startup
+loads the optional model before camera/writer acquisition; missing/bad assets
+fail there. Retain the source-bound model manifest and qualified ONNX runtime.
+Relative paths follow the process working directory, like other session paths.
+
+Unknown/unsupported/low-scoring poses remain missing evidence. A recognized
+neutral must also be a confident, eligible, open input hand. Pending pinches,
+held buttons/contacts and eligible hands that are not open suppress macro holds.
+Classifier confidence cannot upgrade the observed hand. One-hand modes use the
+actual sticky/claimed primary; two-contact mode keeps a visible macro owner
+independent of detector array order. Its one-hand claim is inactive, matching
+the disabled selector. Missing/replaced/ambiguous ownership requires new neutral.
+
+The preview reports real observed hold/neutral progress, cooldown, cancellation
+and a two-second historical action receipt. A receipt retains the action's actual
+resulting mode/running state, so a later manual control does not rewrite history.
+It is separate from the current frame's action and cannot repeat delivery. Stale
+feedback clears displayed progress. Unsupported external actions say unavailable;
+handled local mode/pause actions are not application/OS delivery receipts.
+Pause still needs explicit Start/Resume; an idle camera never runs a classifier.
+
+```sh
+wigglecontrol controller-sequence SEQUENCE.json SESSION.json SETTINGS.json
+```
+
+This finite file path uses the same classifier, selection, neutral policy and
+controller, with explicit `offline_now_equals_source`. It reports local semantics
+and opens no sensor or virtual device. Concatenated unrelated stills are not
+continuous-hand recognition evidence. Real camera trials retain the existing
+fresh human-ready and recording requirements.
 
 ## Visible operation
 
@@ -142,6 +194,9 @@ contains a tar archive preserving executable mode, LICENSE/NOTICE and a manifest
 with source commit, compiler, architecture, feature selection and binary SHA256.
 It contains no model, inference runtime, camera recording or receiving config.
 Artifacts expire after14days; the maintained workflow can build another commit.
+When staging a pose model beside a CI artifact, keep CI `manifest.json` separate
+from the converter's manifest (for example `gesture-model-manifest.json`); do not
+overwrite them by copying two files with the same basename.
 
 A candidate build is not an installation or receiving qualification. Before use,
 verify the run's source commit and manifest hash, compare the target's libc with

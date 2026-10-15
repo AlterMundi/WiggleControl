@@ -608,9 +608,13 @@ mod tests {
             String::from_utf8_lossy(&request(preview.port, "POST /stop", true))
                 .starts_with("HTTP/1.1 200")
         );
-        let port = preview.port;
+        let owned_slot = preview.slot.clone();
         drop(preview);
-        assert!(TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port)).is_err());
+        assert!(stop.load(Ordering::Relaxed));
+        assert!(owned_slot.lock().unwrap().is_none());
+        // Other parallel previews may reuse a released ephemeral port. Verify
+        // this preview's worker/owner clones are gone, not global port ownership.
+        assert_eq!(Arc::strong_count(&owned_slot), 1);
     }
     #[test]
     fn controller_controls_require_enabled_same_origin_and_one_pending_command() {

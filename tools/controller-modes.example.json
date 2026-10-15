@@ -2,6 +2,7 @@
   "version": 1,
   "initial_mode": "pointer",
   "precision_gain": 0.25,
+  "visual_macros": null,
   "gestures": {
     "close_m": 0.045,
     "open_m": 0.065,

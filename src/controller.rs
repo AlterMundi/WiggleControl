@@ -34,6 +34,7 @@ pub struct Settings {
     pub gestures: Config,
     pub workspace: touch_gestures::Workspace,
     pub macros: Option<macros::Config>,
+    pub visual_macros: Option<macros::VisualPolicy>,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -53,6 +54,7 @@ impl Default for Settings {
             gestures: Config::default(),
             workspace: Default::default(),
             macros: None,
+            visual_macros: None,
         }
     }
 }
@@ -61,6 +63,14 @@ pub struct ActionResult {
     pub action: macros::Action,
     /// Applied inside this semantic controller, never proof of an OS effect.
     pub handled: bool,
+}
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct MacroReceipt {
+    pub action: macros::Action,
+    pub handled: bool,
+    pub source_us: u64,
+    pub mode: Mode,
+    pub running: bool,
 }
 #[derive(Debug, Serialize)]
 pub struct Output {
@@ -80,6 +90,9 @@ pub struct Output {
     pub contacts: Vec<Contact>,
     pub awaiting_open_hands: Vec<u64>,
     pub action: Option<ActionResult>,
+    pub macro_feedback: Option<macros::Feedback>,
+    /// Bounded historical receipt, separate from this frame's action/output.
+    pub last_macro_action: Option<MacroReceipt>,
 }
 pub struct Controller {
     mode: Mode,
@@ -89,6 +102,8 @@ pub struct Controller {
     pointer: Engine,
     touches: touch_gestures::Gestures,
     macros: Option<macros::Engine>,
+    visual_policy: Option<macros::VisualPolicy>,
+    last_macro_action: Option<MacroReceipt>,
     claimed: Option<u64>,
     primary: Option<u64>,
     pointer_ready: bool,
@@ -104,6 +119,9 @@ impl Controller {
         {
             return Err("invalid controller version or precision gain");
         }
+        if let Some(policy) = &settings.visual_macros {
+            policy.validate(settings.macros.as_ref())?;
+        }
         Ok(Self {
             mode: settings.initial_mode,
             running: false,
@@ -112,6 +130,8 @@ impl Controller {
             pointer: Engine::new(settings.gestures)?,
             touches: touch_gestures::Gestures::new(settings.gestures, settings.workspace)?,
             macros: settings.macros.map(macros::Engine::new).transpose()?,
+            visual_policy: settings.visual_macros,
+            last_macro_action: None,
             claimed: None,
             primary: None,
             pointer_ready: false,
@@ -137,7 +157,42 @@ impl Controller {
             contacts: self.contacts.clone(),
             awaiting_open_hands: self.touches.awaiting_open_hands(),
             action: None,
+            macro_feedback: self.macros.as_ref().map(macros::Engine::feedback),
+            last_macro_action: self.last_macro_action.filter(|r| {
+                self.last_now
+                    .is_some_and(|now| r.source_us <= now && now - r.source_us < 2_000_000)
+            }),
         }
+    }
+    pub fn visual_policy(&self) -> Option<&macros::VisualPolicy> {
+        self.visual_policy.as_ref()
+    }
+    fn selected_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
+        if self.mode == Mode::TwoContacts {
+            None
+        } else {
+            self.claimed
+                .or(self
+                    .primary
+                    .filter(|id| frame.hands.iter().any(|h| h.id == *id)))
+                .or_else(|| frame.hands.iter().map(|h| h.id).min())
+        }
+    }
+    /// The classifier follows existing controller ownership, never detector order.
+    pub fn macro_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
+        if !self.running || frame.ambiguous {
+            return None;
+        }
+        if self.mode != Mode::TwoContacts {
+            return self.selected_hand(frame);
+        }
+        // The one-hand claim is inactive in two-contact mode, like its disabled
+        // UI selector. Do not strand macros on a hidden prior one-hand claim.
+        self.macros
+            .as_ref()
+            .and_then(macros::Engine::owner_hand)
+            .filter(|id| frame.hands.iter().any(|h| h.id == *id))
+            .or_else(|| frame.hands.iter().map(|h| h.id).min())
     }
     fn neutralize(&mut self, reason: &'static str) -> Output {
         let events = self.pointer.stop();
@@ -316,15 +371,7 @@ impl Controller {
             released.mouse.splice(0..0, tick.mouse);
             return released;
         }
-        let selected = if self.mode == Mode::TwoContacts {
-            None
-        } else {
-            self.claimed
-                .or(self
-                    .primary
-                    .filter(|id| frame.hands.iter().any(|h| h.id == *id)))
-                .or_else(|| frame.hands.iter().map(|h| h.id).min())
-        };
+        let selected = self.selected_hand(&frame);
         let mut mouse = tick.mouse;
         if selected != self.primary {
             self.pointer_ready = false;
@@ -391,14 +438,28 @@ impl Controller {
                     && !self.open(h)
             });
         // A classifier cannot claim a different/missing hand or override observed confidence.
+        let macro_hand = self.macro_hand(&frame);
         let pose = pose.and_then(|mut p| {
             if !p.confidence.is_finite() {
                 return None;
             }
-            let observed = frame.hands.iter().find(|h| {
-                h.id == p.id && (self.mode == Mode::TwoContacts || Some(h.id) == selected)
-            })?;
+            let observed = frame
+                .hands
+                .iter()
+                .find(|h| h.id == p.id && Some(h.id) == macro_hand)?;
+            // A recognized neutral class must also be positively open for input.
+            // Fist/ineligible/out-of-view evidence cannot silently rearm macros.
+            if p.pose.is_none() && !self.open(observed) {
+                return None;
+            }
             p.confidence = p.confidence.min(observed.confidence);
+            if self
+                .visual_policy
+                .as_ref()
+                .is_some_and(|policy| p.confidence < policy.min_confidence)
+            {
+                return None;
+            }
             Some(p)
         });
         let action = self.macros.as_mut().and_then(|macros| {
@@ -414,7 +475,16 @@ impl Controller {
             )
         });
         if let Some(action) = action {
-            let output = self.action(action);
+            let mut output = self.action(action);
+            let receipt = MacroReceipt {
+                action,
+                handled: output.action.as_ref().is_some_and(|a| a.handled),
+                source_us: frame.source_us,
+                mode: output.mode,
+                running: output.running,
+            };
+            self.last_macro_action = Some(receipt);
+            output.last_macro_action = Some(receipt);
             if output.action.as_ref().is_some_and(|a| a.handled) {
                 return output;
             }
@@ -424,6 +494,7 @@ impl Controller {
                 action,
                 handled: false,
             });
+            output.last_macro_action = Some(receipt);
             return output;
         }
         let mut output = self.output(mouse, tick.transition);

@@ -432,3 +432,146 @@ fn queued_open_frame_from_before_manual_mode_change_cannot_rearm_a_closed_hand()
         1
     );
 }
+
+#[test]
+fn visual_unknown_low_score_or_ineligible_neutral_cannot_arm_a_macro() {
+    let policy = macros::VisualPolicy {
+        model: "/fictional/model.onnx".into(),
+        neutral_pose: macros::Pose::OpenPalm,
+        min_confidence: 0.8,
+    };
+    for fault in 0..3 {
+        let mut c = macros_controller(Mode::Pointer);
+        for i in 0..15 {
+            let t = 1 + i * 50_000;
+            let mut h = hand(7, false, 0.5, 0.5);
+            let neutral = i < 3;
+            let evidence = if neutral {
+                match fault {
+                    0 => policy.evidence(7, 0.99, None),
+                    1 => policy.evidence(7, 0.79, Some(macros::Pose::OpenPalm)),
+                    _ => {
+                        h.engaged = false;
+                        h.pinch_eligible = false;
+                        policy.evidence(7, 0.99, Some(macros::Pose::OpenPalm))
+                    }
+                }
+            } else {
+                policy.evidence(7, 0.99, Some(macros::Pose::Victory))
+            };
+            let o = c.observe(t, frame(t, vec![h]), evidence);
+            assert!(o.action.is_none(), "fault{fault}/{i}");
+            assert!(!o.macro_feedback.unwrap().armed);
+        }
+    }
+}
+
+#[test]
+fn macro_progress_uses_observations_and_receipt_does_not_repeat_the_action() {
+    let mut c = macros_controller(Mode::Pointer);
+    for i in 0..3 {
+        let t = 1 + i * 50_000;
+        c.observe(
+            t,
+            frame(t, vec![hand(7, false, 0.5, 0.5)]),
+            Some(macros::HandPose {
+                id: 7,
+                confidence: 0.99,
+                pose: None,
+            }),
+        );
+    }
+    let mut fired = 0;
+    let mut action_source = 0;
+    for i in 3..49 {
+        let t = 1 + i * 50_000;
+        let o = c.observe(
+            t,
+            frame(t, vec![hand(7, false, 0.5, 0.5)]),
+            Some(macros::HandPose {
+                id: 7,
+                confidence: 0.99,
+                pose: Some(macros::Pose::Victory),
+            }),
+        );
+        if i == 4 {
+            assert_eq!(o.macro_feedback.unwrap().hold_elapsed_us, 50_000);
+            assert_eq!(
+                c.tick(t + 25_000).macro_feedback.unwrap().hold_elapsed_us,
+                50_000
+            );
+        }
+        if o.action.is_some() {
+            fired += 1;
+            action_source = t;
+            assert!(o.transition);
+        } else if fired > 0 {
+            assert!(!o.transition);
+        }
+        if fired > 0 {
+            assert_eq!(o.mode, Mode::Precision);
+            if t - action_source < 2_000_000 {
+                let receipt = o.last_macro_action.unwrap();
+                assert_eq!(receipt.action, macros::Action::TogglePrecision);
+                assert_eq!(receipt.source_us, action_source);
+                assert!(receipt.handled);
+            } else {
+                assert!(o.last_macro_action.is_none());
+            }
+        }
+    }
+    assert_eq!(fired, 1);
+}
+
+#[test]
+fn macro_owner_survives_array_order_but_a_new_hand_must_rearm() {
+    for replacement in [false, true] {
+        let mut c = macros_controller(Mode::TwoContacts);
+        let mut fired = 0;
+        for i in 0..14 {
+            let t = 1 + i * 50_000;
+            let mut hands = if replacement && i >= 5 {
+                vec![hand(7, false, 0.3, 0.5)]
+            } else if i >= 5 {
+                vec![hand(7, false, 0.3, 0.5), hand(9, false, 0.7, 0.5)]
+            } else {
+                vec![hand(9, false, 0.7, 0.5)]
+            };
+            if i % 2 == 0 {
+                hands.reverse();
+            }
+            let f = frame(t, hands);
+            let id = c.macro_hand(&f).unwrap();
+            if fired == 0 || replacement {
+                assert_eq!(id, if replacement && i >= 5 { 7 } else { 9 });
+            }
+            let o = c.observe(
+                t,
+                f,
+                Some(macros::HandPose {
+                    id,
+                    confidence: 0.99,
+                    pose: if i < 3 {
+                        None
+                    } else {
+                        Some(macros::Pose::Victory)
+                    },
+                }),
+            );
+            fired += usize::from(o.action.is_some());
+        }
+        assert_eq!(fired, if replacement { 0 } else { 1 });
+    }
+}
+
+#[test]
+fn one_hand_claim_cannot_strand_two_contact_macro_selection() {
+    let mut c = macros_controller(Mode::Pointer);
+    c.select_hand(Some(99));
+    let f = frame(1, vec![hand(7, false, 0.3, 0.5), hand(9, false, 0.7, 0.5)]);
+    assert_eq!(c.macro_hand(&f), Some(99));
+    c.set_mode(Mode::TwoContacts);
+    assert_eq!(c.macro_hand(&f), Some(7));
+    c.set_mode(Mode::Pointer);
+    assert_eq!(c.macro_hand(&f), Some(99));
+}

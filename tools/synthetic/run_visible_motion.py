@@ -33,6 +33,8 @@ def frame_projection(reference, row):
                   if 'pose_prediction' in h]
     if classified:
         result['pose_predictions'] = classified
+    if 'controller' in row:
+        result['controller'] = row['controller']
     return result
 
 
@@ -52,6 +54,8 @@ def main():
     p.add_argument('--model-sha256')
     p.add_argument('--gesture-model', type=Path,
                    help='Optional exported pose model over native landmarks; no macro actions')
+    p.add_argument('--controller-settings', type=Path,
+                   help='Use the full native controller-sequence path; no device/action adapter')
     p.add_argument('--rediscovery', type=int, default=5,
                    help='Controlled native missing-hand detector interval in frames, default5')
     p.add_argument('--pair-separation', type=float,
@@ -63,6 +67,9 @@ def main():
         p.error('--mediapipe-model requires --model-sha256')
     if args.gesture_model and args.mediapipe_model:
         p.error('--gesture-model requires native inference')
+    if args.controller_settings and (args.mediapipe_model or args.gesture_model or
+                                    args.rediscovery != 5 or args.pair_separation is not None):
+        p.error('--controller-settings uses its own configured model and session perception')
     if not 1 <= args.rediscovery <= 30 or (args.mediapipe_model and args.rediscovery != 5):
         p.error('--rediscovery must be1..30 and is a native-only option')
     if args.pair_separation is not None and (not 0.8 <= args.pair_separation <= 2 or args.mediapipe_model):
@@ -75,6 +82,10 @@ def main():
            '-o', 'ServerAliveCountMax=2', '-i', str(args.ssh_identity), args.ssh_host, command]
     run_id, seq, last_image = uuid.uuid4().hex, 0, None
     rows = []
+    projection_errors = []
+    def projection_failed(message):
+        projection_errors.append(message)
+        (args.output/'projection-errors.json').write_text(json.dumps(projection_errors, indent=2)+'\n')
     with (args.output/'transport.log').open('x') as log:
         sink = subprocess.Popen(ssh, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log, text=True)
         def publish(**state):
@@ -83,13 +94,20 @@ def main():
             state.update(runId=run_id, seq=seq, total=args.frames, label=args.label)
             (args.output/'progress.json').write_text(json.dumps(
                 {k: v for k, v in state.items() if k not in ('imagePayload', 'result')})+'\n')
+            if projection_errors:
+                return
             if sink.poll() is not None:
-                raise RuntimeError('Display transport exited; local evidence retained')
-            sink.stdin.write(json.dumps(state, separators=(',', ':'), allow_nan=False)+'\n')
-            sink.stdin.flush()
+                projection_failed('Display transport exited with status '+str(sink.returncode))
+                return
+            try:
+                sink.stdin.write(json.dumps(state, separators=(',', ':'), allow_nan=False)+'\n')
+                sink.stdin.flush()
+            except OSError as error:
+                projection_failed('Display write failed: '+str(error))
         def picture(path):
             return dict(image='near/'+path.name, imagePayload=base64.b64encode(path.read_bytes()).decode())
         process = None
+        result = None
         try:
             deadline = time.monotonic() + 600
             publish(status='running', phase='inference' if (args.render_dir/'sequence.json').is_file()
@@ -118,6 +136,10 @@ def main():
                     inference += ['--pair-separation', str(args.pair_separation)]
                 if args.gesture_model:
                     inference += ['--gesture-model', str(args.gesture_model.resolve())]
+                if args.controller_settings:
+                    inference = [str(args.binary.resolve()), 'controller-sequence',
+                                 str(args.render_dir/'sequence.json'), str(args.config),
+                                 str(args.controller_settings)]
                 if args.mediapipe_model:
                     inference = ['uv', 'run', '--offline', '--no-project', '--python', '3.11',
                         '--with-requirements', str(Path(__file__).with_name('mediapipe-requirements.lock')), 'python',
@@ -126,7 +148,12 @@ def main():
                         '--expected-sha256', args.model_sha256]
                 binary_digest = None if args.mediapipe_model else hashlib.sha256(args.binary.read_bytes()).hexdigest()
                 config_digest = hashlib.sha256(args.config.read_bytes()).hexdigest()
-                gesture_digest = hashlib.sha256(args.gesture_model.read_bytes()).hexdigest() if args.gesture_model else None
+                selected_gesture_model = args.gesture_model
+                if args.controller_settings:
+                    selected_policy = json.loads(args.controller_settings.read_text()).get('visual_macros')
+                    selected_gesture_model = Path(selected_policy['model']) if selected_policy else None
+                gesture_digest = hashlib.sha256(selected_gesture_model.read_bytes()).hexdigest() if selected_gesture_model else None
+                settings_digest = hashlib.sha256(args.controller_settings.read_bytes()).hexdigest() if args.controller_settings else None
                 process = subprocess.Popen(inference,
                     stdout=subprocess.PIPE, stderr=errors, text=True)
                 for line in process.stdout:
@@ -146,8 +173,10 @@ def main():
                     raise RuntimeError('Native binary changed during inference; retain a frozen artifact for comparison')
                 if hashlib.sha256(args.config.read_bytes()).hexdigest() != config_digest:
                     raise RuntimeError('Configuration changed during inference; preserve a separate experiment config')
-                if args.gesture_model and hashlib.sha256(args.gesture_model.read_bytes()).hexdigest() != gesture_digest:
+                if selected_gesture_model and hashlib.sha256(selected_gesture_model.read_bytes()).hexdigest() != gesture_digest:
                     raise RuntimeError('Gesture model changed during inference')
+                if args.controller_settings and hashlib.sha256(args.controller_settings.read_bytes()).hexdigest() != settings_digest:
+                    raise RuntimeError('Controller settings changed during inference')
             result = dict(schema='wigglecontrol.visible-motion/v1', camera_opened=False, system_input=False,
                           experiment_label=args.label,
                           config_sha256=config_digest,
@@ -155,11 +184,16 @@ def main():
                           binary_sha256=binary_digest,
                           model_sha256=args.model_sha256,
                           gesture_model_sha256=gesture_digest,
+                          controller_settings_sha256=settings_digest,
+                          projection_errors=projection_errors,
+                          receiving_display_verified=False,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
                           pair_separation_widths=None if args.mediapipe_model else rows[0].get('pair_separation_widths'),
                           reference=labels, predictions=rows,
                           limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
                           if labels.get('skin_clearance_measured') else
+                          'Articulation recipe only; no qualified human intent, anatomical limits or whole-hand collision'
+                          if labels.get('articulation_sequence') else
                           'Rigid open-hand movement only; no qualified contact intent or anatomical fingertips')
             (args.output/'results.json').write_text(json.dumps(result, indent=2)+'\n')
             # Publish a small replay projection; raw predictions/reference stay in the report.
@@ -170,7 +204,11 @@ def main():
             remote = shlex.join(['python3', '-c',
                 'import pathlib,sys,os;p=pathlib.Path(sys.argv[1]);t=p.with_suffix(".pending");t.write_bytes(sys.stdin.buffer.read());os.replace(t,p)',
                 str(Path(args.display_dir)/'sequence-data.js')])
-            subprocess.run(ssh[:-1]+[remote], input=js, text=True, check=True, timeout=20)
+            if not projection_errors:
+                try:
+                    subprocess.run(ssh[:-1]+[remote], input=js, text=True, check=True, timeout=20)
+                except (subprocess.SubprocessError, OSError) as error:
+                    projection_failed('Saved replay projection failed: '+str(error))
             ids = {h['id'] for row in rows for h in row['hands'] if 'id' in h}
             publish(status='complete', phase='retained', frame=args.frames-1,
                     detectedFrames=sum(bool(r['hands']) for r in rows),
@@ -182,6 +220,7 @@ def main():
                     processingMedianMs=statistics.median(r['processing_ms'] for r in rows),
                     result=result, **frame_projection(labels['frames'][-1], rows[-1]),
                     **picture(last_image))
+            (args.output/'results.json').write_text(json.dumps(result, indent=2)+'\n')
             print('Completed sequence:', len(rows), 'frames,',
                   'stable IDs unavailable' if args.mediapipe_model else str(len(ids))+' observed IDs', flush=True)
         except Exception as error:
@@ -194,12 +233,19 @@ def main():
             if process is not None and process.poll() is None:
                 process.terminate()
                 process.wait(timeout=10)
-            sink.stdin.close()
+            try:
+                sink.stdin.close()
+            except OSError:
+                pass  # Preserve the original model/renderer error, if any.
             try:
                 sink.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 sink.terminate()
                 sink.wait(timeout=5)
+            if sink.returncode and not projection_errors:
+                projection_failed('Display transport ended with status '+str(sink.returncode))
+            if result is not None:
+                (args.output/'results.json').write_text(json.dumps(result, indent=2)+'\n')
 
 
 if __name__ == '__main__':

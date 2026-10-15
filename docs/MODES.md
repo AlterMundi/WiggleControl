@@ -10,8 +10,11 @@ patch, while other clients/locks/grabs and live hand control remain pending.
 
 An optional [trained pose backend](research/gesture-classifier-2026-10.md) now
 reuses native landmarks through a parity-checked530KiB ONNX model. Sensor-free
-image/sequence probes exist; the camera session still has no classifier→macro
-connection. Unknown is not neutral, and Open_Palm does not establish pinch
+image/sequence probes and an opt-in native classifier→macro connection now exist.
+[Its integration evidence](research/native-visual-macros-2026-10.md) does not yet
+qualify timed recognition: neutral/action poses have view-dependent failures,
+including contact output on a separated-fingertip macro reference.
+Unknown is not neutral, and Open_Palm does not establish pinch
 openness. Four tutorial inputs and164 synthetic frames do not qualify physical
 macro comfort or false-action rates.
 
@@ -112,8 +115,13 @@ mode cycle, media play/pause, volume steps, launcher, calibration and local paus
 They are never arbitrary command strings. `pause_controller` means this local
 controller; no coordinated global Stop action exists in the vocabulary.
 
-Remaining work: extend the reproduced classifier comparison to independently labelled sequences;
-show candidate/hold/action progress in the native view; qualify native controller/session delivery on the receiver; connect selected
+Source now exposes observed candidate/neutral/hold/cooldown feedback and bounded
+historical local-action receipts. Visual configuration, ownership and positive
+open-neutral validation are detailed in [CONTROLLER-NATIVE.md](CONTROLLER-NATIVE.md).
+The examples leave visual classification disabled by default.
+
+Remaining work: qualify neutral/action recognition and pinch exclusion on independently labelled sequences;
+qualify the connected native controller/session on the receiver; connect selected
 configured actions to supported native action adapters; qualify actual actions and comfort. The existing prayer
 candidate/calibration workflow remains separately owned and disabled pending its
 physical acceptance. No macro can start an idle camera.

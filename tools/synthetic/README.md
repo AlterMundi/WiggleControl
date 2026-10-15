@@ -59,6 +59,38 @@ actual category/score during inference and explicitly saved replay. Its report
 pins the model bytes and rejects changes during a run. Unknown `None` is never
 positive neutral evidence, and `Open_Palm` alone does not establish an open pinch.
 
+### Optional native macro connection
+
+`wigglecontrol controller-sequence SEQUENCE CONFIG SETTINGS` uses the actual
+controller/ownership/positive-neutral policy over finite images, with explicitly
+simulated source time and no sensor/device. The mode settings' `visual_macros`
+select the model and neutral, as documented in
+[CONTROLLER-NATIVE.md](../../docs/CONTROLLER-NATIVE.md). Actual file probes have
+not yet established a successful timed macro; keep the qualification failures in
+[the integration report](../../docs/research/native-visual-macros-2026-10.md).
+
+`run_visible_motion.py --controller-settings SETTINGS` selects this full path
+instead of direct-touch replay. It pins the settings/model bytes and projects
+actual controller status alongside predictions; it cannot combine separate
+gesture-model or perception overrides. A display transport failure is retained
+in `projection-errors.json` and `results.json`, without discarding local model
+completion. Cleanup cannot replace a real model error with a broken-pipe error.
+The sink can still delay a write until its bounded SSH timeout; this is not a
+fully asynchronous projector. Transfer success is not receiving display proof;
+use actual viewport inspection separately.
+
+`render_hand_reference.py --gesture victory --closing-steps 61 --closure 1 --hand-only`
+generates a separate research-only two-finger articulation, with explicit flexion,
+V abduction and signed long-finger displacement guards. `--finger-spread 0`
+reproduces the earlier parallel-finger diagnostic. `--closing-view pitch--1`
+selects the existing−25° control. Use `contact-requirements.lock` plus
+`--skin-check` for independent selected-patch distances. These recipes do not
+qualify anatomical V intent or whole-hand collision and must not be counted as
+natural-pinch references. The selected tilted maximum pose has87.52mm distal
+skin clearance yet emits contact intent under the current3D-only interpretation.
+
+## Articulated reference geometry
+
 The selected MHR LOD1 FBX includes an articulated body and fingers. Fetch the
 public release in `mhr-asset.json`, verify the archive hash, and extract only
 `assets/lod1.fbx` and its `assets/LICENSE.txt`. Verify the member hash too; retain

@@ -28,9 +28,19 @@ candidate meets particular analytic budgets; its calibrated expansion fails them
 Real noise,
 anatomical contact truth, occlusion ownership, physical comfort and application
 acceptance remain distinct work. The optional visual classifier backend is now
-reproduced; native classifier→macro integration and actual action adapters remain
-pending. Replay action intents have `executed:false`. See the
+reproduced; its opt-in native connection and observed progress/receipt feedback now
+exist. Recognition, pinch exclusion and actual external action adapters remain
+pending. Replay external action intents remain unexecuted. See the
 [pose investigation](research/gesture-classifier-2026-10.md).
+
+The [integration report](research/native-visual-macros-2026-10.md) preserves actual
+image-path failures rather than treating a named-pose UI fixture as recognition:
+164 pinching controls retain identical contacts with zero macro actions; a
+front-view V is recognized but cannot rearm from its low-scoring neutral, while
+the tilted view rearms but misses V and emits contacts despite87.52mm selected
+distal skin separation at the maximum pose. Camera-free UI tests show real Rust
+hold, action, busy cancellation and unknown rearm at1920x1080. This remains an
+experimental opt-in source path, not an accepted live macro deployment.
 
 Current source correction: live direct touch now shares the configured2D/3D
 pinch conversion with pointer and image-sequence replay; a contradictory-metrics

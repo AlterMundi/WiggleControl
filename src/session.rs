@@ -589,6 +589,11 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     let mut guide = guided.then(crate::guided_calibration::Guide::default);
     ort::init_from(&config.runtime).commit()?;
     let mut perception = config.perception()?;
+    let mut visual_classifier = controller
+        .as_ref()
+        .map(crate::pose_classifier::VisualClassifier::configured)
+        .transpose()?
+        .flatten();
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
@@ -848,7 +853,6 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 {
                     break;
                 }
-                now = monotonic_us()?;
                 summary.processed += 1;
                 summary.detected += detected.hands.len() as u64;
                 summary.max_hands = summary.max_hands.max(detected.hands.len());
@@ -863,16 +867,27 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                             .hand
                     })
                     .collect();
-                let state = controller.observe(
-                    now,
-                    crate::touch_gestures::Frame {
-                        version: 1,
-                        source_us: frame.source_us,
-                        ambiguous: detected.ambiguous,
-                        hands,
-                    },
-                    None,
-                );
+                let observation = crate::touch_gestures::Frame {
+                    version: 1,
+                    source_us: frame.source_us,
+                    ambiguous: detected.ambiguous,
+                    hands,
+                };
+                let classifier_started = Instant::now();
+                let (pose, visual_state) = if let Some(classifier) = &mut visual_classifier {
+                    classifier.classify(
+                        controller,
+                        &observation,
+                        &detected.hands,
+                        image.width(),
+                        image.height(),
+                    )?
+                } else {
+                    (None, None)
+                };
+                let classifier_ms = classifier_started.elapsed().as_secs_f64() * 1000.0;
+                now = monotonic_us()?;
+                let state = controller.observe(now, observation, pose);
                 let prepared =
                     until_stop || preview_clock.as_ref().is_some_and(|c| c.started.is_some());
                 if prepared {
@@ -918,7 +933,8 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                     "test_phase":if until_stop {"manual"} else if prepared {"testing"} else {"preparing"},
                     "recording":config.recording_directory.is_some(), "source_us":frame.source_us,
                     "frame_age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
-                    "controller":state, "visual_macros":false, "pointer_model":"relative",
+                    "controller":state, "visual_macros":visual_classifier.is_some(),
+                    "visual_pose":visual_state,"classifier_ms":classifier_ms, "pointer_model":"relative",
                     "perception_ambiguity_reason":detected.ambiguity_reason,
                     "pair_separation_widths":config.pair_separation_widths,
                     "perception":detected.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),"world_landmarks":h.world_landmarks})).collect::<Vec<_>>(),

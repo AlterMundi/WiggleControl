@@ -56,6 +56,18 @@ impl Sequence {
         Ok(s)
     }
 }
+fn read_image(root: &Path, name: &str) -> Result<image::RgbImage, Box<dyn Error>> {
+    let path = root.join(name).canonicalize()?;
+    if !path.starts_with(root) {
+        return Err("sequence image symlink escapes root".into());
+    }
+    let mut reader = image::ImageReader::open(path)?.with_guessed_format()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(4096);
+    limits.max_image_height = Some(4096);
+    reader.limits(limits);
+    Ok(reader.decode()?.to_rgb8())
+}
 pub fn check(
     manifest: &Path,
     config: &Path,
@@ -88,17 +100,7 @@ pub fn check(
     for (index, frame) in sequence.frames.iter().enumerate() {
         let started = Instant::now();
         let (hands, ambiguous, raw, ambiguity_reason) = if let Some(name) = &frame.image {
-            let path = root.join(name).canonicalize()?;
-            if !path.starts_with(&root) {
-                return Err("sequence image symlink escapes root".into());
-            }
-            let reader = image::ImageReader::open(path)?.with_guessed_format()?;
-            let mut limits = image::Limits::default();
-            limits.max_image_width = Some(4096);
-            limits.max_image_height = Some(4096);
-            let mut reader = reader;
-            reader.limits(limits);
-            let image = reader.decode()?.to_rgb8();
+            let image = read_image(&root, name)?;
             let found = model.infer_many(&image)?;
             let mut raw = Vec::new();
             for hand in &found.hands {
@@ -153,6 +155,97 @@ pub fn check(
         out,
         "{}",
         serde_json::json!({"type":"stop","contacts":gestures.stop()})
+    )?;
+    Ok(())
+}
+
+/// The actual native pose/controller path over finite files, without devices.
+pub fn check_controller(
+    manifest: &Path,
+    config_path: &Path,
+    settings: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let sequence = Sequence::load(manifest)?;
+    let config = SessionConfig::load(config_path)?;
+    let mut controller = crate::session::controller_config(&config, settings)?;
+    ort::init_from(&config.runtime).commit()?;
+    let mut perception = config.perception()?;
+    let mut classifier = crate::pose_classifier::VisualClassifier::configured(&controller)?;
+    let root = manifest
+        .canonicalize()?
+        .parent()
+        .ok_or("missing sequence root")?
+        .to_path_buf();
+    let mut out = io::stdout().lock();
+    controller.start();
+    for (index, frame) in sequence.frames.iter().enumerate() {
+        let started = Instant::now();
+        let image = frame
+            .image
+            .as_ref()
+            .map(|name| read_image(&root, name))
+            .transpose()?;
+        let detected = if let Some(image) = &image {
+            perception.infer_many(image)?
+        } else {
+            crate::vision::MultiHands {
+                hands: Vec::new(),
+                ambiguous: false,
+                ambiguity_reason: None,
+            }
+        };
+        let (width, height) = image
+            .as_ref()
+            .map_or((0, 0), |image| (image.width(), image.height()));
+        let hands: Vec<_> = detected
+            .hands
+            .iter()
+            .filter_map(|h| {
+                config
+                    .observation(Some(h), width, height, frame.source_us)
+                    .hand
+            })
+            .collect();
+        let observation = Frame {
+            version: 1,
+            source_us: frame.source_us,
+            ambiguous: detected.ambiguous,
+            hands: hands.clone(),
+        };
+        let (pose, visual_pose) = if let Some(classifier) = &mut classifier {
+            classifier.classify(&controller, &observation, &detected.hands, width, height)?
+        } else {
+            (None, None)
+        };
+        let state = controller.observe(frame.source_us, observation, pose);
+        let raw: Vec<_> = detected.hands.iter().map(|h| {
+            let mut raw = serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,
+                "handedness":h.handedness,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),
+                "world_landmarks":h.world_landmarks});
+            if let Some(visual) = visual_pose.as_ref().filter(|v| v.hand_id==h.id) {
+                raw["pose_prediction"]=serde_json::to_value(&visual.prediction).expect("finite validated prediction");
+            }
+            raw
+        }).collect();
+        writeln!(
+            out,
+            "{}",
+            serde_json::json!({"schema":"wigglecontrol.controller-sequence/v1",
+            "frame":index,"source_us":frame.source_us,"image":frame.image,"width":width,"height":height,
+            "processing_ms":started.elapsed().as_secs_f64()*1000.0,"offline_now_equals_source":true,
+            "pair_separation_widths":config.pair_separation_widths,
+            "visual_macros":classifier.is_some(),"visual_pose":visual_pose,
+            "perception":raw,"hands":hands,"contacts":state.contacts,"controller":state,
+            "ambiguous":detected.ambiguous,"ambiguity_reason":detected.ambiguity_reason,
+            "camera_opened":false,"system_input":false,"local_semantics_only":true})
+        )?;
+        out.flush()?;
+    }
+    writeln!(
+        out,
+        "{}",
+        serde_json::json!({"type":"stop","controller":controller.stop(),
+        "camera_opened":false,"system_input":false,"local_semantics_only":true})
     )?;
     Ok(())
 }

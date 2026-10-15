@@ -35,6 +35,25 @@ class PinchInterpretationEvidence(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unqualified'):
             score(reference, [(row, dict(contacts=[]))])
 
+    def test_paired_geometry_cannot_change_only_the_second_hand(self):
+        original = self.reference()
+        original['frames'][0]['reference_hands'] = [
+            dict(id='a',world_m=[[0,0,0]],distal_skin={}),
+            dict(id='b',world_m=[[1,0,0]],distal_skin={})]
+        self.assertEqual(matched_geometry(original,copy.deepcopy(original))[1],0)
+        altered = copy.deepcopy(original)
+        altered['frames'][0]['reference_hands'][1]['world_m'][0][0] += .001
+        with self.assertRaisesRegex(ValueError,'Paired geometry markers'):
+            matched_geometry(original,altered)
+        altered = copy.deepcopy(original)
+        altered['frames'][0]['reference_hands'].reverse()
+        with self.assertRaisesRegex(ValueError,'Paired geometry hand identity'):
+            matched_geometry(original,altered)
+        altered = copy.deepcopy(original)
+        del altered['frames'][0]['reference_hands'][1]['distal_skin']
+        with self.assertRaisesRegex(ValueError,'Missing independently measured paired skin'):
+            matched_geometry(original,altered)
+
     def test_probe_encoding_preserves_originals_and_rejects_degenerate_scale(self):
         points = [[0, 0, 0] for _ in range(21)]
         points[9], points[4] = [0, .1, 0], [.02, 0, 0]

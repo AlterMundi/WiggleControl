@@ -26,6 +26,15 @@ useful pinch; keep open-before-press semantics. Actual new yawed-V/left-pinch
 geometry/render/controller results, observation failure and finite recovery
 remain distinct. No selected runtime, calibration or human acceptance changes.
 
+Latest [tracking recovery](research/tracking-recovery-2026-10.md): explicit
+`palm_deduplication:palm_landmarks` compares actual palm points and rejects duplicate
+hand reconstructions, preserving409 single-hand/controller/macro outputs. It
+improves partial crossing detection but cannot retain held contacts through
+occlusion. New same-side references qualify separated61/61 detections/41 stable
+holds; crossing33→42/61 still has0/13 dual near holds. Both10Hz phases are measured.
+Default remains ROI deduplication and the original pair guard. This source
+experiment is not a new selected receiving runtime or participant identification.
+
 Implemented in this increment: opt-in speed-adaptive Rust cursor filtering,
 2016-case analytic benchmark with explicit development/held-out seeds and a
 reproducible profile selector; camera-free temporal image replay through actual

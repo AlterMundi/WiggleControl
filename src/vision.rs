@@ -170,6 +170,84 @@ struct TrackedHand {
     roi: Roi,
     hand: DetectedHand,
 }
+#[derive(Clone, Copy, Default, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PalmDeduplication {
+    #[default]
+    Roi,
+    PalmLandmarks,
+}
+struct PalmProposal {
+    roi: Roi,
+    landmarks: [XY; 7],
+}
+// OpenCV Zoo's pinned PALM_LANDMARK_IDS maps the first five palm points
+// to wrist/index/middle/ring/pinky MCP. Thumb articulation is not a scale cue.
+fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
+    let scale = hand.landmarks[5]
+        .distance(hand.landmarks[17])
+        .max(hand.landmarks[0].distance(hand.landmarks[9]));
+    if !scale.is_finite() || scale < 8.0 {
+        return None;
+    }
+    let error = [0, 5, 9, 13, 17]
+        .into_iter()
+        .enumerate()
+        .map(|(i, j)| hand.landmarks[j].distance(palm[i]).powi(2))
+        .sum::<f64>();
+    let cost = (error / 5.0).sqrt() / scale;
+    cost.is_finite().then_some(cost)
+}
+/// Duplicate image predictions are not independent observations of a second hand.
+/// This matches model output geometry, never participant identity or hidden anatomy.
+fn duplicate_prediction(a: &DetectedHand, b: &DetectedHand) -> bool {
+    let scale = [a, b]
+        .into_iter()
+        .map(|h| {
+            h.landmarks[5]
+                .distance(h.landmarks[17])
+                .max(h.landmarks[0].distance(h.landmarks[9]))
+        })
+        .fold(0.0_f64, f64::max);
+    let error = a
+        .landmarks
+        .iter()
+        .zip(b.landmarks)
+        .map(|(p, q)| p.distance(q).powi(2))
+        .sum::<f64>();
+    scale >= 8.0
+        && scale.is_finite()
+        && error.is_finite()
+        && (error / 21.0).sqrt() / scale < 0.10
+        && (a.handedness - b.handedness).abs() < 0.2
+}
+/// Current-frame inference/search evidence, never an accepted hand observation.
+#[derive(Default, serde::Serialize)]
+pub struct MultiDiagnostics {
+    pub input_tracks: usize,
+    pub palm_search: bool,
+    pub attempts: Vec<HandAttempt>,
+    pub skipped_palms: Vec<SkippedPalm>,
+}
+#[derive(serde::Serialize)]
+pub struct HandAttempt {
+    pub id: u64,
+    pub tracked: bool,
+    pub roi: [f64; 4],
+    pub confidence: Option<f64>,
+    pub landmarks: Option<[[f64; 2]; 21]>,
+    pub handedness: Option<f64>,
+    pub duplicate_match: Option<u64>,
+}
+#[derive(serde::Serialize)]
+pub struct SkippedPalm {
+    pub roi: [f64; 4],
+    pub existing_track: u64,
+    pub palm_match_cost: Option<f64>,
+}
+fn roi_values(roi: Roi) -> [f64; 4] {
+    [roi.center.x, roi.center.y, roi.side, roi.angle]
+}
 pub struct MultiHands {
     pub hands: Vec<DetectedHand>,
     pub ambiguous: bool,
@@ -192,6 +270,9 @@ pub struct Perception {
     pub last_roi: Option<Roi>,
     pub palm_rois: Vec<Roi>,
     pub skipped_rois: Vec<Roi>,
+    pub multi_diagnostics: MultiDiagnostics,
+    tracking_diagnostics_enabled: bool,
+    palm_deduplication: PalmDeduplication,
 }
 fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
     let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
@@ -240,6 +321,9 @@ impl Perception {
             last_roi: None,
             palm_rois: Vec::new(),
             skipped_rois: Vec::new(),
+            multi_diagnostics: MultiDiagnostics::default(),
+            tracking_diagnostics_enabled: false,
+            palm_deduplication: PalmDeduplication::default(),
         })
     }
     /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
@@ -263,7 +347,7 @@ impl Perception {
         model.pair_separation_widths = pair_separation_widths;
         Ok(model)
     }
-    fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<Roi>, Box<dyn Error>> {
+    fn detect_palms(&mut self, image: &RgbImage) -> Result<Vec<PalmProposal>, Box<dyn Error>> {
         let side = image.width().max(image.height()) as f64;
         let square = Roi {
             center: XY {
@@ -327,13 +411,16 @@ impl Perception {
             }
             if let Some(roi) = roi_from(&points, points[0], points[2], 3.0, -0.4) {
                 selected.push(rect);
-                rois.push(roi);
+                rois.push(PalmProposal {
+                    roi,
+                    landmarks: points,
+                });
             }
             if rois.len() == 2 {
                 break;
             }
         }
-        self.palm_rois = rois.clone();
+        self.palm_rois = rois.iter().map(|p| p.roi).collect();
         Ok(rois)
     }
     pub fn infer(&mut self, image: &RgbImage) -> Result<Option<DetectedHand>, Box<dyn Error>> {
@@ -341,11 +428,11 @@ impl Perception {
         let roi = if let Some(roi) = self.roi {
             roi
         } else {
-            let Some(roi) = self.detect_palms(image)?.into_iter().next() else {
+            let Some(proposal) = self.detect_palms(image)?.into_iter().next() else {
                 return Ok(None);
             };
             self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;
-            roi
+            proposal.roi
         };
         let detected = self.infer_roi(image, roi, self.id, tracked)?;
         self.roi = detected
@@ -409,9 +496,15 @@ impl Perception {
     pub fn infer_many(&mut self, image: &RgbImage) -> Result<MultiHands, Box<dyn Error>> {
         self.skipped_rois.clear();
         let previous = std::mem::take(&mut self.tracks);
+        self.multi_diagnostics = MultiDiagnostics {
+            input_tracks: previous.len(),
+            ..Default::default()
+        };
         let mut next = Vec::new();
         for track in previous {
-            if let Some(hand) = self.infer_roi(image, track.roi, track.hand.id, true)? {
+            let found = self.infer_roi(image, track.roi, track.hand.id, true)?;
+            self.record_attempt(track.roi, track.hand.id, true, found.as_ref());
+            if let Some(hand) = found {
                 if identity_uncertain(&track.hand, &hand, track.roi.side) {
                     return Ok(MultiHands {
                         hands: Vec::new(),
@@ -435,16 +528,42 @@ impl Perception {
         if next.len() < 2
             && (next.is_empty() || self.search_frames % self.rediscovery_interval == 0)
         {
-            for roi in self.detect_palms(image)? {
-                if next
-                    .iter()
-                    .any(|t| t.roi.center.distance(roi.center) < 0.4 * t.roi.side.max(roi.side))
-                {
+            self.multi_diagnostics.palm_search = true;
+            for proposal in self.detect_palms(image)? {
+                let roi = proposal.roi;
+                if let Some(existing) = next.iter().find(|t| match self.palm_deduplication {
+                    PalmDeduplication::Roi => {
+                        t.roi.center.distance(roi.center) < 0.4 * t.roi.side.max(roi.side)
+                    }
+                    PalmDeduplication::PalmLandmarks => {
+                        palm_match_cost(&t.hand, &proposal.landmarks)
+                            .is_some_and(|cost| cost < 0.25)
+                    }
+                }) {
                     self.skipped_rois.push(roi);
+                    if self.tracking_diagnostics_enabled {
+                        self.multi_diagnostics.skipped_palms.push(SkippedPalm {
+                            roi: roi_values(roi),
+                            existing_track: existing.hand.id,
+                            palm_match_cost: palm_match_cost(&existing.hand, &proposal.landmarks),
+                        });
+                    }
                     continue;
                 }
                 self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;
-                if let Some(hand) = self.infer_roi(image, roi, self.id, false)? {
+                let found = self.infer_roi(image, roi, self.id, false)?;
+                self.record_attempt(roi, self.id, false, found.as_ref());
+                if let Some(hand) = found {
+                    if self.palm_deduplication == PalmDeduplication::PalmLandmarks {
+                        if let Some(existing) =
+                            next.iter().find(|t| duplicate_prediction(&t.hand, &hand))
+                        {
+                            if let Some(attempt) = self.multi_diagnostics.attempts.last_mut() {
+                                attempt.duplicate_match = Some(existing.hand.id);
+                            }
+                            continue;
+                        }
+                    }
                     if let Some(roi) = roi_from(
                         &hand.landmarks,
                         hand.landmarks[0],
@@ -476,6 +595,29 @@ impl Perception {
             ambiguous: false,
             ambiguity_reason: None,
         })
+    }
+    fn record_attempt(&mut self, roi: Roi, id: u64, tracked: bool, hand: Option<&DetectedHand>) {
+        if !self.tracking_diagnostics_enabled {
+            return;
+        }
+        self.multi_diagnostics.attempts.push(HandAttempt {
+            id,
+            tracked,
+            roi: roi_values(roi),
+            confidence: self.hand_score,
+            landmarks: hand.map(|h| h.landmarks.map(|p| [p.x, p.y])),
+            handedness: hand.map(|h| h.handedness),
+            duplicate_match: None,
+        });
+    }
+    /// Bounded camera-free sequence diagnostics; normal acquisition does not collect candidates.
+    pub fn enable_tracking_diagnostics(&mut self) {
+        self.tracking_diagnostics_enabled = true;
+    }
+    /// Explicit experimental policy; the ordinary default remains broad-ROI matching.
+    pub fn with_palm_deduplication(mut self, policy: PalmDeduplication) -> Self {
+        self.palm_deduplication = policy;
+        self
     }
 }
 impl DetectedHand {
@@ -722,6 +864,60 @@ mod tests {
         b = a.clone();
         b.handedness = 0.1;
         assert!(identity_uncertain(&a, &b, 300.0));
+    }
+    #[test]
+    fn palm_matching_uses_joint_correspondence_not_expanded_crop_proximity() {
+        let mut hand = DetectedHand {
+            id: 1,
+            landmarks: [XY { x: 100.0, y: 180.0 }; 21],
+            image_depths: [0.0; 21],
+            world_landmarks: [[0.0; 3]; 21],
+            confidence: 0.99,
+            handedness: 0.9,
+            tracked: true,
+        };
+        for (index, x) in [(5, 60.0), (9, 85.0), (13, 110.0), (17, 140.0)] {
+            hand.landmarks[index] = XY { x, y: 100.0 };
+        }
+        let mapping = [0, 5, 9, 13, 17, 1, 2];
+        let same = mapping.map(|i| hand.landmarks[i]);
+        assert_eq!(palm_match_cost(&hand, &same), Some(0.0));
+        let shifted = same.map(|p| XY { x: p.x + 60.0, ..p });
+        // Two palms60px apart fit inside the legacy120px rejection radius
+        // of300px expanded crops. Their actual corresponding points differ.
+        let expanded = Roi {
+            center: XY { x: 100.0, y: 100.0 },
+            side: 300.0,
+            angle: 0.0,
+        };
+        let neighboring = Roi {
+            center: XY { x: 160.0, y: 100.0 },
+            ..expanded
+        };
+        assert!(expanded.center.distance(neighboring.center) < 0.4 * expanded.side);
+        assert!(palm_match_cost(&hand, &shifted).unwrap() > 0.25);
+        let mut reversed = same;
+        reversed.swap(1, 4);
+        assert!(palm_match_cost(&hand, &reversed).unwrap() > 0.25);
+        let mut thumb_changed = same;
+        thumb_changed[5].x += 1000.0;
+        thumb_changed[6].y -= 1000.0;
+        assert_eq!(palm_match_cost(&hand, &thumb_changed), Some(0.0));
+        let mut other = hand.clone();
+        for point in &mut other.landmarks {
+            point.x += 1.0;
+        }
+        assert!(duplicate_prediction(&hand, &other));
+        // Same handedness cannot merge a distinct, nearby projected hand.
+        for point in &mut other.landmarks {
+            point.x += 59.0;
+        }
+        assert!(!duplicate_prediction(&hand, &other));
+        other = hand.clone();
+        other.handedness = 0.1;
+        assert!(!duplicate_prediction(&hand, &other));
+        hand.landmarks = [XY::default(); 21];
+        assert_eq!(palm_match_cost(&hand, &same), None);
     }
     #[test]
     fn anchor_count_and_order_match_model() {

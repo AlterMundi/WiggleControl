@@ -53,6 +53,8 @@ pub struct SessionConfig {
     pub adaptive_smoothing: Option<crate::filter::OneEuroConfig>,
     #[serde(default = "default_pair_separation_widths")]
     pub pair_separation_widths: f64,
+    #[serde(default)]
+    pub palm_deduplication: crate::vision::PalmDeduplication,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -81,11 +83,12 @@ impl SessionConfig {
         rediscovery: u32,
         separation_override: Option<f64>,
     ) -> Result<Perception, Box<dyn Error>> {
-        Perception::with_replay_options(
+        Ok(Perception::with_replay_options(
             Path::new(&self.models),
             rediscovery,
             separation_override.unwrap_or(self.pair_separation_widths),
-        )
+        )?
+        .with_palm_deduplication(self.palm_deduplication))
     }
     pub fn gestures(&self) -> Config {
         Config {
@@ -624,7 +627,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -936,7 +939,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                     "controller":state, "visual_macros":visual_classifier.is_some(),
                     "visual_pose":visual_state,"classifier_ms":classifier_ms, "pointer_model":"relative",
                     "perception_ambiguity_reason":detected.ambiguity_reason,
-                    "pair_separation_widths":config.pair_separation_widths,
+                    "pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,
                     "perception":detected.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),"world_landmarks":h.world_landmarks})).collect::<Vec<_>>(),
                     "detected":!detected.hands.is_empty(), "gesture_state":if state.button_down {"pressed"}else if state.pointer_ready {"open"}else {"open_first"},
                     "press_intents":summary.button_down_intents,"remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now())),"until_stop":until_stop});
@@ -1372,6 +1375,20 @@ mod tests {
             SessionConfig::load(&path).unwrap().pair_separation_widths,
             0.8
         );
+        assert_eq!(
+            SessionConfig::load(&path).unwrap().palm_deduplication,
+            crate::vision::PalmDeduplication::Roi
+        );
+        value["palm_deduplication"] = serde_json::json!("palm_landmarks");
+        fs::write(&path, value.to_string()).unwrap();
+        assert_eq!(
+            SessionConfig::load(&path).unwrap().palm_deduplication,
+            crate::vision::PalmDeduplication::PalmLandmarks
+        );
+        value["palm_deduplication"] = serde_json::json!("unqualified");
+        fs::write(&path, value.to_string()).unwrap();
+        assert!(SessionConfig::load(&path).is_err());
+        value["palm_deduplication"] = serde_json::json!("roi");
         value["pair_separation_widths"] = serde_json::json!(1.2);
         fs::write(&path, value.to_string()).unwrap();
         assert_eq!(

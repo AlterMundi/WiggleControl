@@ -204,6 +204,7 @@ def main():
                           receiving_display_verified=False,
                           rediscovery_interval=None if args.mediapipe_model else args.rediscovery,
                           pair_separation_widths=None if args.mediapipe_model else rows[0].get('pair_separation_widths'),
+                          palm_deduplication=None if args.mediapipe_model else rows[0].get('palm_deduplication', 'roi'),
                           reference=labels, predictions=rows,
                           limits='Selected distal skin clearance is independent geometry, not qualified human intent, joint limits or whole-hand collision'
                           if labels.get('skin_clearance_measured') else

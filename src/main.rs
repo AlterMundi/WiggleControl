@@ -131,7 +131,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,"pointer_model":"relative","visual_macros":controller.visual_policy().is_some(),
                     "neutral_pose":controller.visual_policy().map(|p|p.neutral_pose),
                     "macro_min_confidence":controller.visual_policy().map(|p|p.min_confidence),
-                    "pair_separation_widths":config.pair_separation_widths})
+                    "pair_separation_widths":config.pair_separation_widths,
+                    "palm_deduplication":config.palm_deduplication})
             );
             return Ok(());
         }
@@ -161,6 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::json!({
                     "valid": true, "fps": config.fps, "gain": config.gain, "pointer_output":config.pointer_output, "prayer_enabled":config.prayer_enabled,
                     "adaptive_smoothing":config.adaptive_smoothing,"pair_separation_widths":config.pair_separation_widths,
+                    "palm_deduplication":config.palm_deduplication,
                 "pinch_close_ratio":config.pinch_close_ratio,
                 "pinch_open_ratio":config.pinch_open_ratio,
                 "pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"recording_enabled":config.recording_directory.is_some(),"freshness_ms":config.freshness_ms,

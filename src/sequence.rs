@@ -91,6 +91,7 @@ pub fn check(
         .ok_or("missing sequence root")?
         .to_path_buf();
     let mut model = config.replay_perception(rediscovery_interval, pair_separation_override)?;
+    model.enable_tracking_diagnostics();
     let mut classifier = gesture_model
         .map(crate::pose_classifier::Classifier::new)
         .transpose()?;
@@ -146,6 +147,8 @@ pub fn check(
             "offline_now_equals_source":true,"processing_ms":started.elapsed().as_secs_f64()*1000.0,
             "rediscovery_interval":rediscovery_interval,
             "pair_separation_widths":pair_separation_widths,
+            "palm_deduplication":config.palm_deduplication,
+            "tracking_diagnostics":frame.image.as_ref().map(|_|&model.multi_diagnostics),
             "ambiguous":ambiguous,"ambiguity_reason":ambiguity_reason,
             "perception":raw,"hands":hands,"contacts":contacts})
         )?;
@@ -170,6 +173,7 @@ pub fn check_controller(
     let mut controller = crate::session::controller_config(&config, settings)?;
     ort::init_from(&config.runtime).commit()?;
     let mut perception = config.perception()?;
+    perception.enable_tracking_diagnostics();
     let mut classifier = crate::pose_classifier::VisualClassifier::configured(&controller)?;
     let root = manifest
         .canonicalize()?
@@ -234,6 +238,8 @@ pub fn check_controller(
             "frame":index,"source_us":frame.source_us,"image":frame.image,"width":width,"height":height,
             "processing_ms":started.elapsed().as_secs_f64()*1000.0,"offline_now_equals_source":true,
             "pair_separation_widths":config.pair_separation_widths,
+            "palm_deduplication":config.palm_deduplication,
+            "tracking_diagnostics":frame.image.as_ref().map(|_|&perception.multi_diagnostics),
             "visual_macros":classifier.is_some(),"visual_pose":visual_pose,
             "perception":raw,"hands":hands,"contacts":state.contacts,"controller":state,
             "ambiguous":detected.ambiguous,"ambiguity_reason":detected.ambiguity_reason,

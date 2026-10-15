@@ -60,6 +60,12 @@ when that claim is missing. Clearing the claim uses `hand_id:null`. This is not
 participant identification; participant-specific workspace/role routing remains
 pending. Two-contact mode continues to use both independent tracks.
 
+The [tracking experiment](research/tracking-recovery-2026-10.md) now includes
+two same-side hand references and an opt-in palm-matching search policy. Separated
+simulation supports two inputs without requiring opposite handedness. Real
+participant identification, explicit role/workspace assignment and physical
+collaboration are still unqualified; chirality is not a person or a second OS cursor.
+
 An optional frame-level `pose` is classifier evidence, using the existing
 `HandPose` schema: ID, confidence and named pose (or positively observed neutral).
 Omitting `pose` means missing evidence; it cannot arm a macro. Its hand must match

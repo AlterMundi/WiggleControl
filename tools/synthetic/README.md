@@ -523,3 +523,34 @@ vertices, landmarks, image hashes and real forward/postprocessing time are
 retained; timing excludes crop/decode, detection and camera registration.
 Use `compare_mesh_metric.py --focal not_required_for_gap` for conditional controller
 replay. It never adds mesh confidence, handedness inference or stable identity.
+
+### Current-frame tracking diagnostics and palm matching
+
+Camera-free `sequence-check` and `controller-sequence` add `tracking_diagnostics`
+to each acquired frame: input tracks, actual palm-search occurrence, at most four
+model attempts and two skipped proposals. Attempts include ROI, confidence,
+predicted points and any duplicate match. These candidates are **not** accepted
+`perception`/`hands` or contact/identity evidence. Missing images report null
+diagnostics. Normal acquisition does not collect the candidate arrays.
+
+An experimental session config can select `"palm_deduplication":"palm_landmarks"`.
+Default `"roi"` preserves the old expanded-crop rule. The candidate matches five
+corresponding palm points, then filters duplicate21-point reconstructions with a
+handedness-score consistency check. It never identifies participants, preserves
+input through ambiguity or changes positive-open rearm. Preflight/replay/future
+recording metadata retain the selected policy. No receiving adoption follows
+from setting it in an offline file. Keep the existing calibrated profile intact.
+
+`render_hand_reference.py ... --pair-closing --closing-steps 61 --closure 1
+--hand-only --skin-check --pair-chirality same` creates two same-side references;
+default `opposite` retains the mirrored pair. The flag also supports paired rigid
+motion and rejects unpaired use. Measure-only geometry precedes a new rendered
+run. `matched_geometry` now checks both hands' IDs/world trajectories and requires
+each measured hand's skin field; downstream scorers validate clearance values.
+Unchanged first-hand markers cannot conceal
+a changed second reference. The pair summary retains declared chirality or null
+for old sources that did not report it.
+
+See [tracking recovery](../../docs/research/tracking-recovery-2026-10.md) for the
+retained first-version regression, corrected409-frame single-hand equality,
+paired/cadence comparisons, new same-side controls and occlusion/resource limits.

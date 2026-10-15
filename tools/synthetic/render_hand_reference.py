@@ -63,11 +63,15 @@ def main():
                         help='Two mirrored hands close/open at independent phases; requires --closing-steps')
     parser.add_argument('--pair-layout', choices=['separated', 'crossing'], default='separated',
                         help='Fixed separated hands or a controlled crossing during paired closure')
+    parser.add_argument('--pair-chirality', choices=['opposite', 'same'], default='opposite',
+                        help='Opposite sides or two same-side hand references; not participant identity')
     parser.add_argument('--pair-half-spacing', type=float, default=0.105,
                         help='Half the paired-closure separation/crossing span in meters')
     parser.add_argument('--pair-depth-offset', type=float, default=0.14,
                         help='Rear reference hand depth offset in meters; skin separation is checked')
     args = parser.parse_args()
+    if args.pair_chirality == 'same' and not (args.pair_motion or args.pair_closing):
+        parser.error('--pair-chirality same requires a paired reference')
     if not 0 <= args.closure <= 1:
         parser.error('--closure must be in0..1')
     if args.yaw_steps and not 3 <= args.yaw_steps <= 31:
@@ -270,9 +274,10 @@ def main():
                 modifier.object = second_rig
         # Reflect in the camera's horizontal plane to create the other chirality.
         reflection = Matrix.Identity(4)
-        for row in range(3):
-            for col in range(3):
-                reflection[row][col] -= 2 * right[row] * right[col]
+        if args.pair_chirality == 'opposite':
+            for row in range(3):
+                for col in range(3):
+                    reflection[row][col] -= 2 * right[row] * right[col]
     cases = [('reference', Vector(), Matrix.Identity(4))]
     for sign in [-1, 1]:
         cases += [(f'horizontal-{sign}', right * (sign * 0.12), Matrix.Identity(4)),
@@ -429,6 +434,7 @@ def main():
               'images_rendered': not args.measure_only,
               'render_geometry': 'right-hand weights >=0.5 mask' if args.hand_only else 'whole body',
               'reference_hand_count': 2 if paired else 1,
+              'pair_chirality': args.pair_chirality if paired else None,
               'paired_closure': args.pair_closing,
               'pair_layout': args.pair_layout if args.pair_closing else None,
               'pair_half_spacing_m': args.pair_half_spacing if args.pair_closing else None,

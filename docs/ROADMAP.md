@@ -50,6 +50,15 @@ already passes baseline. Neither CPU optimization nor this screen interpretation
 is adopted. Reproducible stage/precision probes and fixed-config evidence remain
 available; practical accurate perception, temporal/ownership and human gates stay open.
 
+The [tracking-recovery comparison](research/tracking-recovery-2026-10.md) now
+adds current-frame candidate diagnostics and an opt-in palm-point deduplication
+policy. It preserves409 single-hand/controller/macro frames and separated-pair
+holds, while improving some crossing detection coverage. New two-right-hand
+references pass61/61 separated detection/41 stable counts; crossing improves
+33→42/61 detections but retains0/13 dual near holds.10Hz limits and the corrected
+duplicate-inference regression are retained. Default/runtime policies stay unchanged;
+occlusion ownership, participant roles, Pi resources and physical acceptance remain open.
+
 ## Outcome and today's goal
 
 Two moving hands should comfortably manipulate ordinary applications as deliberate

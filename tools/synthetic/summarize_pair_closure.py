@@ -128,7 +128,8 @@ def summarize(path, config_path):
                           track_assignments={reference: raw[i]['id'] for i, reference in matches.items()},
                           contact_assignments={reference: contacts[i]['id'] for i, reference in contact_matches.items()},
                           contacts=len(contacts), ambiguous=prediction['ambiguous']))
-    return dict(layout=data['reference']['pair_layout'], frames=len(labels), holds=holds,
+    return dict(layout=data['reference']['pair_layout'],
+        chirality=data['reference'].get('pair_chirality'), frames=len(labels), holds=holds,
         two_hand_frames=sum(len(p['hands']) == 2 for p in predictions),
         ambiguous_frames=sum(p['ambiguous'] for p in predictions),
         track_ids=sorted({h['id'] for p in predictions for h in p['perception']}),

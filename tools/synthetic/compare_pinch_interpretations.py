@@ -39,6 +39,22 @@ def matched_geometry(reference, measured):
         if not all(math.isfinite(e) and e <= 1e-6 for e in errors):
             raise ValueError('Geometry markers changed')
         maximum = max(maximum, *errors)
+        first_hands = first.get('reference_hands', [])
+        second_hands = second.get('reference_hands', [])
+        if len(first_hands) != len(second_hands):
+            raise ValueError('Paired geometry hand count changed')
+        for original_hand, measured_hand in zip(first_hands, second_hands):
+            if original_hand['id'] != measured_hand['id']:
+                raise ValueError('Paired geometry hand identity changed')
+            a, b = original_hand['world_m'], measured_hand['world_m']
+            if len(a) != len(b):
+                raise ValueError('Paired geometry marker count changed')
+            errors = [math.dist(p,q) for p,q in zip(a,b)]
+            if not errors or not all(math.isfinite(e) and e <= 1e-6 for e in errors):
+                raise ValueError('Paired geometry markers changed')
+            if 'distal_skin' not in measured_hand:
+                raise ValueError('Missing independently measured paired skin')
+            maximum = max(maximum,*errors)
         if 'distal_skin' not in second:
             raise ValueError('Missing independently measured skin')
     return measured, maximum

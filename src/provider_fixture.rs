@@ -55,6 +55,7 @@ struct State {
     receipt: Option<(u64, Value)>,
 }
 struct Bridge {
+    max_hands: usize,
     run_id: String,
     state: Mutex<State>,
     changed: Condvar,
@@ -82,8 +83,14 @@ fn reply(status: &'static str, body: Value) -> ExtensionResponse {
     }
 }
 impl Bridge {
-    fn new(assets: BTreeMap<String, PathBuf>, stale_us: u64, run_id: String) -> Self {
+    fn new(
+        assets: BTreeMap<String, PathBuf>,
+        stale_us: u64,
+        run_id: String,
+        max_hands: usize,
+    ) -> Self {
         Self {
+            max_hands,
             run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
@@ -176,7 +183,7 @@ impl Extension for Bridge {
             ("GET", "/provider/config") => Ok(reply(
                 "200 OK",
                 json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"package_version":"1.1.1","camera_opened":false,"system_input":false}),
+                "run_id":self.run_id,"max_hands":self.max_hands,"package_version":"1.1.1","camera_opened":false,"system_input":false}),
             )),
             ("POST", "/provider/ready") | ("POST", "/provider/stop") => {
                 #[derive(Deserialize)]
@@ -287,10 +294,10 @@ impl Extension for Bridge {
                         json!({"error":"different provider run"}),
                     ));
                 }
-                if returned.hands.len() > 2 {
+                if returned.hands.len() > self.max_hands {
                     return Ok(reply(
                         "400 Bad Request",
-                        json!({"error":"at most two hands"}),
+                        json!({"error":"configured provider hand limit"}),
                     ));
                 }
                 let now = monotonic_us()?;
@@ -417,7 +424,11 @@ pub fn run(
     settings: &Path,
     asset_root: &Path,
     port: u16,
+    max_hands: usize,
 ) -> Result<(), Box<dyn Error>> {
+    if !(1..=2).contains(&max_hands) {
+        return Err("provider max hands must be1 or2".into());
+    }
     let (config, mut controller, mut tracker) = provider::configured(session, settings, 0.5)?;
     let sequence = crate::sequence::Sequence::load(manifest)?;
     let first = sequence.frames.first().unwrap().source_us;
@@ -453,6 +464,7 @@ pub fn run(
         assets(asset_root)?,
         config.gestures().stale_us,
         format!("{}-{}", std::process::id(), monotonic_us()?),
+        max_hands,
     ));
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
@@ -734,8 +746,28 @@ mod tests {
             "200 OK"
         );
     }
+    #[test]
+    fn one_hand_graph_capacity_is_explicit_and_does_not_admit_two_returned_hands() {
+        let b = Bridge::new(BTreeMap::new(), 1_000_000, "one".into(), 1);
+        let config = b.respond("GET", "/provider/config", &[]).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&config.body).unwrap()["max_hands"],
+            1
+        );
+        let points = [[0.0; 2]; 21];
+        let world = [[0.0; 3]; 21];
+        let hand = json!({"landmarks":points,"world_landmarks":world,"right_probability":0.9});
+        let body = json!({"run_id":"one","sequence":1,"hands":[hand.clone(),hand]}).to_string();
+        assert_eq!(
+            b.respond("POST", "/provider/result", body.as_bytes())
+                .unwrap()
+                .status,
+            "400 Bad Request"
+        );
+        assert!(b.state.lock().unwrap().submission.is_none());
+    }
     fn bridge() -> Arc<Bridge> {
-        Arc::new(Bridge::new(BTreeMap::new(), 1_000_000, "test-1".into()))
+        Arc::new(Bridge::new(BTreeMap::new(), 1_000_000, "test-1".into(), 2))
     }
     fn publish(b: &Bridge, sequence: u32) -> u64 {
         b.publish(Frame {

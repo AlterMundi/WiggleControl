@@ -14,13 +14,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
-        Some("provider-fixture") if args.len() == 6 => {
+        Some("provider-fixture") if args.len() == 6 || args.len() == 7 => {
             return wigglecontrol::provider_fixture::run(
                 std::path::Path::new(&args[1]),
                 std::path::Path::new(&args[2]),
                 std::path::Path::new(&args[3]),
                 std::path::Path::new(&args[4]),
                 args[5].parse()?,
+                args.get(6).map(|s| s.parse()).transpose()?.unwrap_or(2),
             );
         }
         Some("provider-replay") if args.len() == 4 => {
@@ -448,7 +449,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
     #[cfg(feature = "native-vision")]
-    println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT (real-clock JPEG/worker/meaning; no camera/devices)");
+    println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-replay SESSION SETTINGS PRESENCE_FLOOR < raw-landmarks.jsonl (no acquisition/models/devices)");
     #[cfg(target_os = "linux")]

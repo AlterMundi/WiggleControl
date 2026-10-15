@@ -13,7 +13,7 @@ const run = async()=>{
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if(hash!==config.model_sha256)throw Error('Provider model digest differs');
   text('capture-status','Preparing GPU worker · synthetic frames only');
-  model=await workerSource(base,bytes,config.delegate);
+  model=await workerSource(base,bytes,config.delegate,config.max_hands);
   // Compile/warm the graph on the displayed public reference before real-clock
   // acquisition begins. Warmup points never enter Rust meaning.
   const warmResponse=await fetch('/frame',{cache:'no-store'});

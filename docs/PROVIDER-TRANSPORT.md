@@ -6,7 +6,7 @@ tracking/meaning. It opens no camera or virtual input device. It is not a live
 camera backend or accepted receiving runtime.
 
 ```sh
-wigglecontrol provider-fixture SEQUENCE.json SESSION.json SETTINGS.json ASSET_ROOT PORT
+wigglecontrol provider-fixture SEQUENCE.json SESSION.json SETTINGS.json ASSET_ROOT PORT [MAX_HANDS]
 ```
 
 Build with `native-vision`; native ONNX inference is not initialized by this
@@ -15,6 +15,11 @@ estimate and explicit gesture confidence0.5, and omit visual macros. Retained
 3D/2D pinch interpretation, workspace, manual modes, open rearm and Stop remain
 the existing controller's responsibility. No gesture threshold/freshness is
 silently changed by transport.
+
+`MAX_HANDS` explicitly selects1 or2, default2, for the fixed model graph of this
+experiment. It is not automatic mode switching or participant identity. A
+one-hand comparison should select the existing one-contact mode in settings.
+The host rejects returned hand counts above the selected graph capacity.
 
 The sequence uses the existing version1 image manifest, with relative regular
 640×480 JPEG files, at most2MiB each, and source offsets covering at most90seconds.

@@ -7,14 +7,15 @@ self.onmessage = async event => {
   const {id, kind} = event.data;
   try {
     if (kind === 'init') {
-      const {baseUrl, modelBytes, delegate} = event.data;
+      const {baseUrl, modelBytes, delegate, maxHands=2} = event.data;
       if (model || !accepting || !/^http:\/\/127\.0\.0\.1:\d+\/$/.test(baseUrl)
-          || !['CPU','GPU'].includes(delegate)) throw Error('Invalid worker initialization');
+          || !['CPU','GPU'].includes(delegate) || !Number.isInteger(maxHands)
+          || maxHands<1 || maxHands>2) throw Error('Invalid worker initialization');
       const {FilesetResolver, HandLandmarker} = await import(baseUrl+'package/vision_bundle.mjs');
       const files = await FilesetResolver.forVisionTasks(baseUrl+'package/wasm');
       model = await HandLandmarker.createFromOptions(files, {
         baseOptions:{modelAssetBuffer:new Uint8Array(modelBytes), delegate},
-        canvas:new OffscreenCanvas(1,1), runningMode:'VIDEO', numHands:2,
+        canvas:new OffscreenCanvas(1,1), runningMode:'VIDEO', numHands:maxHands,
         minHandDetectionConfidence:.5, minHandPresenceConfidence:.5, minTrackingConfidence:.5
       });
       self.postMessage({id, ok:true});

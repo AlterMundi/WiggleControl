@@ -1,6 +1,7 @@
 // Camera-free optional provider comparison; all assets stay on loopback.
 // A browser backend is not stable hand identity or delivered system input.
-export async function workerSource(baseUrl, modelBytes, delegate) {
+export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2) {
+  if(!Number.isInteger(maxHands)||maxHands<1||maxHands>2)throw Error('Expected one or two provider hands');
   if (location.origin !== new URL(baseUrl).origin) throw Error('Worker mode requires same-origin HTTP hosting');
   const worker = new Worker(new URL('task_hand_worker.js',baseUrl));
   let id = 0;
@@ -23,7 +24,7 @@ export async function workerSource(baseUrl, modelBytes, delegate) {
     pending.set(request,{resolve,reject,timeout});
     worker.postMessage({id:request,kind,...fields},transfer);
   });
-  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate});}
+  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate,maxHands});}
   catch(error) {worker.terminate();throw error;}
   return {
     async infer(image,source_us) {

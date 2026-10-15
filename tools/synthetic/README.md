@@ -460,3 +460,41 @@ Stop/EOF release. Native confidence, eligibility, ID and cursor remain unchanged
 they are not WiLoR confidence or ownership evidence. Partial producer appends are
 read only through complete lines and incomplete groups are rejected. This is
 conditional offline evidence, not a real-time runtime adapter or human intent.
+
+### Optional MobRecon SpiralConv comparison
+
+`mobrecon-assets.json` pins the author source/checkpoint and locally prepared
+topology. No weights or MANO-derived topology are redistributed. The lightweight
+comparison is **not selected for live use**: its full307-frame replay loses
+useful pinches despite removing the separated-macro contacts. See the same
+[comparison report](../../docs/research/mesh-reconstruction-2026-10.md#mobrecon-spiralconv-cpu-comparison).
+
+Prepare the topology once using the provider's unchanged `extract_spirals`:
+
+```sh
+uv run --no-project --python 3.9.25 \
+  --with-requirements tools/synthetic/mobrecon-prepare-requirements.lock \
+  python tools/synthetic/mobrecon_prepare.py --repo HANDMESH --output NEW_TOPOLOGY.npz
+```
+
+Python3.9 is needed only for the published Linux OpenMesh1.2.1 wheel; no source
+compilation or training dependency stack is required. The pinned arrays include
+four spiral levels, sparse upsampling entries and the author's21-point regressor.
+The probe checks their exact retained digest. The existing Python3.10.20 WiLoR
+CPU environment then runs:
+
+```sh
+python tools/synthetic/mobrecon_probe.py SELECTION NEW_OUTPUT \
+  --repo HANDMESH --checkpoint mobrecon_densestack.pt --topology TOPOLOGY.npz
+```
+
+The version1 input selection/group association is the same as WiLoR's. Known
+right-hand side remains independent. The declared box is expanded1.3 to an
+axis-aligned square, with the author's integer/affine crop and RGB/0.5
+normalization. The unchanged128px model loads strictly. Provider0.20 scaling
+and MANO→MPII ordering produce the joint gap. Camera registration is omitted:
+the provider fits a rigid translation, which cannot change this norm. Raw UV,
+vertices, landmarks, image hashes and real forward/postprocessing time are
+retained; timing excludes crop/decode, detection and camera registration.
+Use `compare_mesh_metric.py --focal not_required_for_gap` for conditional controller
+replay. It never adds mesh confidence, handedness inference or stable identity.

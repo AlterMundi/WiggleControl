@@ -149,9 +149,81 @@ qualify actual detector/crop and both-hand ownership, then select a feasible
 latency/resource architecture and fresh acknowledged physical trial. A plausible
 mesh or this selected probe alone does not close any of those gates.
 
-An eligible lightweight reconstruction is the next CPU comparison lead:
-[MobRecon's author repository](https://github.com/SeanChenxy/HandMesh) provides its
-implementation, and the[paper](https://openaccess.thecvf.com/content/CVPR2022/papers/Chen_MobRecon_Mobile-Friendly_Hand_Mesh_Reconstruction_From_Monocular_Image_CVPR_2022_paper.pdf)
-reports a mobile CPU result. Its exact downloadable assets, source compatibility,
-pinch behavior and Pi cost are not yet verified here; that published result is
-not a Pi benchmark or an executed candidate.
+## MobRecon SpiralConv CPU comparison
+
+[MobRecon's author repository](https://github.com/SeanChenxy/HandMesh), pinned at
+`3c87e958d4855f890e3884ec94bcfc0f99422c3d`, recommends its2023 SpiralConv
+variant for freely captured images. The[CVPR2022 paper](https://openaccess.thecvf.com/content/CVPR2022/papers/Chen_MobRecon_Mobile-Friendly_Hand_Mesh_Reconstruction_From_Monocular_Image_CVPR_2022_paper.pdf)
+reports a mobile CPU result; that is neither this variant's measured Pi speed nor
+our own validation. The author-linked public download supplied the49,090,033-byte
+`mobrecon_densestack.pt`, SHA256
+`2b634114dadb324802c9e55a8b7a9236f0e7b476157ac0b175f0eb258d9d276c`.
+Source is MIT; no separate checkpoint license was identified in the inspected
+download. Assets remain local and MANO provenance stays separate.
+
+The real inference path imports only the provider model and preprocessing;
+training graph/mesh packages are unnecessary. One-time topology preparation
+uses unchanged `extract_spirals`, sequence9/dilation1 and the pinned template
+transforms/joint regressor. Linux OpenMesh1.2.1 has no compatible Python3.10
+wheel: a binary-only resolution failed without changing that environment.
+An isolated Python3.9.25 preparation uses the published wheel instead, while
+model inference reuses the unchanged Python3.10.20/PyTorch2.5 CPU environment.
+The complete checkpoint loads strictly; no random trained parameters remain.
+Scripts, asset manifest and preparation lock are under `tools/synthetic/`.
+
+The128px RGB crop expands each **retained native-landmark** box1.3 to a square,
+following the provider's non-augmented training crop/normalization convention.
+Known right-hand side is still supplied independently. Provider0.20 output
+scaling and its21-point MANO→MPII regressor produce the joint gap. Its optional
+camera registration fits a rigid translation and is omitted because translation
+cannot change the Euclidean gap. This is a declared crop comparison, not parity
+with an independently executed full demo/detector or a physical scale calibration.
+
+Eight selected static inputs completed first: all four far gaps were67.61–128.55mm,
+while yaw/pitch/curled/PIP near gaps were12.36/70.60/44.79/52.26mm. Thus two of four
+near examples already fail the existing45mm close boundary. A subsequent complete
+307-frame run covers the61-frame negative and **all six**41-frame positive
+trajectories, using matching native boxes and original image hashes. The macro
+geometry is independently matched with zero world-marker error. The actual Rust
+replay preserves native confidence, eligibility, identity, cursor and source time,
+replacing only the gap at unchanged45/65mm thresholds:
+
+| Positive trajectory | Baseline near-hold contacts | MobRecon near-hold contacts |
+| --- | --- | --- |
+| Yaw−35° |8/9 |9/9 |
+| Yaw+35° |9/9 |0/9 |
+| Pitch−25° |9/9 |0/9 |
+| Pitch+25° |9/9 |9/9 |
+| Curled index |9/9 |5/9 |
+| PIP-dominant index |9/9 |0/9 |
+| Total at20Hz |53/54 |23/54 |
+
+Negative contact frames decrease26→0 at20Hz,12→0 at10Hz phase0 and13→0 at
+phase1. Positive near coverage decreases26/30→8/30 and23/24→10/24 at those10Hz
+phases. Positive fully open holds retain zero contacts (108/60/48 scored frames).
+Baseline reproduction and Stop/EOF release pass on every group. These are
+conditional synthetic frame counts, not independent human intent or real-time
+execution. They reject this unchanged-threshold reconstruction as a direct
+replacement; suppressing false actions by losing useful pinches is insufficient.
+
+The full run completed successfully in65.887s wall/78.377s CPU under two-thread,
+200% CPU,2GiB memory and zero-task-swap limits. Median forward/postprocessing
+was114.18ms, p95512.04ms; provider load took0.61s. Cgroup peak was303.3MiB;
+the process's retained `ru_maxrss` reports403,570,688bytes, a distinct measurement
+whose difference is not resolved here. Timing excludes image crop/decode,
+detection, camera registration and event delivery. VPS contention/quota effects
+remain in the measurements; no Pi or optimized-runtime speed is inferred.
+
+Actual model stages/images/gaps were projected during the finite run. The owned
+TV page was observed at1920×1080 with a loaded source image during inference and
+after completion. It reports reconstruction with unknown contacts rather than
+inventing detector or ownership outputs. Both finite model/projector processes
+exited; no camera, microphone, system input or Pi runtime was activated.
+
+Decision: keep the working local ONNX controller and its profile. WiLoR remains
+the stronger tested accuracy comparison on its smaller corpus; MobRecon is
+substantially lighter but fails useful coverage. Next compare an actually
+available accurate/accelerated candidate and qualify complete native crops and
+ownership before proposing live adoption. Do not retune thresholds to these seven
+trajectories or declare every mesh estimator accurate because it reconstructs a
+plausible hand. Physical comfort and crossing/occlusion remain separate gates.

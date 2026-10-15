@@ -34,7 +34,7 @@ def substitute(native, selection, mesh_rows, group, images, focal):
             raise ValueError('Known crop/native observation source mismatch')
         if not math.isfinite(row['gap_m']) or row['gap_m'] < 0:
             raise ValueError('Mesh gap is not a finite nonnegative metric')
-        # Native source confidence/identity are retained, not attributed to WiLoR.
+        # Native source confidence/identity are retained, not attributed to the mesh estimator.
         output['hands'][0]['pinch_distance_m'] = row['gap_m']
     return replaced
 
@@ -88,7 +88,9 @@ def main():
         selection_sha256=digest(args.selection), native_results_sha256=digest(args.native_results),
         binary_sha256=digest(args.binary), settings_sha256=digest(args.settings),
         matched_geometry_error_m=marker_error, comparisons=comparisons,
-        limits='Conditional oracle-crop metric replacement; native confidence/identity retained. '
+        crop_sources=sorted({c.get('crop_source', 'independent_reference_skin_bounds')
+                             for c in selection['cases'] if c.get('reference_case') == args.group}),
+        limits='Conditional declared-crop metric replacement; native confidence/identity retained. '
                'Offline source clock only; no detector, real-time, physical or runtime-adoption claim.')
     with args.output.open('x') as stream:
         stream.write(json.dumps(result, indent=2, allow_nan=False)+'\n')

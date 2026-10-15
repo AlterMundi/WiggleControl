@@ -32,6 +32,13 @@ positive trajectories, versus17/18 baseline. An eight-input retained-native-box
 probe also preserves far/near separation. Full native-crop/remaining-view tests,
 interactive latency, both-hand ownership and physical input remain open. CPU cost
 is several seconds per frame and5GiB peak; no model/runtime/profile was adopted.
+The subsequent[MobRecon SpiralConv comparison](research/mesh-reconstruction-2026-10.md#mobrecon-spiralconv-cpu-comparison)
+completed307 native-box reconstructions across the negative and all six positives.
+It removes negative contacts but reduces20Hz near-hold coverage53/54→23/54
+(10Hz26/30→8/30 and23/24→10/24). VPS median114ms/p95512ms and roughly303MiB
+cgroup peak are lighter, but useful pinch coverage rejects direct replacement.
+No threshold/profile/runtime change follows; accurate low-latency reconstruction
+and physical acceptance remain open.
 
 ## Outcome and today's goal
 

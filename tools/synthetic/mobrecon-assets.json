@@ -1,0 +1,28 @@
+{
+  "source": "https://github.com/SeanChenxy/HandMesh",
+  "source_commit": "3c87e958d4855f890e3884ec94bcfc0f99422c3d",
+  "source_license": "MIT; retain upstream license and separate MANO asset provenance",
+  "checkpoint": {
+    "name": "mobrecon_densestack.pt",
+    "bytes": 49090033,
+    "sha256": "2b634114dadb324802c9e55a8b7a9236f0e7b476157ac0b175f0eb258d9d276c",
+    "author_linked_folder": "https://drive.google.com/drive/folders/1MIE0Jo01blG6RWo2trQbXlQ92tMOaLx_",
+    "file": "https://drive.google.com/file/d/1QKtt5x-8Xe_afjpMTBIk2TI3G5QGk_iu/view",
+    "license_note": "No separate checkpoint license identified in the inspected download. Local comparison only; checkpoint not redistributed."
+  },
+  "prepared_topology": {
+    "sha256": "3a9d0a5420029a0721819a1fed303a0d303c9a9b9ed130788b94c10a3f3be82d",
+    "transform_pkl_sha256": "78877f06e9858bedd5fbca13692ccee25cfe09b6314e7ee3b3d0827c39979f3c",
+    "method": "Unchanged provider extract_spirals, sequence9/dilation1; provider up_transform and j_reg.npy. No downloaded model or MANO data included here."
+  },
+  "preparation": {
+    "python": "3.9.25",
+    "numpy": "1.23.5",
+    "openmesh": "1.2.1",
+    "scikit-learn": "1.3.2",
+    "scipy": "1.10.1"
+  },
+  "inference_environment": "wilor-requirements.lock; unchanged Python3.10.20 CPU environment",
+  "model": {"input_size":128,"out_channels":[32,64,128,256],"dsconv":false,"output_scale_m":0.20},
+  "comparison": {"known_right_hand":true,"crop":"axis-aligned declared box expanded1.3 to square, integer bounds, provider affine convention","registration":false,"reason":"A rigid camera translation cannot alter Euclidean joint gap."}
+}

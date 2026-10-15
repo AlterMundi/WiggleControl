@@ -9,6 +9,14 @@ resume the earlier blocked Shared Resources goal. The maintained entry point is
 [ROADMAP.md](ROADMAP.md), with implemented versus pending modes in [MODES.md](MODES.md)
 and measured results in [the evolution report](research/controller-evolution-2026-10.md).
 
+Latest optional perception comparison: [mesh reconstruction](research/mesh-reconstruction-2026-10.md)
+records WiLoR's promising but slow143-input result and the completed307-input
+MobRecon SpiralConv rejection. MobRecon's native-box conditional replay removes
+negative contacts but loses useful20Hz near-hold coverage53/54→23/54 across six
+positives. Its114ms median VPS forward cost does not justify adoption. Both
+experiments are finite and camera/device-free; receiving runtime/profile are
+preserved. Accurate interactive perception and physical acceptance remain open.
+
 Implemented in this increment: opt-in speed-adaptive Rust cursor filtering,
 2016-case analytic benchmark with explicit development/held-out seeds and a
 reproducible profile selector; camera-free temporal image replay through actual

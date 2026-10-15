@@ -141,3 +141,32 @@ The native camera session still reports `visual_macros:false`. Remaining work:
 No camera/microphone, OS input, installed controller binary,45/65mm live threshold,
 saved calibration or power policy changed. This completes a reproduced backend
 investigation, not visual-macro delivery or the active controller goal.
+
+## Subsequent receiving probe and shared publication
+
+Source8045460 passed
+[CI38737925940](https://github.com/AlterMundi/WiggleControl/actions/runs/38737925940),
+including replay, native and ARM64 jobs. Its separately staged ARM64 binary
+SHA256`a85e44e4148673165eb9802538031a08c14905f7f74fabb789ebbb9556fa3d5d`
+actually ran `gesture-check` on the Pi against the pinned exported model. Three
+fresh processes on one synthetic two-hand open image each detected two hands;
+six classifier calls took0.140–0.456ms, median0.237ms. Whole-process time was
+262–265ms, including startup, image decoding and hand/model loading/inference.
+This is a small file-input probe, not sustained FPS or camera-to-screen latency.
+Both hands' Open_Palm scores were approximately0.682/0.609, below the existing
+macro engine's0.8 floor. They do not validate automatic positive-neutral rearm.
+
+The candidate/model are retained separately for continued integration. Selected
+production/calibration binaries and the already prepared8c569ae camera-only
+trial remain unchanged. No sensor, input or action was activated. Exact receiving
+paths, receipts and retirement belong to Shared Resources' private operator record.
+
+The preceding source-only investigation was selected as immutable operation
+`gesture-classifier-reuse-20261015-v1`, document
+`research/wigglecontrol/compaii/gesture-classifier-reuse-20261015-v1.md`.
+Its accepted full-document SHA256 is
+`50a16fb796b7028d8b267fb5caad5849d90deece966b2db2bf25daf862677561`.
+It is published in coherent non-stale index8/UI8; exact reader bytes, targeted
+search and version-aware map observation passed. This receiving follow-up is
+new owning-project evidence beyond that selected snapshot. Reader publication
+is not another being's reading/adoption. The full controller goal remains active.

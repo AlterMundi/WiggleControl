@@ -82,7 +82,13 @@ events but no stationary client press until motion. A source-pinned local labwc
 focus candidate passed its ARM64 build and receiving loader preflight for#5;
 nested comparison now gives5/5 stationary patched clicks versus0/5 baseline, plus
 active-touch exclusion, DOM capture and client pointer-lock guards. Complete
-uinput handoff on the main desktop remains pending; its vendor compositor remains selected.
+uinput handoff on the main desktop subsequently passed all five stationary cases
+after selecting the distribution-prefix3d3121f patch through a reversible local
+package diversion. The actual running executable hash matched the artifact;
+owned browser/compact panel were restored and the finite devices removed.
+The vendor binary is retained; package updates and reversal require the selection
+record in the receiving overlay. Other clients/grabs/locks and physical camera
+acceptance remain open. Existing controller binaries/config/profile are unchanged.
 See CONTROLLER-NATIVE.md and tools/labwc/README.md for exact evidence and limits.
 
 Older dated checkpoints below preserve history; they do not override this roadmap.

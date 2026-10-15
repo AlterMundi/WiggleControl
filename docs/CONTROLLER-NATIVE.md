@@ -232,3 +232,27 @@ pointer-lock lifecycle passed. An attempted zero-motion control was discovered t
 be omitted by wlrctl, so it does not qualify that alternative. See the candidate
 guide for method/limits. Main desktop activation and actual native uinput handoff
 remain the next receiving gate; no camera acceptance follows from these tests.
+
+### Main desktop follow-up —2026-10-15
+
+The distribution-prefix labwc candidate from source3d3121f/build38720964043 is
+now selected through a receiving-local reversible package diversion. An actual
+file-selection/rollback roundtrip passed before activation; after the targeted
+graphical-session restart, the new running executable matched the artifact hash.
+The vendor binary, wrapper and graphical-session configuration remain retained.
+See [the compositor guide](../tools/labwc/README.md#main-desktop-adoption-2026-10-15)
+for hashes, reversal and package-update maintenance.
+
+The same finite native writer diagnostic now reports one stationary pointerdown
+and one fresh-motion control pointerdown in each of all five cases. One contact
+used0/600ms gaps; two contacts used0/200/600ms. This is the complete
+uinput→libinput→main compositor→owned Wayland Chromium path, unlike the nested
+virtual-pointer test. Writer exit0, removal of both virtual devices and return to
+the owned1920x1080 workbench were observed. The independent panel was active and
+reported camera/microphone inactive, silent1.5GHz and fan0RPM. No physical trial ran.
+
+The observed stationary Chromium failure is repaired in this selected local
+compositor. Other supported clients, session locks, native grabs/popups and
+wheel-only handoff remain unqualified in#5. The selected WiggleControl runtime,
+45/65mm thresholds and saved calibration were preserved; this does not qualify
+live camera mode switching or the full controller roadmap.

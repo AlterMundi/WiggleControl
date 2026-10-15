@@ -2,7 +2,9 @@
 
 This is an explicitly built compositor experiment for the controller roadmap,
 tracked by [WiggleControl#5](https://github.com/AlterMundi/WiggleControl/issues/5).
-The existing desktop compositor remains selected until separately qualified.
+The receiving desktop now selects the locally patched compositor after the
+bounded qualification below. Other applications and physical control remain
+separate acceptance gates.
 
 The installed labwc0.20.2 clears pointer focus on touch down. In five finite
 native-device cases, evdev received the subsequent stationary mouse press while
@@ -12,9 +14,9 @@ inspected upstream master9998771. See the maintained receiving research record.
 
 The candidate enters the surface under the existing cursor on a press when no
 touch points remain and pointer focus is missing. It emits no fake motion and
-changes no calibration. This is an inference-driven candidate patch, pending
-actual compositor/client regression and receiving activation. Compilation and
-upstream unit tests alone cannot prove that it fixes the observed handoff.
+changes no calibration. The controlled nested and main-desktop comparisons below
+qualify this handoff in the owned Wayland Chromium client. Compilation and
+upstream unit tests alone do not establish that result.
 Active touch, grabs, locks, pointer constraints and unrelated clients require
 review/qualification before ordinary adoption. Wheel-only handoff is separate.
 
@@ -100,3 +102,46 @@ retain/reverse the vendor package selection, then verify the complete native
 uinput→libinput→main compositor→client handoff. The nested result does not claim
 main-desktop activation or physical camera acceptance. The vendor wrapper and
 its existing GPU/environment policy must be preserved.
+
+## Main desktop adoption —2026-10-15
+
+[Build38720964043](https://github.com/AlterMundi/WiggleControl/actions/runs/38720964043)
+at source3d3121f retains the identical focus patch and uses distribution `/usr`
+and `/etc` resource prefixes. Selected binary SHA256:
+`0280557f83c6b86fc535f1612484fc2cc6bff6b039b682cedb3a7a775506fd7b`.
+The vendor binary remains retained, SHA256:
+`7bee5b51344f0ef4109def17e31244e54c6e920e670e5071fb0dd80d0b4a7667`.
+
+The receiving-local selection helper first completed an actual file-selection
+and reversal roundtrip, without restarting the active compositor. It then
+selected the patch through a local `dpkg-divert`. Only the graphical session was
+restarted; the vendor session wrapper and LightDM configuration were preserved.
+The newly running compositor's executable hash matched the selected artifact.
+The owned browser and independent compact panel were restored.
+
+The complete native uinput→libinput→main labwc→Chromium route then delivered
+one stationary mouse pointerdown in each of the five cases: one contact with
+0/600ms delay and two contacts with0/200/600ms delay. All five fresh-motion
+positive controls also delivered one. Before the patch, these same stationary
+cases delivered zero despite kernel button events. The writer exited0, its
+devices disappeared and the workbench returned at1920x1080 without page overflow.
+Sensors stayed inactive; silent1.5GHz/fan0RPM remained selected.
+
+This qualifies the observed Chromium handoff, not every client, session lock,
+native popup/grab, wheel-only recovery or physical camera gesture. Issue#5 retains
+those application/interaction follow-ups. Existing WiggleControl runtime binaries,
+live thresholds and saved calibration were not replaced.
+
+### Receiving reversal and maintenance
+
+Resolve the selection helper and receipt through Shared Resources' receiving
+overlay. Its `rollback` action verifies the retained vendor bytes, removes only
+its own diversion and restores the original target. Restart the graphical session
+after reversal to load that executable, coordinating any then-open applications.
+Removing staged artifacts alone does **not** retire the selected compositor.
+
+The local diversion deliberately preserves the patch across package updates;
+vendor updates reach the diverted distribution path. If those vendor bytes change,
+the helper refuses its old pinned rollback: inspect the new package and update
+the maintained selection/reversal record before proceeding. This is a local GPL
+experiment with ongoing maintenance, not an upstream package fix or acceptance.

@@ -136,3 +136,32 @@ display acceptance; reports explicitly keep that qualification separate.
 4. Keep selected runtime/config/calibration, the separately prepared8c569ae
    camera-only trial and all experimental candidates distinct. A source-connected
    feature or UI fixture is not accepted live adoption.
+
+## Delivery follow-up
+
+Source[dcee493](https://github.com/AlterMundi/WiggleControl/commit/dcee49318ea2769d2e51f570ae8bcf7cc8eb033b)
+passed[CI38747106206](https://github.com/AlterMundi/WiggleControl/actions/runs/38747106206),
+including Rust1.85.1 ARM64 tests/build. Its independently staged ARM64 binary
+SHA256`390d065caafbae02c3b30791f2f6aa631f023c7ab2dd98b6775b4824f784ef0b`
+passed receiving config-only preflight and three static two-hand frames through
+the full classifier/controller file path. All three have two hands, no contacts
+or actions and `missing_pose` macro blocking: selected pose scores0.679–0.682 do
+not meet0.8. Processing was178.69ms cold and101.95/102.50ms subsequent frames.
+These are small file-input measurements, not camera latency or sustained FPS.
+Selected runtime/config/profile and the prepared8c569ae human trial are unchanged.
+Exact candidate/evidence/retirement references remain receiving-private.
+
+[#7](https://github.com/AlterMundi/WiggleControl/issues/7) owns the separated-skin
+contact regression and matched interpretation comparisons; #3 retains the full
+goal. No successful image-based timed macro or physical acceptance is claimed.
+
+The preceding investigation is selected as immutable contribution
+`native-visual-macros-20261015-v1`, accepted full-document SHA256
+`7c169dacb126f00411c40fc8c2db0a2debc33decb041fc1165f76111aaf44e35`,
+logical document`research/wigglecontrol/compaii/native-visual-macros-20261015-v1.md`.
+Coherent non-stale index9/UI9 serves its exact bytes and related authored map.
+The first reader/publication check timed out while the same reader PID remained
+running; that unavailable observation is retained. Fresh health/document/search/
+snapshot reads passed, followed by the distinct `after-reader-ready` publication
+observation. No restart was inferred from the timeout. This follow-up is newer
+owning-project evidence beyond the selected snapshot, not another being's adoption.

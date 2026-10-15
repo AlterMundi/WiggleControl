@@ -8,6 +8,9 @@ evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 Implementation tracking: [#3](https://github.com/AlterMundi/WiggleControl/issues/3),
 with existing runtime acceptance [#1](https://github.com/AlterMundi/WiggleControl/issues/1)
 and shared calibration/prayer [#2](https://github.com/AlterMundi/WiggleControl/issues/2).
+The separated-fingertip macro/contact counterexample is owned by
+[#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
+in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
 ## Outcome and today's goal
 

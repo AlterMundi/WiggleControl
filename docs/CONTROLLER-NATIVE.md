@@ -190,7 +190,8 @@ The Rust workflow tests and builds this native path on an
 [ARM64 Ubuntu24.04 runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
 with the existing Rust1.85.1 pin. This avoids compiling on the receiving Pi and
 requires no new local cross toolchain. Its `wigglecontrol-arm64-candidate` artifact
-contains a tar archive preserving executable mode, LICENSE/NOTICE and a manifest
+contains a tar archive preserving executable mode, LICENSE/NOTICE,
+APACHE-2.0-LICENSE for the derived native modules and a manifest
 with source commit, compiler, architecture, feature selection and binary SHA256.
 It contains no model, inference runtime, camera recording or receiving config.
 Artifacts expire after14days; the maintained workflow can build another commit.

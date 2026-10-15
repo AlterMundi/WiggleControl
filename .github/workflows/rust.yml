@@ -44,6 +44,7 @@ jobs:
           mkdir -p target/arm64-candidate
           install -m755 target/release/wigglecontrol target/arm64-candidate/wigglecontrol
           cp LICENSE NOTICE target/arm64-candidate/
+          cp models/handpose_estimation_mediapipe-LICENSE target/arm64-candidate/APACHE-2.0-LICENSE
           python3 - <<'PYTHON'
           import hashlib, json, os, pathlib, platform, subprocess
           root = pathlib.Path("target/arm64-candidate")
@@ -60,7 +61,7 @@ jobs:
               raise SystemExit("Expected native ARM64 builder")
           (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
           PYTHON
-          tar -C target/arm64-candidate -czf target/wigglecontrol-arm64-candidate.tar.gz wigglecontrol manifest.json LICENSE NOTICE
+          tar -C target/arm64-candidate -czf target/wigglecontrol-arm64-candidate.tar.gz wigglecontrol manifest.json LICENSE NOTICE APACHE-2.0-LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: wigglecontrol-arm64-candidate

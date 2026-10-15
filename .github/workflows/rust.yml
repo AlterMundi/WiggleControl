@@ -18,6 +18,9 @@ jobs:
       - run: python3 tools/synthetic/test_wilor_probe.py
       - run: python3 tools/synthetic/test_mesh_metric.py
       - run: python3 tools/synthetic/test_tasks_metric.py
+      - run: python3 tools/synthetic/test_browser_provider.py
+      - run: node --check tools/synthetic/browser_hand_sequence.mjs
+      - run: node --check tools/synthetic/task_hand_worker.js
       - run: python3 tools/synthetic/test_pinch_fusion.py
       - run: python3 tools/synthetic/test_mesh_projection.py
       - run: cargo fmt --check

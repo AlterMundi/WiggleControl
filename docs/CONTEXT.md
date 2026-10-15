@@ -2,6 +2,17 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+Latest [provider/worker integration](research/provider-worker-2026-10.md) adds
+camera/device/model-free raw-landmark JSONL→Rust tracking/meaning, with age/order,
+ambiguity/ID retirement and shared pinch/workspace conversion. Actual classic
+Tasks GPU workers on Pi retain main-thread animation callbacks at131.4/102.6ms
+one/two-hand median processing.104 saved worker inputs retain exact main-thread
+provider replay contacts:4/5 adverse near frames and20/20 separated-pair counts,
+without inherited native identity/quality. SDK presence0.5 is explicitly a
+configured threshold floor. Live same-clock capture/worker→Rust transport,
+broader crossing/negative coverage, image-depth/macros and human acceptance are
+unfinished; selected receiving runtime/profile/power and original trial stay intact.
+
 Latest [palm correspondence/GPU work](research/palm-correspondence-gpu-2026-10.md)
 uses five actual proximal points for duplicate reconstruction comparison. It
 recovers4/5 adverse actual10Hz holds under the paired policy and preserves all

@@ -12,7 +12,18 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
-Latest [palm correspondence/GPU comparison](research/palm-correspondence-gpu-2026-10.md)
+Latest [raw provider/worker connection](research/provider-worker-2026-10.md)
+feeds saved raw Tasks points through Rust's own spatial tracking and existing
+meaning, retaining4/5 adverse near holds and20/20 separated-pair stable counts
+without native IDs/quality/cursor. Actual classic-worker GPU processing on Pi is
+131.4ms one-hand/102.6ms two-hand median; animation callbacks continue during
+every inference and resulting offline Rust contacts match the main-thread replay.
+Clock/age/order/loss/rearm/EOF controls are implemented. A live same-clock capture/
+worker→Rust transport, broader ownership/negative coverage and whole-path timing
+remain next; image-depth/visual-macro integration is explicitly unavailable.
+These are component connections, not selected live control or full goal completion.
+
+Earlier [palm correspondence/GPU comparison](research/palm-correspondence-gpu-2026-10.md)
 fixes a false second-hand reconstruction without an additional inference. The
 uniform palm/1.2 policy preserves all1042 retained mixed-model contact decisions
 and recovers the adverse one-hand4/5 hold that the old palm policy lost. Actual

@@ -666,3 +666,28 @@ progress and a retained last image. Save the returned report independently of
 the display. The [receiving measurements](../../docs/research/palm-correspondence-gpu-2026-10.md)
 establish a hardware-WebGL speed improvement and a narrow conditional metric
 replay, not an accelerated system-input backend or physical qualification.
+
+`execution:"worker"` selects the optional classic `task_hand_worker.js` and
+OffscreenCanvas. Serve the experiment page, helper, worker and assets from the
+**same** loopback HTTP origin; `file://` cross-origin/module-worker attempts failed
+on the actual receiver. The unchanged pinned SDK uses classic Wasm script/global
+factory initialization. One ImageBitmap request is in flight, bounded30seconds;
+models close with an acknowledgment before worker termination. Recorded
+`inference_ms` then includes submission/transfer/readback; `worker_inference_ms`
+measures the inner model call. Animation callback counts during inference observe
+main-thread scheduling, not full display performance. A supplied UUID `run_id`
+lets the existing projector initialize `run-state.js` with that ID/seq0 before
+direct updates, preventing an old file-poll source from replacing current progress.
+Persist actual terminal state afterward; do not manufacture animation for display.
+
+`replay_browser_provider.py REPORT --images SCENE_PARENT --binary BINARY --session
+SESSION --settings SETTINGS --output NEW_DIRECTORY` verifies pinned provider,
+frame/image digests and source association, then executes actual `provider-replay`
+without native tracking/quality/cursor inheritance. Config selects single-estimate
+pinch and gesture confidence0.5 matching the configured SDK presence floor;
+image-depth/visual macros remain unavailable. No model initializes in Rust here.
+The optional constant `--delay-us` is an artificial age counterfactual, not measured
+camera/IPC latency. Reports retain source/configuration digests, raw Rust receipts,
+geometry and Stop/EOF release. See the
+[worker/provider report](../../docs/research/provider-worker-2026-10.md) for actual
+receiving measurements, startup failures and live integration still needed.

@@ -54,6 +54,9 @@ pub mod pose_classifier;
 pub mod sequence;
 
 #[cfg(feature = "native-vision")]
+pub mod provider;
+
+#[cfg(feature = "native-vision")]
 pub mod session;
 
 #[cfg(feature = "native-vision")]

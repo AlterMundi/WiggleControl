@@ -15,7 +15,7 @@ pub struct XY {
     pub y: f64,
 }
 impl XY {
-    fn distance(self, b: Self) -> f64 {
+    pub(crate) fn distance(self, b: Self) -> f64 {
         (self.x - b.x).hypot(self.y - b.y)
     }
 }
@@ -187,7 +187,7 @@ struct PalmProposal {
 }
 // OpenCV Zoo's pinned PALM_LANDMARK_IDS maps the first five palm points
 // to wrist/index/middle/ring/pinky MCP. Thumb articulation is not a scale cue.
-fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
+pub(crate) fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
     let scale = hand.landmarks[5]
         .distance(hand.landmarks[17])
         .max(hand.landmarks[0].distance(hand.landmarks[9]));
@@ -204,7 +204,7 @@ fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
 }
 /// Duplicate image predictions are not independent observations of a second hand.
 /// This matches model output geometry, never participant identity or hidden anatomy.
-fn duplicate_prediction(a: &DetectedHand, b: &DetectedHand) -> bool {
+pub(crate) fn duplicate_prediction(a: &DetectedHand, b: &DetectedHand) -> bool {
     let scale = [a, b]
         .into_iter()
         .map(|h| {
@@ -305,13 +305,13 @@ fn center(hand: &DetectedHand) -> XY {
         y: (hand.landmarks[5].y + hand.landmarks[17].y) / 2.0,
     }
 }
-fn pair_uncertain(a: &DetectedHand, b: &DetectedHand, minimum_widths: f64) -> bool {
+pub(crate) fn pair_uncertain(a: &DetectedHand, b: &DetectedHand, minimum_widths: f64) -> bool {
     let width = a.landmarks[5]
         .distance(a.landmarks[17])
         .max(b.landmarks[5].distance(b.landmarks[17]));
     center(a).distance(center(b)) < minimum_widths * width
 }
-fn identity_uncertain(a: &DetectedHand, b: &DetectedHand, side: f64) -> bool {
+pub(crate) fn identity_uncertain(a: &DetectedHand, b: &DetectedHand, side: f64) -> bool {
     center(a).distance(center(b)) > 0.5 * side
         || (a.handedness < 0.2 && b.handedness > 0.8)
         || (a.handedness > 0.8 && b.handedness < 0.2)

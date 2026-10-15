@@ -14,6 +14,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("provider-replay") if args.len() == 4 => {
+            return wigglecontrol::provider::replay(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+                args[3].parse()?,
+            );
+        }
         Some("controller-sequence") if args.len() == 4 => {
             return wigglecontrol::sequence::check_controller(
                 std::path::Path::new(&args[1]),
@@ -431,6 +438,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol provider-replay SESSION SETTINGS PRESENCE_FLOOR < raw-landmarks.jsonl (no acquisition/models/devices)");
     #[cfg(target_os = "linux")]
     println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol macro-replay CONFIG < named-poses.jsonl (no actions executed)\n       wigglecontrol mode-replay CONFIG < controller.jsonl (intent only)\n       wigglecontrol pipeline-replay SETTINGS GAIN WATCHDOG_MS < controller.jsonl (device-free)\n       wigglecontrol delivery-replay GAIN WATCHDOG_MS < packets.jsonl (device-free)\n       wigglecontrol controller-stream SECONDS GAIN WATCHDOG_MS\n       wigglecontrol controller-stream-until-stop GAIN WATCHDOG_MS\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]

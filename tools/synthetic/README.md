@@ -587,3 +587,25 @@ Its separate `counterfactual_unions` are Boolean combinations of independently
 confirmed component decisions, not a fusion controller or delivered contact IDs.
 The reported intervals are source-clock intervals; a second stride over actual
 10Hz observations is5Hz, not another10Hz qualification.
+
+
+### Implemented pinch fusion and native dual crop
+
+The [fusion qualification](../../docs/research/native-pinch-fusion-2026-10.md)
+distinguishes actual Rust meaning from the older Boolean-only comparison.
+`replay_pinch_fusion.py NATIVE_RESULTS TASKS_RESULTS --binary BINARY --settings
+SETTINGS --onset-ratio 0.38 --output NEW_REPORT` attaches matched same-frame
+secondary metrics, retains primary ownership/cursor/quality, and checks actual
+contact IDs, independent confirmation, component union, legacy replay and Stop/EOF.
+Inherited secondary quality is not Tasks confidence. This conditional single-hand
+helper does not infer, capture, inject input or qualify live provider matching.
+
+An experimental native session can select `"dual_crop":true` with
+`"pinch_3d":true`; default is false. Existing `controller-sequence` and
+`sequence-check` run both crops through one shared ONNX Session/weights on the
+same image. Primary tracking/cursor stay authoritative, secondary evidence has
+its own confidence, eligibility, world gap and optional onset cue. Diagnostics
+keep secondary attempts/raw points separate from hand/contact identities.
+A second crop is not a second person. Source recording metadata retains policy;
+no receiving runtime/profile adoption follows. Actual10Hz adverse-view failure,
+held-release conflicts, paired crossing and Pi resources remain open.

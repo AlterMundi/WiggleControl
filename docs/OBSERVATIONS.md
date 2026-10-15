@@ -27,7 +27,25 @@ onset permission, not an alternate distance or proof of intent; a late allowed
 sample can admit a previously confirmed raw close. The opt-in native screen
 producer and measured limits are documented in
 [the onset-veto report](research/pinch-onset-veto-2026-10.md).
-Older strict readers do not accept the new explicit false field; keep such
+Optional `secondary_pinch` carries one matched same-hand/frame metric hypothesis:
+`source_id` (estimator identity), `source_us` (exact parent timestamp),
+`confidence`, `eligible`, `distance_m` and optional `onset_allowed` (default true).
+Distances must be finite in [0,1] meters and confidence in [0,1]. Invalid or
+wrong-frame evidence cancels the observation. Missing, weak or ineligible
+secondary evidence resets only that estimator; loss/invalidity of the primary
+hand cancels both. An estimator-ID change cannot inherit its predecessor's
+open rearm, confirmation or hold. Each estimator needs its own positive open
+and continuous close confirmation. Their held states emit one button/contact
+per hand, with one primary cursor and no extra participant. A hold releases
+when neither estimator holds; an open primary alone cannot release a secondary
+hold. Existing loss, stale, Stop and mode/identity cancellation still apply.
+This union can prolong a wrongly estimated hold; the onset veto does not solve
+release conflicts. Controller pointer readiness accepts any usable open estimate;
+macro neutrality requires every usable estimate to be positively open.
+See [implemented fusion and qualification](research/native-pinch-fusion-2026-10.md).
+The secondary field is omitted when absent, preserving legacy serialized input.
+
+Older strict readers do not accept new secondary evidence or the explicit false field; keep such
 observations within a source-compatible experimental pipeline. No receiving
 binary upgrade is implied by the default omission.
 Cursor points use normalized display-workspace x/y in [0,1], x increasing toward

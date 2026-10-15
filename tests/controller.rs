@@ -21,6 +21,7 @@ fn hand(id: u64, closed: bool, x: f64, y: f64) -> Hand {
         },
         palm_width: 0.2,
         pinch_distance_m: None,
+        secondary_pinch: None,
     }
 }
 fn frame(t: u64, hands: Vec<Hand>) -> Frame {
@@ -281,6 +282,39 @@ fn macros_controller(mode: Mode) -> Controller {
     .unwrap();
     c.start();
     c
+}
+#[test]
+fn unarmed_closed_secondary_blocks_macro_without_blocking_primary_hover() {
+    let mut c = macros_controller(Mode::Pointer);
+    for i in 0..15 {
+        let t = 1 + i * 50_000;
+        let mut h = hand(7, false, 0.3 + i as f64 * 0.01, 0.5);
+        h.secondary_pinch = Some(wigglecontrol::PinchEvidence {
+            source_id: if i < 3 { 1 } else { 2 },
+            source_us: t,
+            confidence: 0.99,
+            eligible: true,
+            distance_m: if i < 3 { 0.08 } else { 0.01 },
+            onset_allowed: true,
+        });
+        let pose = macros::HandPose {
+            id: 7,
+            confidence: 0.99,
+            pose: if i < 3 {
+                None
+            } else {
+                Some(macros::Pose::Victory)
+            },
+        };
+        let o = c.observe(t, frame(t, vec![h]), Some(pose));
+        assert!(o.action.is_none());
+        assert_eq!(o.mode, Mode::Pointer);
+        assert!(!o.button_down);
+        assert!(o.pointer_ready);
+        if i >= 3 {
+            assert_eq!(o.macro_feedback.unwrap().blocked_reason, Some("input_busy"));
+        }
+    }
 }
 #[test]
 fn held_macro_changes_mode_once_and_discards_same_frame_movement() {

@@ -110,6 +110,9 @@ pub fn check(
                     "landmarks":hand.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),
                     "world_landmarks":hand.world_landmarks
                 });
+                if let Some(secondary) = hand.secondary_debug() {
+                    value["secondary_pinch"] = secondary;
+                }
                 if let Some(classifier) = &mut classifier {
                     value["pose_prediction"] = serde_json::to_value(classifier.predict_hand(
                         hand,
@@ -147,7 +150,7 @@ pub fn check(
             "offline_now_equals_source":true,"processing_ms":started.elapsed().as_secs_f64()*1000.0,
             "rediscovery_interval":rediscovery_interval,
             "pair_separation_widths":pair_separation_widths,
-            "palm_deduplication":config.palm_deduplication,
+            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,
             "tracking_diagnostics":frame.image.as_ref().map(|_|&model.multi_diagnostics),
             "ambiguous":ambiguous,"ambiguity_reason":ambiguity_reason,
             "perception":raw,"hands":hands,"contacts":contacts})
@@ -226,6 +229,7 @@ pub fn check_controller(
             let mut raw = serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,
                 "handedness":h.handedness,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),
                 "world_landmarks":h.world_landmarks});
+            if let Some(secondary) = h.secondary_debug() {raw["secondary_pinch"]=secondary;}
             if let Some(visual) = visual_pose.as_ref().filter(|v| v.hand_id==h.id) {
                 raw["pose_prediction"]=serde_json::to_value(&visual.prediction).expect("finite validated prediction");
             }
@@ -238,7 +242,7 @@ pub fn check_controller(
             "frame":index,"source_us":frame.source_us,"image":frame.image,"width":width,"height":height,
             "processing_ms":started.elapsed().as_secs_f64()*1000.0,"offline_now_equals_source":true,
             "pair_separation_widths":config.pair_separation_widths,
-            "palm_deduplication":config.palm_deduplication,
+            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,
             "tracking_diagnostics":frame.image.as_ref().map(|_|&perception.multi_diagnostics),
             "visual_macros":classifier.is_some(),"visual_pose":visual_pose,
             "perception":raw,"hands":hands,"contacts":state.contacts,"controller":state,

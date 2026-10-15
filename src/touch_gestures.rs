@@ -159,7 +159,7 @@ impl Gestures {
             || now - frame.source_us >= self.config.stale_us
             || self.watermark.is_some_and(|n| frame.source_us <= n)
             || frame.hands.len() > 2
-            || frame.hands.iter().any(|h| !h.valid())
+            || frame.hands.iter().any(|h| !h.valid_for(frame.source_us))
             || (frame.hands.len() == 2 && frame.hands[0].id == frame.hands[1].id)
         {
             return self.reject();

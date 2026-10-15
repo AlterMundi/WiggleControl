@@ -330,16 +330,10 @@ impl Controller {
         self.output(mouse, false)
     }
     fn open(&self, hand: &Hand) -> bool {
-        hand.engaged
-            && hand.pinch_eligible
-            && hand.confidence >= self.config.min_confidence
-            && hand
-                .pinch_distance_m
-                .map(|gap| gap >= self.config.open_m)
-                .unwrap_or_else(|| {
-                    hand.thumb_tip.distance(hand.index_tip) / hand.palm_width
-                        >= self.config.open_ratio
-                })
+        hand.open(&self.config, false)
+    }
+    fn fully_open(&self, hand: &Hand) -> bool {
+        hand.open(&self.config, true)
     }
     pub fn observe(
         &mut self,
@@ -358,7 +352,7 @@ impl Controller {
             || now - frame.source_us >= self.config.stale_us
             || self.watermark.is_some_and(|t| frame.source_us <= t)
             || frame.hands.len() > 2
-            || frame.hands.iter().any(|h| !h.valid())
+            || frame.hands.iter().any(|h| !h.valid_for(frame.source_us))
             || (frame.hands.len() == 2 && frame.hands[0].id == frame.hands[1].id)
         {
             let mut released = self.neutralize("invalid_observation");
@@ -435,7 +429,7 @@ impl Controller {
                     && h.engaged
                     && h.pinch_eligible
                     && h.confidence >= self.config.min_confidence
-                    && !self.open(h)
+                    && !self.fully_open(h)
             });
         // A classifier cannot claim a different/missing hand or override observed confidence.
         let macro_hand = self.macro_hand(&frame);
@@ -449,7 +443,7 @@ impl Controller {
                 .find(|h| h.id == p.id && Some(h.id) == macro_hand)?;
             // A recognized neutral class must also be positively open for input.
             // Fist/ineligible/out-of-view evidence cannot silently rearm macros.
-            if p.pose.is_none() && !self.open(observed) {
+            if p.pose.is_none() && !self.fully_open(observed) {
                 return None;
             }
             p.confidence = p.confidence.min(observed.confidence);

@@ -130,6 +130,7 @@ fn run(
                     },
                     palm_width: 0.2,
                     pinch_distance_m: None,
+                    secondary_pinch: None,
                 }),
             },
         );

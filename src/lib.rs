@@ -82,6 +82,31 @@ impl Point {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct PinchEvidence {
+    /// Stable estimator/crop identity, not a hand, participant or authority.
+    pub source_id: u64,
+    /// Must identify this exact observation frame, never a cached estimate.
+    pub source_us: u64,
+    pub confidence: f64,
+    pub eligible: bool,
+    pub distance_m: f64,
+    #[serde(default = "default_onset_allowed", skip_serializing_if = "is_true")]
+    pub onset_allowed: bool,
+}
+impl PinchEvidence {
+    fn valid(&self) -> bool {
+        self.confidence.is_finite()
+            && (0.0..=1.0).contains(&self.confidence)
+            && self.distance_m.is_finite()
+            && (0.0..=1.0).contains(&self.distance_m)
+    }
+    fn active(&self, config: &Config) -> bool {
+        self.eligible && self.confidence >= config.min_confidence
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Hand {
     pub id: u64,
     pub confidence: f64,
@@ -101,6 +126,9 @@ pub struct Hand {
     pub palm_width: f64,
     #[serde(default)]
     pub pinch_distance_m: Option<f64>,
+    /// One matched same-hand/frame hypothesis; never an additional contact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary_pinch: Option<PinchEvidence>,
 }
 fn default_onset_allowed() -> bool {
     true
@@ -127,12 +155,40 @@ impl Hand {
             && (!self.palm_width.is_finite() || !(0.01..=1.0).contains(&self.palm_width))
         {
             Some("palm_width")
+        } else if self.secondary_pinch.as_ref().is_some_and(|p| !p.valid()) {
+            Some("secondary_pinch")
         } else {
             None
         }
     }
     fn valid(&self) -> bool {
         self.invalid_reason().is_none()
+    }
+    fn valid_for(&self, source_us: u64) -> bool {
+        self.valid()
+            && self
+                .secondary_pinch
+                .as_ref()
+                .is_none_or(|p| p.source_us == source_us)
+    }
+    fn primary_open(&self, config: &Config) -> bool {
+        self.pinch_distance_m
+            .map(|d| d >= config.open_m)
+            .unwrap_or_else(|| {
+                self.thumb_tip.distance(self.index_tip) / self.palm_width >= config.open_ratio
+            })
+    }
+    fn open(&self, config: &Config, all: bool) -> bool {
+        if !self.engaged || !self.pinch_eligible || self.confidence < config.min_confidence {
+            return false;
+        }
+        let primary = self.primary_open(config);
+        let secondary = self.secondary_pinch.as_ref().filter(|p| p.active(config));
+        if all {
+            primary && secondary.is_none_or(|p| p.distance_m >= config.open_m)
+        } else {
+            primary || secondary.is_some_and(|p| p.distance_m >= config.open_m)
+        }
     }
 }
 
@@ -196,6 +252,44 @@ impl Default for Config {
     }
 }
 
+#[derive(Default)]
+struct PinchTrack {
+    armed: bool,
+    held: bool,
+    candidate: Option<u64>,
+    vetoed: bool,
+}
+impl PinchTrack {
+    fn observe(
+        &mut self,
+        source_us: u64,
+        distance: f64,
+        close: f64,
+        open: f64,
+        confirm_us: u64,
+        allowed: bool,
+    ) {
+        self.vetoed = false;
+        if distance >= open {
+            self.held = false;
+            self.armed = true;
+            self.candidate = None;
+        } else if distance <= close && self.armed && !self.held {
+            let since = *self.candidate.get_or_insert(source_us);
+            if source_us - since >= confirm_us {
+                if allowed {
+                    self.held = true;
+                    self.candidate = None;
+                } else {
+                    self.vetoed = true;
+                }
+            }
+        } else if !self.held {
+            self.candidate = None;
+        }
+    }
+}
+
 pub struct Engine {
     config: Config,
     running: bool,
@@ -206,9 +300,9 @@ pub struct Engine {
     hand_id: Option<u64>,
     cursor: Option<Point>,
     cursor_filter: filter::OneEuro,
-    armed: bool,
     held: bool,
-    candidate: Option<u64>,
+    pinches: [PinchTrack; 2],
+    secondary_source: Option<u64>,
     scrolling: bool,
     scroll_remainder: f64,
     last_rejection: Option<&'static str>,
@@ -248,9 +342,9 @@ impl Engine {
             hand_id: None,
             cursor: None,
             cursor_filter: filter::OneEuro::default(),
-            armed: false,
             held: false,
-            candidate: None,
+            pinches: Default::default(),
+            secondary_source: None,
             scrolling: false,
             scroll_remainder: 0.0,
             last_rejection: None,
@@ -278,9 +372,9 @@ impl Engine {
             "scrolling"
         } else if self.held {
             "pressed"
-        } else if self.candidate.is_some() {
+        } else if self.pinches.iter().any(|p| p.candidate.is_some()) {
             "closing"
-        } else if self.armed {
+        } else if self.pinches.iter().any(|p| p.armed) {
             "open"
         } else {
             "open_first"
@@ -298,9 +392,11 @@ impl Engine {
         }
     }
     pub fn confirmation_elapsed_us(&self) -> u64 {
-        self.last_source
-            .zip(self.candidate)
-            .map(|(last, first)| last.saturating_sub(first))
+        self.pinches
+            .iter()
+            .filter_map(|p| p.candidate)
+            .filter_map(|first| self.last_source.map(|last| last.saturating_sub(first)))
+            .max()
             .unwrap_or(0)
     }
     pub fn reject(&mut self) -> Vec<Event> {
@@ -331,8 +427,8 @@ impl Engine {
             });
         }
         self.held = false;
-        self.armed = false;
-        self.candidate = None;
+        self.pinches = Default::default();
+        self.secondary_source = None;
         self.hand_id = None;
         self.cursor = None;
         self.last_source = None;
@@ -355,7 +451,10 @@ impl Engine {
             || self
                 .watermark
                 .is_some_and(|last| observation.source_us <= last)
-            || observation.hand.as_ref().is_some_and(|h| !h.valid())
+            || observation
+                .hand
+                .as_ref()
+                .is_some_and(|h| !h.valid_for(observation.source_us))
         {
             events.extend(self.cancel("invalid_observation"));
             self.last_rejection = Some(if observation.version != SCHEMA_VERSION {
@@ -402,8 +501,8 @@ impl Engine {
                 events.push(Event::Button { down: false });
             }
             self.held = false;
-            self.armed = false;
-            self.candidate = None;
+            self.pinches = Default::default();
+            self.secondary_source = None;
             self.scrolling = hand.scrolling;
             self.scroll_remainder = 0.0;
             self.cursor = Some(hand.cursor);
@@ -446,8 +545,8 @@ impl Engine {
         self.last_received = Some(now_us);
         self.last_rejection = None;
         if hand.scrolling {
-            self.armed = false;
-            self.candidate = None;
+            self.pinches = Default::default();
+            self.secondary_source = None;
             return events;
         }
         let (distance, close, open) = hand
@@ -460,26 +559,42 @@ impl Engine {
                     self.config.open_ratio,
                 )
             });
-        if distance >= open {
-            if self.held {
-                events.push(Event::Button { down: false });
+        self.pinches[0].observe(
+            observation.source_us,
+            distance,
+            close,
+            open,
+            self.config.confirm_us,
+            hand.pinch_onset_allowed,
+        );
+        if let Some(secondary) = hand
+            .secondary_pinch
+            .as_ref()
+            .filter(|p| p.active(&self.config))
+        {
+            if self.secondary_source != Some(secondary.source_id) {
+                self.pinches[1] = PinchTrack::default();
             }
-            self.held = false;
-            self.armed = true;
-            self.candidate = None;
-        } else if distance <= close && self.armed && !self.held {
-            let since = *self.candidate.get_or_insert(observation.source_us);
-            if observation.source_us - since >= self.config.confirm_us {
-                if hand.pinch_onset_allowed {
-                    self.held = true;
-                    self.candidate = None;
-                    events.push(Event::Button { down: true });
-                } else {
-                    self.last_rejection = Some("pinch_onset_veto");
-                }
-            }
-        } else if !self.held {
-            self.candidate = None;
+            self.secondary_source = Some(secondary.source_id);
+            self.pinches[1].observe(
+                observation.source_us,
+                secondary.distance_m,
+                self.config.close_m,
+                self.config.open_m,
+                self.config.confirm_us,
+                secondary.onset_allowed,
+            );
+        } else {
+            self.pinches[1] = PinchTrack::default();
+            self.secondary_source = None;
+        }
+        let held = self.pinches.iter().any(|p| p.held);
+        if held != self.held {
+            events.push(Event::Button { down: held });
+            self.held = held;
+        }
+        if !held && self.pinches.iter().any(|p| p.vetoed) {
+            self.last_rejection = Some("pinch_onset_veto");
         }
         events
     }

@@ -59,6 +59,8 @@ pub struct SessionConfig {
     pub pair_separation_widths: f64,
     #[serde(default)]
     pub palm_deduplication: crate::vision::PalmDeduplication,
+    #[serde(default)]
+    pub dual_crop: bool,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -92,7 +94,8 @@ impl SessionConfig {
             rediscovery,
             separation_override.unwrap_or(self.pair_separation_widths),
         )?
-        .with_palm_deduplication(self.palm_deduplication))
+        .with_palm_deduplication(self.palm_deduplication)
+        .with_dual_crop(self.dual_crop))
     }
     pub fn gestures(&self) -> Config {
         Config {
@@ -142,6 +145,43 @@ impl SessionConfig {
             }
             hand.pinch_onset_allowed = ratio.is_finite() && palm > 1e-6 && ratio <= limit;
         }
+        if self.dual_crop && self.pinch_3d {
+            if let (Some(hand), Some(secondary)) = (
+                &mut observation.hand,
+                detected.and_then(|h| h.secondary.as_deref()),
+            ) {
+                let gap = secondary.world_pinch_distance_m();
+                if gap.is_finite()
+                    && (0.0..=1.0).contains(&gap)
+                    && secondary.confidence.is_finite()
+                    && (0.0..=1.0).contains(&secondary.confidence)
+                {
+                    let mut eligible = secondary
+                        .observation(width, height, source_us)
+                        .hand
+                        .is_some_and(|h| h.pinch_eligible);
+                    let allowed = if let Some(limit) = self.pinch_onset_max_screen_ratio {
+                        let p = &secondary.landmarks;
+                        let palm = (p[0].x - p[9].x).hypot(p[0].y - p[9].y);
+                        let ratio = (p[4].x - p[8].x).hypot(p[4].y - p[8].y) / palm;
+                        if palm <= 1e-6 || !ratio.is_finite() {
+                            eligible = false;
+                        }
+                        palm > 1e-6 && ratio.is_finite() && ratio <= limit
+                    } else {
+                        true
+                    };
+                    hand.secondary_pinch = Some(crate::PinchEvidence {
+                        source_id: crate::vision::PROXIMAL_PINCH_SOURCE,
+                        source_us,
+                        confidence: secondary.confidence,
+                        eligible,
+                        distance_m: gap,
+                        onset_allowed: allowed,
+                    });
+                }
+            }
+        }
         observation
     }
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
@@ -150,6 +190,9 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        if config.dual_crop && !config.pinch_3d {
+            return Err("dual crop requires the explicit3D pinch metric".into());
+        }
         if config
             .pinch_onset_max_screen_ratio
             .is_some_and(|r| !r.is_finite() || r <= 0.0 || r > 2.0)
@@ -652,7 +695,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -947,7 +990,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 } else {
                     state.pointer_state
                 };
-                let data = serde_json::json!({"active":true,"input_enabled":inject && prepared && state.running,
+                let mut data = serde_json::json!({"active":true,"input_enabled":inject && prepared && state.running,
                     "input_available":inject, "width":image.width(),"height":image.height(),"sequence":frame.sequence,
                     "age_ms":now.saturating_sub(frame.source_us) as f64/1000.0, "fresh":frame.source_us<=now && now-frame.source_us<config.gestures().stale_us,
                     "freshness_ms":config.freshness_ms, "decode_ms":decode_ms,"inference_ms":inference_ms,
@@ -968,6 +1011,21 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                     "perception":detected.hands.iter().map(|h|serde_json::json!({"id":h.id,"confidence":h.confidence,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),"world_landmarks":h.world_landmarks})).collect::<Vec<_>>(),
                     "detected":!detected.hands.is_empty(), "gesture_state":if state.button_down {"pressed"}else if state.pointer_ready {"open"}else {"open_first"},
                     "press_intents":summary.button_down_intents,"remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now())),"until_stop":until_stop});
+                if config.dual_crop {
+                    data["dual_crop"] = true.into();
+                    data["secondary_pinch"] = interpreted
+                        .as_ref()
+                        .and_then(|h| h.secondary_pinch.as_ref())
+                        .map(serde_json::to_value)
+                        .transpose()?
+                        .into();
+                    data["secondary_perception"] = detected
+                        .hands
+                        .iter()
+                        .map(|h| serde_json::json!({"hand_id":h.id,"evidence":h.secondary_debug()}))
+                        .collect::<Vec<_>>()
+                        .into();
+                }
                 if let Some(file) = &mut recording_observations {
                     serde_json::to_writer(&mut *file, &data)?;
                     writeln!(file)?;
@@ -1200,6 +1258,17 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                         config.pinch_onset_max_screen_ratio.into();
                     data["pinch_onset_allowed"] =
                         interpreted.as_ref().map(|h| h.pinch_onset_allowed).into();
+                    if config.dual_crop {
+                        data["dual_crop"] = true.into();
+                        data["secondary_pinch"] = interpreted
+                            .as_ref()
+                            .and_then(|h| h.secondary_pinch.as_ref())
+                            .map(serde_json::to_value)
+                            .transpose()?
+                            .into();
+                        data["secondary_perception"] =
+                            hand.as_ref().and_then(|h| h.secondary_debug()).into();
+                    }
                     if let Some(file) = &mut recording_observations {
                         serde_json::to_writer(&mut *file, &data)?;
                         writeln!(file)?;
@@ -1317,6 +1386,7 @@ mod tests {
             confidence: 0.99,
             handedness: 0.9,
             tracked: true,
+            secondary: None,
         };
         hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
         hand.landmarks[5] = XY { x: 180.0, y: 340.0 };
@@ -1426,6 +1496,38 @@ mod tests {
             }
             assert!(config.observation(None, 640, 480, 100_001).hand.is_none());
         }
+    }
+    #[test]
+    fn native_secondary_keeps_its_own_metric_gate_and_exact_frame_and_is_opt_in() {
+        let mut config:SessionConfig=serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera","models":"/fictional/models","runtime":"/fictional/runtime",
+            "fps":10,"gain":2000,"pinch_3d":true,"dual_crop":true,"pinch_onset_max_screen_ratio":0.38
+        })).unwrap();
+        let mut primary = fictional_hand(7, false, 0.08);
+        primary.landmarks[0] = crate::vision::XY { x: 200.0, y: 400.0 };
+        primary.landmarks[9] = crate::vision::XY { x: 200.0, y: 300.0 };
+        let mut secondary = fictional_hand(7, true, 0.02);
+        secondary.landmarks[0] = primary.landmarks[0];
+        secondary.landmarks[9] = primary.landmarks[9];
+        primary.secondary = Some(Box::new(secondary));
+        let h = config
+            .observation(Some(&primary), 640, 480, 42)
+            .hand
+            .unwrap();
+        assert_eq!(h.pinch_distance_m, Some(0.08));
+        assert!(!h.pinch_onset_allowed);
+        let s = h.secondary_pinch.unwrap();
+        assert_eq!(s.source_us, 42);
+        assert_eq!(s.source_id, crate::vision::PROXIMAL_PINCH_SOURCE);
+        assert!((s.distance_m - 0.02).abs() < 1e-9);
+        assert!(s.eligible && s.onset_allowed);
+        config.dual_crop = false;
+        assert!(config
+            .observation(Some(&primary), 640, 480, 43)
+            .hand
+            .unwrap()
+            .secondary_pinch
+            .is_none());
     }
     #[test]
     fn overlap_policy_is_validated_without_opening_models_or_camera() {

@@ -2,17 +2,19 @@
 
 ## Active controller-evolution goal —2026-10-15
 
-Latest [crop/Tasks comparison](research/roi-stability-and-tasks-2026-10.md) verifies
-identical near-hold RGB with changing native estimates and exact fixed-crop
-tensor/output invariance. Fresh-palm refresh is rejected and removed from runtime
-source; only a base-pinned reproduction patch remains.655 current Tasks inputs
-show complementary failures, not an adopted backend. A Boolean combination of
-separately gated metric hypotheses covers117/117 near frames with zero contacts
-in the two negatives, but is not implemented fusion/lifecycle/ownership. Fresh
-10Hz tracking on three hard scenes retains the complementarity and exposes raw
-counts different from subsampling20Hz observations. Next: efficient native crop/
-model comparison, then explicit fusion only if justified, with new conflicts,
-receiving resources and physical acceptance. Selected Pi runtime/profile stay as before.
+Latest [implemented pinch fusion](research/native-pinch-fusion-2026-10.md) adds
+independent per-estimator open/confirmation/release and one contact/primary cursor.
+Conditional Tasks/native replay now actually executes117/117 near frames in Rust.
+The default-off shared-model native dual crop improves the same655-image20Hz set
+107/117→115/117 near contacts with zero contacts in both negatives. Fresh10Hz
+tracking still loses adverse yaw0/5 and3/4; separated pairs preserve41/41 stable
+counts each, while both crossings retain0/13 dual near holds. All1042 primary
+observations/ambiguity remain exact. This is an experimental source candidate,
+not receiving selection or physical acceptance. Next: conflicting held-release
+controls and efficient crop/model comparison at actual target cadence, then Pi
+resources and human/application acceptance. The prior crop/Tasks report retains
+its analytic-only checkpoint as history; fusion/lifecycle now exist in source.
+Selected Pi runtime/profile and the full roadmap remain active and unchanged.
 
 Nicolás authorized a new native Cuevanico goal to evolve the complete camera
 controller through simulation, perception/model comparisons, useful modes,

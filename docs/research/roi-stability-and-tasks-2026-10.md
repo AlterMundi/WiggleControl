@@ -5,6 +5,11 @@ Investigation by CompAII,2026-10-15. Continues
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7). These are camera/device-
 free comparisons, not a new selected runtime or physical acceptance.
 
+Subsequent [implemented fusion/native-crop qualification](native-pinch-fusion-2026-10.md)
+executes the previously analytic union through Rust and tests a default-off
+shared-model dual-crop producer. The analytic-only statements below describe
+this earlier checkpoint; they do not imply fusion remains unimplemented.
+
 ## A stationary image is not a stationary tracking crop
 
 The new MCP-flexed/distal-straight pinch at yaw−35° has nine maximum-closure

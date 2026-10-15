@@ -18,6 +18,7 @@ fn frame(t: u64, id: u64, ratio: f64, x: f64) -> Observation {
             },
             palm_width: 0.2,
             pinch_distance_m: None,
+            secondary_pinch: None,
         }),
     }
 }

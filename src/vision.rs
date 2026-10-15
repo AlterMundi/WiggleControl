@@ -164,11 +164,14 @@ pub struct DetectedHand {
     pub confidence: f64,
     pub handedness: f64,
     pub tracked: bool,
+    /// Bounded same-hand crop alternative; constructors leave its own alternative empty.
+    pub secondary: Option<Box<DetectedHand>>,
 }
 #[derive(Clone)]
 struct TrackedHand {
     roi: Roi,
     hand: DetectedHand,
+    secondary_roi: Option<Roi>,
 }
 #[derive(Clone, Copy, Default, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -228,6 +231,16 @@ pub struct MultiDiagnostics {
     pub palm_search: bool,
     pub attempts: Vec<HandAttempt>,
     pub skipped_palms: Vec<SkippedPalm>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub secondary_attempts: Vec<SecondaryAttempt>,
+}
+#[derive(serde::Serialize)]
+pub struct SecondaryAttempt {
+    pub hand_id: u64,
+    pub roi: [f64; 4],
+    pub confidence: Option<f64>,
+    pub palm_cost: Option<f64>,
+    pub matched: bool,
 }
 #[derive(serde::Serialize)]
 pub struct HandAttempt {
@@ -273,6 +286,7 @@ pub struct Perception {
     pub multi_diagnostics: MultiDiagnostics,
     tracking_diagnostics_enabled: bool,
     palm_deduplication: PalmDeduplication,
+    dual_crop: bool,
 }
 fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
     let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
@@ -324,6 +338,7 @@ impl Perception {
             multi_diagnostics: MultiDiagnostics::default(),
             tracking_diagnostics_enabled: false,
             palm_deduplication: PalmDeduplication::default(),
+            dual_crop: false,
         })
     }
     /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
@@ -491,6 +506,7 @@ impl Perception {
             confidence: confidence[0] as f64,
             handedness: handedness[0] as f64,
             tracked,
+            secondary: None,
         }))
     }
     pub fn infer_many(&mut self, image: &RgbImage) -> Result<MultiHands, Box<dyn Error>> {
@@ -504,7 +520,7 @@ impl Perception {
         for track in previous {
             let found = self.infer_roi(image, track.roi, track.hand.id, true)?;
             self.record_attempt(track.roi, track.hand.id, true, found.as_ref());
-            if let Some(hand) = found {
+            if let Some(mut hand) = found {
                 if identity_uncertain(&track.hand, &hand, track.roi.side) {
                     return Ok(MultiHands {
                         hands: Vec::new(),
@@ -512,6 +528,24 @@ impl Perception {
                         ambiguity_reason: Some("track_identity"),
                     });
                 }
+                let secondary = if self.dual_crop {
+                    if let Some(roi) = track.secondary_roi {
+                        self.secondary_inference(image, roi, &hand)?
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                let secondary_roi = if self.dual_crop {
+                    secondary
+                        .as_ref()
+                        .and_then(proximal_tracking_roi)
+                        .or_else(|| proximal_tracking_roi(&hand))
+                } else {
+                    None
+                };
+                hand.secondary = secondary.map(Box::new);
                 if let Some(roi) = roi_from(
                     &hand.landmarks,
                     hand.landmarks[0],
@@ -519,7 +553,11 @@ impl Perception {
                     1.65,
                     -0.1,
                 ) {
-                    next.push(TrackedHand { roi, hand });
+                    next.push(TrackedHand {
+                        roi,
+                        hand,
+                        secondary_roi,
+                    });
                 }
             }
         }
@@ -553,7 +591,7 @@ impl Perception {
                 self.id = self.id.checked_add(1).ok_or("hand identity exhausted")?;
                 let found = self.infer_roi(image, roi, self.id, false)?;
                 self.record_attempt(roi, self.id, false, found.as_ref());
-                if let Some(hand) = found {
+                if let Some(mut hand) = found {
                     if self.palm_deduplication == PalmDeduplication::PalmLandmarks {
                         if let Some(existing) =
                             next.iter().find(|t| duplicate_prediction(&t.hand, &hand))
@@ -564,6 +602,13 @@ impl Perception {
                             continue;
                         }
                     }
+                    let secondary_roi = if self.dual_crop {
+                        let roi = proximal_tracking_roi(&hand);
+                        hand.secondary = Some(Box::new(hand.clone()));
+                        roi
+                    } else {
+                        None
+                    };
                     if let Some(roi) = roi_from(
                         &hand.landmarks,
                         hand.landmarks[0],
@@ -571,7 +616,11 @@ impl Perception {
                         1.65,
                         -0.1,
                     ) {
-                        next.push(TrackedHand { roi, hand });
+                        next.push(TrackedHand {
+                            roi,
+                            hand,
+                            secondary_roi,
+                        });
                     }
                 }
                 if next.len() == 2 {
@@ -587,6 +636,24 @@ impl Perception {
                 ambiguous: true,
                 ambiguity_reason: Some("pair_overlap"),
             });
+        }
+        // A secondary crop that could match another current owner is unknown.
+        // Do not turn a second estimator into a second participant/contact.
+        if next.len() == 2 {
+            let ambiguous_secondary: Vec<bool> = (0..2)
+                .map(|i| {
+                    next[i].hand.secondary.as_ref().is_some_and(|s| {
+                        let p = [0, 5, 9, 13, 17, 1, 2].map(|j| s.landmarks[j]);
+                        palm_match_cost(&next[1 - i].hand, &p).is_some_and(|cost| cost < 0.25)
+                    })
+                })
+                .collect();
+            for (track, ambiguous) in next.iter_mut().zip(ambiguous_secondary) {
+                if ambiguous {
+                    track.hand.secondary = None;
+                    track.secondary_roi = None;
+                }
+            }
         }
         let hands = next.iter().map(|t| t.hand.clone()).collect();
         self.tracks = next;
@@ -619,8 +686,55 @@ impl Perception {
         self.palm_deduplication = policy;
         self
     }
+    pub fn with_dual_crop(mut self, enabled: bool) -> Self {
+        self.dual_crop = enabled;
+        self
+    }
+    fn secondary_inference(
+        &mut self,
+        image: &RgbImage,
+        roi: Roi,
+        primary: &DetectedHand,
+    ) -> Result<Option<DetectedHand>, Box<dyn Error>> {
+        let saved = (self.hand_score, self.side_score, self.last_roi);
+        let result = self.infer_roi(image, roi, primary.id, true);
+        let score = self.hand_score;
+        (self.hand_score, self.side_score, self.last_roi) = saved;
+        let candidate = result?;
+        let cost = candidate.as_ref().and_then(|h| {
+            let p = [0, 5, 9, 13, 17, 1, 2].map(|j| h.landmarks[j]);
+            palm_match_cost(primary, &p)
+        });
+        let matched = cost.is_some_and(|c| c < 0.25)
+            && candidate
+                .as_ref()
+                .is_some_and(|h| !identity_uncertain(primary, h, roi.side));
+        if self.tracking_diagnostics_enabled {
+            self.multi_diagnostics
+                .secondary_attempts
+                .push(SecondaryAttempt {
+                    hand_id: primary.id,
+                    roi: roi_values(roi),
+                    confidence: score,
+                    palm_cost: cost,
+                    matched,
+                });
+        }
+        Ok(candidate.filter(|_| matched))
+    }
 }
+pub const PROXIMAL_PINCH_SOURCE: u64 = 1;
+
 impl DetectedHand {
+    pub fn secondary_debug(&self) -> Option<serde_json::Value> {
+        self.secondary.as_ref().map(|h| {
+            serde_json::json!({
+                "source_id":PROXIMAL_PINCH_SOURCE,"confidence":h.confidence,
+                "world_pinch_distance_m":h.world_pinch_distance_m(),
+                "landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks,
+            })
+        })
+    }
     pub fn world_pinch_distance_m(&self) -> f64 {
         self.world_landmarks[4]
             .iter()
@@ -674,6 +788,7 @@ impl DetectedHand {
                 index_tip: normalized(points[8]),
                 palm_width: points[5].distance(points[17]) / metric,
                 pinch_distance_m: None,
+                secondary_pinch: None,
             }),
         }
     }
@@ -844,6 +959,7 @@ mod tests {
             confidence: 0.99,
             handedness: 0.9,
             tracked: true,
+            secondary: None,
         };
         a.landmarks[5].x = 80.0;
         a.landmarks[17].x = 120.0;
@@ -876,6 +992,7 @@ mod tests {
             confidence: 0.99,
             handedness: 0.9,
             tracked: true,
+            secondary: None,
         };
         for (index, x) in [(5, 60.0), (9, 85.0), (13, 110.0), (17, 140.0)] {
             hand.landmarks[index] = XY { x, y: 100.0 };
@@ -958,6 +1075,7 @@ mod tests {
             confidence: 0.99,
             handedness: 0.9,
             tracked: false,
+            secondary: None,
         };
         hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
         hand.landmarks[5] = XY { x: 180.0, y: 340.0 };

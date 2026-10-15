@@ -101,3 +101,62 @@ cases. Compare controlled renderer inputs with the existing real takes to expose
 domain mismatch before fitting a correction or qualifying pinch/drag. Generative
 video alone cannot establish these physical labels. The image-translation probe
 already tests its narrower invariants without human annotation.
+
+## First articulated3D render control — 2026-10-15
+
+An actual MHR LOD1 rig was imported and rendered through the isolated Python3.11 /
+bpy4.5.3 CPU backend, using two render threads. `tools/synthetic/` retains the
+portable source, public asset/license/hash manifest and reproduction instructions.
+The cached environment and downloaded assets are outside source Git; no system
+packages or receiving integrator software changed.
+
+Eleven rendered frames vary horizontal/vertical translation, distance, yaw and
+pitch independently while holding hand articulation constant. Evaluated rig
+marker gap stayed at113.184 mm, invariant within0.001 mm. All reference markers
+projected inside the images; that is not proof of unoccluded skin visibility.
+The21 marker mapping is an explicit rig-joint convention, not qualified physical
+fingertip contact. These are image controls, not a pinch animation.
+
+Actual cold-detection results (no tracking warmup) were:
+
+| Case | Estimated gap mm | Detection |
+| --- | --- | --- |
+| Reference |89.39 |yes |
+| Horizontal negative /positive |80.06 /93.46 |both |
+| Vertical negative /positive |90.05 /86.61 |both |
+| Distance negative /positive |92.18 /87.09 |both |
+| Yaw negative /positive |76.63 /96.47 |both |
+| Pitch negative /positive |unavailable /99.46 |one missed |
+
+This establishes estimate variation with known constant synthetic articulation
+and marker distance, including a detection miss that must stay in the result.
+It does not identify real-camera lens parameters or directly qualify a correction
+for a closing finger, a different human hand or warmed-up live tracking. The
+recorded-pixel and articulated controls answer different questions; neither
+justifies claiming the live pinch problem solved.
+
+The optional near-finger pose candidate was subsequently rendered at all eleven
+views as well, holding17.568 mm between the declared rig markers. Pose joint
+limits and skin contact are not qualified; those frames are geometric controls,
+not labeled real pinches. `image-check IMAGE CONFIG --repeat 10` now reuses the single-hand tracker for ten identical inputs,
+retaining cold and warm outputs without opening sensors. Default image-check
+remains a single inference; repetitions are bounded to1..60.
+
+For the open/near candidates, after ten repetitions at the central camera, gaps
+were87.07 /35.15 mm; at negative horizontal translation80.71 /31.13 mm; at positive
+horizontal translation90.95 /32.95 mm. More significantly, negative yaw gave
+76.50 /71.05 mm: a near pose's estimated gap almost reaches the open pose's. One
+pitch direction failed detection for both poses. These retained failures make
+a position-only correction insufficient to qualify this view range. A gain or
+offset learned only from the horizontal sweep would conceal, not resolve, this
+orientation-dependent separation loss. No such filter was enabled live.
+
+An independent intermediate interpolation was also rendered and evaluated as a
+third eleven-view sweep. Its marker gap is84.474 mm; after ten repeated inputs,
+the central estimate is44.742 mm, horizontal controls39.433 /54.182 mm, and yaw
+controls21.257 /96.896 mm. The same pitch direction remains undetected. Across
+all33 cases,30 were detected after warmup and three misses were retained.
+The two endpoint poses therefore cannot establish a general scalar gap
+correction: held-out articulation behaves differently. Source-level rendering
+and observation are reproducible, but anatomical pose/contact mapping and
+synthetic-to-real transfer remain unqualified. No fitted correction is deployed.

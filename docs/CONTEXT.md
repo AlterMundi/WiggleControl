@@ -438,3 +438,9 @@ Human-requested AI human pose/animation research is retained in
 research/ai-human-motion-2026-10.md, with official availability, output/rig
 limits and a concrete controlled-render experiment. Research is not an installed
 renderer, generated human motion, or a qualified fingertip correction.
+
+A first actual MHR articulated-rig CPU render experiment now exists (2026-10-15):
+eleven geometry-controlled frames, ten cold detections, one retained miss. The
+rig-marker gap is invariant while model estimates vary across view/position.
+Portable generator and asset provenance live under tools/synthetic/; see
+POSITION-BIAS.md for results and limitations. No live correction is qualified.

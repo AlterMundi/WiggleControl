@@ -1,0 +1,18 @@
+{
+  "schema": "wigglecontrol.synthetic-rig-asset/v1",
+  "name": "Momentum Human Rig LOD1",
+  "upstream": "https://github.com/facebookresearch/MHR",
+  "release": "v1.0.1",
+  "archive_url": "https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip",
+  "archive_sha256": "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94",
+  "member": "assets/lod1.fbx",
+  "member_sha256": "d66fbca815bcde6532f728f1f63071003c5d43ff44f56e263a0807baec1ae055",
+  "license_member": "assets/LICENSE.txt",
+  "license": "Apache-2.0",
+  "hash_provenance": "Observed public release asset and extracted FBX; not an independently signed checksum",
+  "renderer": {
+    "python": "3.11",
+    "bpy": "4.5.3"
+  },
+  "limits": "Rig joint markers are not qualified skin surface contact points. These images do not yet animate a pinch."
+}

@@ -127,13 +127,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             return Ok(());
         }
-        Some("image-check") if args.len() == 3 || args.len() == 4 => {
+        Some("image-check")
+            if args.len() == 3 || args.len() == 4 || (args.len() == 5 && args[3] == "--repeat") =>
+        {
+            let iterations: usize = if args.len() == 5 { args[4].parse()? } else { 1 };
+            if !(1..=60).contains(&iterations) {
+                return Err("image-check repetitions must be1..60".into());
+            }
             let config =
                 wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
             ort::init_from(&config.runtime).commit()?;
             let image = image::open(&args[1])?.to_rgb8();
             // Optional 0..9 tile selection for the upstream 5x2 reference grid.
-            let image = if let Some(tile) = args.get(3) {
+            let image = if args.len() == 4 {
+                let tile = &args[3];
                 let tile: u32 = tile.parse()?;
                 if tile >= 10 {
                     return Err("reference tile must be 0..9".into());
@@ -151,11 +158,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let mut model =
                 wigglecontrol::vision::Perception::new(std::path::Path::new(&config.models))?;
-            let detected = model.infer(&image)?;
-            println!(
-                "{}",
-                serde_json::json!({"detected":detected.is_some(),"confidence":detected.as_ref().map(|h|h.confidence),"landmarks":detected.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),"handedness":detected.as_ref().map(|h|h.handedness),"world_pinch_distance_m":detected.as_ref().map(|h|h.world_pinch_distance_m()),"world_landmarks":detected.as_ref().map(|h|h.world_landmarks),"width":image.width(),"height":image.height(),"palm_score":model.palm_score,"hand_score":model.hand_score,"side_score":model.side_score,"roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side,"angle":r.angle}))})
-            );
+            for iteration in 0..iterations {
+                let detected = model.infer(&image)?;
+                println!(
+                    "{}",
+                    serde_json::json!({"iteration":iteration,"detected":detected.is_some(),"tracked":detected.as_ref().map(|h|h.tracked),"confidence":detected.as_ref().map(|h|h.confidence),"landmarks":detected.as_ref().map(|h|h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>()),"handedness":detected.as_ref().map(|h|h.handedness),"world_pinch_distance_m":detected.as_ref().map(|h|h.world_pinch_distance_m()),"world_landmarks":detected.as_ref().map(|h|h.world_landmarks),"width":image.width(),"height":image.height(),"palm_score":model.palm_score,"hand_score":model.hand_score,"side_score":model.side_score,"roi":model.last_roi.map(|r|serde_json::json!({"x":r.center.x,"y":r.center.y,"side":r.side,"angle":r.angle}))})
+                );
+            }
             return Ok(());
         }
         Some("camera-check-touch") | Some("run-touch") if args.len() == 3 => {
@@ -283,7 +292,7 @@ fn print_help() {
     #[cfg(target_os = "linux")]
     println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]
-    println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
+    println!("       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE|--repeat N]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
     println!(
         "Replay and help open no camera/device or models. Sessions are finite (1..120 seconds)."
     );

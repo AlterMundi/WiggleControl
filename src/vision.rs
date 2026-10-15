@@ -663,6 +663,7 @@ impl DetectedHand {
                 confidence: self.confidence,
                 engaged: eligible,
                 pinch_eligible: eligible,
+                pinch_onset_allowed: true,
                 scrolling: points[4].distance(points[12]) / points[5].distance(points[17]) < 0.25
                     && points[4].distance(points[8]) / points[5].distance(points[17]) > 0.4,
                 cursor: crate::Point {

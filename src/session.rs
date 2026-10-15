@@ -33,6 +33,10 @@ pub struct SessionConfig {
     pub freshness_ms: u64,
     #[serde(default)]
     pub pinch_3d: bool,
+    /// Experimental veto of new presses using pixel tip-gap / wrist-middle-MCP.
+    /// The raw pinch metric still owns confirmation, release and open rearm.
+    #[serde(default)]
+    pub pinch_onset_max_screen_ratio: Option<f64>,
     #[serde(default = "default_close_m")]
     pub pinch_close_m: f64,
     #[serde(default = "default_open_m")]
@@ -123,6 +127,21 @@ impl SessionConfig {
                 hand.scrolling = false;
             }
         }
+        if let (Some(limit), Some(hand), Some(detected)) = (
+            self.pinch_onset_max_screen_ratio,
+            &mut observation.hand,
+            detected,
+        ) {
+            let points = &detected.landmarks;
+            let gap = (points[4].x - points[8].x).hypot(points[4].y - points[8].y);
+            let palm = (points[0].x - points[9].x).hypot(points[0].y - points[9].y);
+            let ratio = gap / palm;
+            if !ratio.is_finite() || palm <= 1e-6 {
+                // Missing geometry is observation loss, not a valid open/hold.
+                hand.pinch_eligible = false;
+            }
+            hand.pinch_onset_allowed = ratio.is_finite() && palm > 1e-6 && ratio <= limit;
+        }
         observation
     }
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
@@ -131,6 +150,12 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        if config
+            .pinch_onset_max_screen_ratio
+            .is_some_and(|r| !r.is_finite() || r <= 0.0 || r > 2.0)
+        {
+            return Err("pinch onset screen ratio must be finite and0 < ratio <= 2".into());
+        }
         if !(0.8..=2.0).contains(&config.pair_separation_widths) {
             return Err("pair separation must be finite and0.8..2.0 palm widths".into());
         }
@@ -627,7 +652,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -1171,6 +1196,10 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                         "remaining_ms":if guide.as_ref().is_some_and(|g|g.finished()) {Some(0)} else {preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now()))}
                     });
                     data["until_stop"] = until_stop.into();
+                    data["pinch_onset_max_screen_ratio"] =
+                        config.pinch_onset_max_screen_ratio.into();
+                    data["pinch_onset_allowed"] =
+                        interpreted.as_ref().map(|h| h.pinch_onset_allowed).into();
                     if let Some(file) = &mut recording_observations {
                         serde_json::to_writer(&mut *file, &data)?;
                         writeln!(file)?;
@@ -1300,6 +1329,40 @@ mod tests {
         };
         hand.world_landmarks[8][2] = world_gap;
         hand
+    }
+
+    #[test]
+    fn configured_onset_veto_keeps_raw_confirmation_and_rejects_missing_pixel_geometry() {
+        use crate::vision::XY;
+        let config: SessionConfig = serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera", "models":"/fictional/models",
+            "runtime":"/fictional/runtime", "fps":10, "gain":2000,
+            "pinch_3d":true, "pinch_close_m":0.045, "pinch_open_m":0.065,
+            "pinch_onset_max_screen_ratio":0.38
+        }))
+        .unwrap();
+        let mut e = Engine::new(config.gestures()).unwrap();
+        e.start();
+        for (t, pixel_closed, gap, pressed) in [
+            (1, false, 0.08, false),
+            (20_001, false, 0.02, false),
+            (60_001, false, 0.02, false),
+            (70_001, true, 0.02, true),
+        ] {
+            let mut hand = fictional_hand(7, pixel_closed, gap);
+            hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
+            hand.landmarks[9] = XY { x: 200.0, y: 300.0 };
+            e.observe(t, config.observation(Some(&hand), 640, 480, t));
+            assert_eq!(e.pinch_state() == "pressed", pressed);
+        }
+        let mut degenerate = fictional_hand(7, true, 0.02);
+        degenerate.landmarks[9] = degenerate.landmarks[0];
+        let observation = config.observation(Some(&degenerate), 640, 480, 80_001);
+        assert!(!observation.hand.as_ref().unwrap().pinch_eligible);
+        assert!(e
+            .observe(80_001, observation)
+            .contains(&Event::Button { down: false }));
+        assert_eq!(e.pinch_state(), "not_eligible");
     }
 
     #[test]

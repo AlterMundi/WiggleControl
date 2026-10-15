@@ -12,6 +12,19 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+Latest#7 source candidate: [late onset permission](research/pinch-onset-veto-2026-10.md)
+uses the previously tested0.38 pixel ratio to veto a new press while retaining raw
+confirmation/rearm/release. It removes development26/12/13 negative contact frames
+at20Hz/both10Hz phases and preserves every per-frame contact decision across nine
+positives and another negative. Two new MCP-flexed/distal-straight references and
+the native image connection are checked. Four new views reveal an adverse-yaw
+regression1/9→0/9 near coverage at20Hz; both10Hz phases already fail. Six retained
+pair trajectories stay exact, including their limitations. Reject unconditional
+adoption; selected runtime/profile stay unchanged. Noisy cues, wrong held-release metrics,
+broader hands/views, two-hand controls, macro recognition and physical acceptance
+remain gates before adoption. Earlier rejected metric replacements below remain
+historical evidence; this candidate changes where permission is applied.
+
 Earlier#7 evidence: full-trajectory skin measurements and285 matched controller
 replays reject the tested palm-length/dwell grid as an adopted fix. No scalar candidate
 both removes separated-skin contacts and preserves baseline near-hold coverage

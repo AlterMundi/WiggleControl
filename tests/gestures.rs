@@ -8,6 +8,7 @@ fn frame(t: u64, id: u64, ratio: f64, x: f64) -> Observation {
             confidence: 0.99,
             engaged: true,
             pinch_eligible: true,
+            pinch_onset_allowed: true,
             scrolling: false,
             cursor: Point { x, y: 0.5 },
             thumb_tip: Point { x: 0.4, y: 0.5 },
@@ -36,6 +37,69 @@ fn press(e: &mut Engine) {
         .observe(60_001, frame(60_001, 1, 0.1, 0.5))
         .contains(&Event::Button { down: true }));
     assert_eq!(e.pinch_state(), "pressed");
+}
+
+#[test]
+fn onset_veto_preserves_confirmation_but_cannot_rearm_a_closed_reacquisition() {
+    let mut e = engine();
+    let veto = |t, ratio| {
+        let mut observation = frame(t, 1, ratio, 0.5);
+        observation.hand.as_mut().unwrap().pinch_onset_allowed = false;
+        observation
+    };
+    e.observe(1, veto(1, 0.6)); // An onset veto does not erase observed open.
+    e.observe(20_001, veto(20_001, 0.1));
+    let events = e.observe(60_001, veto(60_001, 0.1));
+    assert!(!events.contains(&Event::Button { down: true }));
+    assert_eq!(e.pinch_block_reason(), Some("pinch_onset_veto"));
+    assert_eq!(e.confirmation_elapsed_us(), 40_000);
+    assert!(e
+        .observe(70_001, frame(70_001, 1, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    // A late-onset veto never invents a release halfway through a drag.
+    assert!(!e
+        .observe(80_001, veto(80_001, 0.1))
+        .contains(&Event::Button { down: false }));
+    assert!(e
+        .observe(90_001, veto(90_001, 0.6))
+        .contains(&Event::Button { down: false }));
+    e.observe(100_001, veto(100_001, 0.1));
+    e.observe(150_001, veto(150_001, 0.1));
+    // A missing frame destroys the candidate and open rearm, even after veto.
+    e.observe(
+        160_001,
+        Observation {
+            version: 1,
+            source_us: 160_001,
+            hand: None,
+        },
+    );
+    for t in [170_001, 220_001] {
+        assert!(!e
+            .observe(t, frame(t, 1, 0.1, 0.5))
+            .contains(&Event::Button { down: true }));
+    }
+    assert_eq!(e.pinch_state(), "open_first");
+}
+
+#[test]
+fn absent_onset_field_preserves_legacy_wire_output_and_false_is_explicit() {
+    let mut hand = frame(1, 1, 0.1, 0.5).hand.unwrap();
+    let legacy = serde_json::to_value(&hand).unwrap();
+    assert!(legacy.get("pinch_onset_allowed").is_none());
+    assert!(
+        serde_json::from_value::<Hand>(legacy)
+            .unwrap()
+            .pinch_onset_allowed
+    );
+    hand.pinch_onset_allowed = false;
+    let gated = serde_json::to_value(&hand).unwrap();
+    assert_eq!(gated["pinch_onset_allowed"], false);
+    assert!(
+        !serde_json::from_value::<Hand>(gated)
+            .unwrap()
+            .pinch_onset_allowed
+    );
 }
 #[test]
 fn click_drag_hysteresis_release() {

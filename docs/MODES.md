@@ -71,6 +71,9 @@ An optional frame-level `pose` is classifier evidence, using the existing
 Omitting `pose` means missing evidence; it cannot arm a macro. Its hand must match
 the actual selected observation, and its confidence cannot upgrade that hand's.
 A pending pinch, held button or contact takes precedence over a macro hold.
+The optional [onset veto](research/pinch-onset-veto-2026-10.md) blocks new input
+without making a raw pending pinch neutral for macros. It does not establish
+neutral/action recognition or allow a macro to interrupt an existing hold.
 
 The optional macro engine can locally handle `toggle_precision`, `toggle_scroll`,
 `cycle_mode` and `pause_controller`. Cycle is pointer→one-contact→two-contacts→pointer;

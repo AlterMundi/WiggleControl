@@ -20,6 +20,7 @@ fn observation(t: u64, id: u64, x: f64, closed: bool) -> Observation {
             confidence: 0.99,
             engaged: true,
             pinch_eligible: true,
+            pinch_onset_allowed: true,
             scrolling: false,
             cursor: Point { x, y: 0.5 },
             thumb_tip: Point { x: 0.4, y: 0.5 },

@@ -89,6 +89,10 @@ pub struct Hand {
     pub engaged: bool,
     /// Producer must reject fists, ambiguous landmarks and occluded fingers.
     pub pinch_eligible: bool,
+    /// Optional producer veto of a NEW press. Does not cancel open rearm,
+    /// temporal confirmation or an existing hold; loss still uses eligibility.
+    #[serde(default = "default_onset_allowed", skip_serializing_if = "is_true")]
+    pub pinch_onset_allowed: bool,
     #[serde(default)]
     pub scrolling: bool,
     pub cursor: Point,
@@ -97,6 +101,12 @@ pub struct Hand {
     pub palm_width: f64,
     #[serde(default)]
     pub pinch_distance_m: Option<f64>,
+}
+fn default_onset_allowed() -> bool {
+    true
+}
+fn is_true(value: &bool) -> bool {
+    *value
 }
 impl Hand {
     pub(crate) fn invalid_reason(&self) -> Option<&'static str> {
@@ -279,6 +289,7 @@ impl Engine {
     pub fn pinch_block_reason(&self) -> Option<&'static str> {
         match self.pinch_state() {
             "pressed" => None,
+            "closing" if self.last_rejection == Some("pinch_onset_veto") => self.last_rejection,
             "closing" => Some("confirming"),
             "open_first" => Some("open_before_press"),
             "open" => Some("close_threshold"),
@@ -379,6 +390,7 @@ impl Engine {
             });
             return events;
         }
+        self.last_rejection = None;
         if self.hand_id != Some(hand.id) {
             events.extend(self.cancel("hand_changed"));
             self.hand_id = Some(hand.id);
@@ -458,9 +470,13 @@ impl Engine {
         } else if distance <= close && self.armed && !self.held {
             let since = *self.candidate.get_or_insert(observation.source_us);
             if observation.source_us - since >= self.config.confirm_us {
-                self.held = true;
-                self.candidate = None;
-                events.push(Event::Button { down: true });
+                if hand.pinch_onset_allowed {
+                    self.held = true;
+                    self.candidate = None;
+                    events.push(Event::Button { down: true });
+                } else {
+                    self.last_rejection = Some("pinch_onset_veto");
+                }
             }
         } else if !self.held {
             self.candidate = None;

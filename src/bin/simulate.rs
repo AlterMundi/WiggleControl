@@ -120,6 +120,7 @@ fn run(
                     confidence: 0.99,
                     engaged: true,
                     pinch_eligible: true,
+                    pinch_onset_allowed: true,
                     scrolling: false,
                     cursor: observed,
                     thumb_tip: Point { x: 0.4, y: 0.5 },

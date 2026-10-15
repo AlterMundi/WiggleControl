@@ -422,6 +422,19 @@ clearance do not certify whole-hand collision freedom or human intent. These
 two source recipes are retained controls, not model predictions or human labels.
 See the [diversity results](../../docs/research/native-visual-macros-2026-10.md#additional-articulations).
 
+Two further recipes, `poses/mcp-distal-light-v1.json` and
+`poses/mcp-distal-straight-v1.json`, retain MCP flexion1rad with PIP/DIP0.1/0.1
+and0/0rad. The latter's distal segments are straight; its MCP is still flexed.
+They use the same loader and unchanged renderer format. Independently sampled
+minimum distal skin gaps are2.343/1.502mm. Full41-frame signed-motion/framing
+checks and actual controller outcomes are retained in the
+[onset-permission report](../../docs/research/pinch-onset-veto-2026-10.md).
+`compare_pinch_interpretations.py --onset-screen-ratio 0.38` compares the optional
+late onset veto against the raw controller on identical predictions at20Hz and
+both10Hz phases. It keeps raw distances/confirmation/release rather than
+encoding the pixel ratio as physical meters. This option is separate from the
+earlier `--screen-ratio CLOSE OPEN` metric-replacement comparison.
+
 ### Optional WiLoR known-crop reconstruction
 
 This research-only CPU comparison uses a separate Python3.10 environment because

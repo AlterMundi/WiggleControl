@@ -9,6 +9,7 @@ fn hand(id: u64, x: f64, closed: bool) -> Hand {
         confidence: 0.99,
         engaged: true,
         pinch_eligible: true,
+        pinch_onset_allowed: true,
         scrolling: false,
         cursor: Point { x, y: 0.5 },
         thumb_tip: Point { x: 0.4, y: 0.5 },
@@ -32,6 +33,29 @@ fn engine() -> Gestures {
     let mut g = Gestures::new(Config::default(), Workspace::default()).unwrap();
     g.start();
     g
+}
+
+#[test]
+fn onset_veto_is_independent_per_contact_and_loss_still_requires_open() {
+    let mut e = engine();
+    e.observe(1, frame(1, vec![hand(7, 0.3, false), hand(8, 0.7, false)]));
+    let closed = |veto: bool| {
+        let mut first = hand(7, 0.3, true);
+        first.pinch_onset_allowed = !veto;
+        vec![first, hand(8, 0.7, true)]
+    };
+    e.observe(20_001, frame(20_001, closed(true)));
+    let first = e.observe(60_001, frame(60_001, closed(true)));
+    assert_eq!(first.len(), 1);
+    assert!(first[0].x > 0.5);
+    let both = e.observe(70_001, frame(70_001, closed(false)));
+    assert_eq!(both.len(), 2);
+    assert!(both.iter().any(|p| p.id == first[0].id));
+    assert_eq!(e.observe(80_001, frame(80_001, closed(true))).len(), 2);
+    assert!(e.observe(90_001, frame(90_001, vec![])).is_empty());
+    assert!(e.observe(100_001, frame(100_001, closed(false))).is_empty());
+    assert!(e.observe(150_001, frame(150_001, closed(false))).is_empty());
+    assert_eq!(e.awaiting_open_hands(), vec![7, 8]);
 }
 fn press(g: &mut Gestures) -> Vec<wigglecontrol::touch::Contact> {
     assert!(g

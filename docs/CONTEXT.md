@@ -35,6 +35,18 @@ holds; crossing33→42/61 still has0/13 dual near holds. Both10Hz phases are mea
 Default remains ROI deduplication and the original pair guard. This source
 experiment is not a new selected receiving runtime or participant identification.
 
+Current [pinch-onset experiment](research/pinch-onset-veto-2026-10.md) separates
+new-press permission from eligibility and raw-metric confirmation/release.
+At fixed pixel ratio0.38, development replay removes26/12/13 separated-V contact
+frames at20Hz/both10Hz phases while preserving every baseline contact decision
+in nine positive trajectories and another negative. Two new MCP-flexed/distal-
+straight recipes broaden the geometry controls; native image-path connection is
+also tested. Four new views then expose adverse-yaw near coverage1/9→0/9 at20Hz
+(both10Hz phases already0); negative-pitch onset is delayed50ms. Six retained
+paired contact trajectories remain exact across cadences, including their failures.
+The candidate is not adopted as a general correction. Macro recognition, noisy
+cues, occlusion and conflicting held-release metrics remain open.
+
 Implemented in this increment: opt-in speed-adaptive Rust cursor filtering,
 2016-case analytic benchmark with explicit development/held-out seeds and a
 reproducible profile selector; camera-free temporal image replay through actual

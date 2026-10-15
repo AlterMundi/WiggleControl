@@ -60,23 +60,28 @@ def matched_geometry(reference, measured):
     return measured, maximum
 
 
-def encoded_hands(row, normalized):
+def encoded_hands(row, normalized, onset_screen_ratio=None):
     hands = copy.deepcopy(row['hands'])
-    if normalized:
-        if normalized is not True and normalized != 'screen':
+    if normalized or onset_screen_ratio is not None:
+        if normalized and normalized is not True and normalized != 'screen':
             raise ValueError('Unknown normalized metric')
         raw = {h['id']: h for h in row['perception']}
         for hand in hands:
-            points = raw[hand['id']]['landmarks' if normalized == 'screen' else 'world_landmarks']
+            points = raw[hand['id']]['landmarks' if normalized == 'screen' or onset_screen_ratio is not None
+                                      else 'world_landmarks']
             palm = math.dist(points[0], points[9])
             gap = math.dist(points[4], points[8])
             if not math.isfinite(palm) or palm <= 1e-6 or not math.isfinite(gap):
                 raise ValueError('Unqualified palm/gap')
-            hand['pinch_distance_m'] = gap/palm*0.1
+            if onset_screen_ratio is not None:
+                hand['pinch_onset_allowed'] = gap/palm <= onset_screen_ratio
+            else:
+                hand['pinch_distance_m'] = gap/palm*0.1
     return hands
 
 
-def replay(binary, settings, rows, normalized, close, open_, stride, offset=0, confirm_us=40000):
+def replay(binary, settings, rows, normalized, close, open_, stride, offset=0, confirm_us=40000,
+           onset_screen_ratio=None):
     selected = rows[offset::stride]
     config = copy.deepcopy(settings)
     config['gestures'].update(close_m=close, open_m=open_, confirm_us=confirm_us)
@@ -84,7 +89,7 @@ def replay(binary, settings, rows, normalized, close, open_, stride, offset=0, c
     for row in selected:
         commands.append(dict(type='frame', now_us=row['source_us'], observation=dict(
             version=1, source_us=row['source_us'], ambiguous=row['ambiguous'],
-            hands=encoded_hands(row, normalized))))
+            hands=encoded_hands(row, normalized, onset_screen_ratio))))
     commands.append(dict(type='stop'))
     with tempfile.TemporaryDirectory(prefix='wigglecontrol-pinch-probe-') as directory:
         config_path = Path(directory)/'settings.json'
@@ -143,7 +148,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--screen-ratio', type=float, nargs=2, metavar=('CLOSE', 'OPEN'),
                         help='Compare raw vs one fixed pixel-gap/pixel-palm ratio, instead of the world grid')
+    parser.add_argument('--onset-screen-ratio', type=float,
+                        help='Veto new presses above this pixel ratio; keep raw confirmation/release/rearm')
     args = parser.parse_args()
+    if args.onset_screen_ratio is not None and (
+            args.screen_ratio or not 0 < args.onset_screen_ratio <= 2):
+        parser.error('Onset ratio requires0<ratio<=2 and is separate from --screen-ratio')
     if args.screen_ratio and not (0 < args.screen_ratio[0] < args.screen_ratio[1] <= 2):
         parser.error('Screen ratios require0<CLOSE<OPEN<=2')
     if args.geometry and len(args.results) != 1:
@@ -160,6 +170,8 @@ def main():
         if args.geometry:
             reference, error = matched_geometry(reference, json.loads(args.geometry.read_text()))
         rows = data['predictions']
+        if any(not h.get('pinch_onset_allowed', True) for row in rows for h in row['hands']):
+            raise ValueError('Expected ungated source observations for the raw baseline')
         if ([f['frame'] for f in reference['frames']] != [r['frame'] for r in rows]
                 or not all(b['source_us'] > a['source_us'] for a, b in zip(rows, rows[1:]))):
             raise ValueError('Expected complete ordered prediction trajectory')
@@ -168,7 +180,10 @@ def main():
         for stride, offset in ((1, 0), (2, 0), (2, 1)):
             candidates = [('raw_meters', False, settings['gestures']['close_m'],
                            settings['gestures']['open_m'], original_confirm)]
-            if args.screen_ratio:
+            if args.onset_screen_ratio is not None:
+                candidates.append(('screen_onset_veto', False, settings['gestures']['close_m'],
+                                   settings['gestures']['open_m'], original_confirm))
+            elif args.screen_ratio:
                 candidates.append(('screen_palm_ratio', 'screen', args.screen_ratio[0]*0.1,
                                    args.screen_ratio[1]*0.1, original_confirm))
             else:
@@ -177,14 +192,18 @@ def main():
                                for confirm in sorted({original_confirm, 80000, 120000})]
             for metric, normalized, close, open_, confirm in candidates:
                 scored = score(reference, replay(args.binary.resolve(), settings, rows,
-                                                normalized, close, open_, stride, offset, confirm))
+                                                normalized, close, open_, stride, offset, confirm,
+                                                args.onset_screen_ratio if metric == 'screen_onset_veto'
+                                                else None))
                 if metric == 'raw_meters' and stride == 1:
                     baseline = [bool(x['contacts']) for x in rows]
                     if baseline != [x['contact'] for x in scored['trajectory']]:
                         raise ValueError('Baseline controller does not reproduce retained contacts')
                 cases.append(dict(metric=metric, close=close/(0.1 if normalized else 1),
                                   open=open_/(0.1 if normalized else 1), stride=stride,
-                                  offset=offset, confirm_us=confirm, **scored))
+                                  offset=offset, confirm_us=confirm,
+                                  onset_screen_ratio=(args.onset_screen_ratio
+                                                      if metric == 'screen_onset_veto' else None), **scored))
         reports.append(dict(source=str(path), geometry_marker_max_error_m=error, cases=cases))
     if hashes != {str(p): digest(p) for p in inputs}:
         raise ValueError('Source/binary/settings changed during comparison')

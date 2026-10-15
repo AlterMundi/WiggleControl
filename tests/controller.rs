@@ -11,6 +11,7 @@ fn hand(id: u64, closed: bool, x: f64, y: f64) -> Hand {
         confidence: 0.99,
         engaged: true,
         pinch_eligible: true,
+        pinch_onset_allowed: true,
         scrolling: false,
         cursor: Point { x, y },
         thumb_tip: Point { x: 0.4, y: 0.5 },

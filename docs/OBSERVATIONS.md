@@ -19,6 +19,17 @@ watchdog and cannot measure real camera latency.
 
 Hand fields: stable `id`, finite `confidence` in [0,1], explicit `engaged`,
 `pinch_eligible`, `cursor`, `thumb_tip`, `index_tip` and positive `palm_width`.
+Optional `pinch_onset_allowed` defaults to true (and is omitted when true).
+False vetoes a new press after raw-metric confirmation without cancelling open
+rearm, restarting confirmation, freezing the cursor or releasing an existing
+hold. Loss, invalidity and unknown identity still cancel normally. This is an
+onset permission, not an alternate distance or proof of intent; a late allowed
+sample can admit a previously confirmed raw close. The opt-in native screen
+producer and measured limits are documented in
+[the onset-veto report](research/pinch-onset-veto-2026-10.md).
+Older strict readers do not accept the new explicit false field; keep such
+observations within a source-compatible experimental pipeline. No receiving
+binary upgrade is implied by the default omission.
 Cursor points use normalized display-workspace x/y in [0,1], x increasing toward
 screen right and y down. Fingertips use a separate square-padded camera metric,
 normalized by the larger sensor dimension; palm width uses that same metric.

@@ -44,6 +44,14 @@ release conflicts. Controller pointer readiness accepts any usable open estimate
 macro neutrality requires every usable estimate to be positively open.
 See [implemented fusion and qualification](research/native-pinch-fusion-2026-10.md).
 The secondary field is omitted when absent, preserving legacy serialized input.
+Both estimates use the engine's explicit `min_confidence`; scores from different
+models are not automatically comparable or rescaled. Experimental native sessions
+can set `gesture_min_confidence` (default remains0.7) and a `secondary_model` with
+an absolute `path`, its explicit `min_presence` and distinct `source_id` above1.
+Selection requires dual3D and a compatible engine threshold; preflight rejects
+contradictory thresholds. Primary native inference retains its0.8 presence filter.
+See [model/crop isolation and actual source qualification](research/fixed-tensor-mixed-model-2026-10.md).
+
 
 Older strict readers do not accept new secondary evidence or the explicit false field; keep such
 observations within a source-compatible experimental pipeline. No receiving

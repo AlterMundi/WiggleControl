@@ -24,6 +24,8 @@ def frame_projection(reference, row):
                   contacts=len(row['contacts']) if row.get('contacts') is not None else None,
                   hands=len(row['hands']), ambiguous=row['ambiguous'],
                   ambiguity_reason=row.get('ambiguity_reason'))
+    if not paired and row['hands'] and row['hands'][0].get('secondary_pinch'):
+        result['secondary_gap_m'] = row['hands'][0]['secondary_pinch']['distance_m']
     if paired:
         result['references'] = [dict(id=h['id'], closure=h.get('closure_interpolation'),
                                      skin_gap_m=h.get('distal_skin', {}).get('surface_gap_m'))

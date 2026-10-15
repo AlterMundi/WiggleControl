@@ -6,6 +6,10 @@ All experiments below use retained synthetic images/observations, without camera
 microphone or OS input. Source implementation is experimental and default-off;
 selected receiving runtime, calibration, thresholds and original trial remain intact.
 
+Subsequent [fixed-tensor and native mixed-model work](fixed-tensor-mixed-model-2026-10.md)
+adds an optional converted landmark Session, actual10Hz improvement and new
+unscored crossing contacts. This report retains the earlier shared-model result.
+
 ## Result and decision
 
 Actual Rust fusion now exists. A native shared-model dual-crop producer improves

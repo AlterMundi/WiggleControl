@@ -64,6 +64,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 gesture_model,
             );
         }
+        Some("crop-check") if args.len() == 4 || args.len() == 5 => {
+            let config =
+                wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
+            let roi = if let Some(file) = args.get(4) {
+                if std::fs::metadata(file)?.len() > 1024 {
+                    return Err("crop-check ROI exceeds1KiB".into());
+                }
+                Some(serde_json::from_slice::<[f64; 4]>(&std::fs::read(file)?)?)
+            } else {
+                None
+            };
+            ort::init_from(&config.runtime).commit()?;
+            let image = image::open(&args[1])?.to_rgb8();
+            let report = wigglecontrol::vision::crop_check(
+                std::path::Path::new(&config.models),
+                &image,
+                roi,
+                std::path::Path::new(&args[3]),
+            )?;
+            println!("{}", serde_json::to_string(&report)?);
+            return Ok(());
+        }
         Some("position-sweep") if args.len() == 4 => {
             let config =
                 wigglecontrol::session::SessionConfig::load(std::path::Path::new(&args[2]))?;
@@ -412,7 +434,7 @@ fn print_help() {
     #[cfg(target_os = "linux")]
     println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol macro-replay CONFIG < named-poses.jsonl (no actions executed)\n       wigglecontrol mode-replay CONFIG < controller.jsonl (intent only)\n       wigglecontrol pipeline-replay SETTINGS GAIN WATCHDOG_MS < controller.jsonl (device-free)\n       wigglecontrol delivery-replay GAIN WATCHDOG_MS < packets.jsonl (device-free)\n       wigglecontrol controller-stream SECONDS GAIN WATCHDOG_MS\n       wigglecontrol controller-stream-until-stop GAIN WATCHDOG_MS\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");
     #[cfg(feature = "native-vision")]
-    println!("       wigglecontrol config-check-controller CONFIG SETTINGS (no acquisition)\n       wigglecontrol camera-check-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller-until-stop CONFIG SETTINGS PORT\n       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol gesture-check IMAGE CONFIG MODEL.onnx (camera-free pose inference)\n       wigglecontrol gesture-landmarks MODEL.onnx RUNTIME < normalized-image-xyz.jsonl\n       wigglecontrol controller-sequence SEQUENCE CONFIG SETTINGS (camera/device-free full controller)\n       wigglecontrol sequence-check SEQUENCE CONFIG (camera-free temporal vision)\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE|--repeat N]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
+    println!("       wigglecontrol config-check-controller CONFIG SETTINGS (no acquisition)\n       wigglecontrol camera-check-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller SECONDS CONFIG SETTINGS PORT\n       wigglecontrol run-controller-until-stop CONFIG SETTINGS PORT\n       wigglecontrol run-feedback SECONDS CONFIG PORT\n       wigglecontrol calibrate-guided CONFIG PORT PROFILE (camera-only, at most 150 seconds)\n       wigglecontrol run-calibrated-until-stop CONFIG PORT PROFILE (explicit live input)\n       wigglecontrol run-calibrated SECONDS CONFIG PORT PROFILE\n       wigglecontrol review-recording DIRECTORY PORT SECONDS (camera-free human labels)\n       wigglecontrol accept-calibration PROFILE (camera-free, requires saved verification)\n       wigglecontrol camera-preview SECONDS CONFIG PORT\n       wigglecontrol config-check CONFIG\n       wigglecontrol gesture-check IMAGE CONFIG MODEL.onnx (camera-free pose inference)\n       wigglecontrol gesture-landmarks MODEL.onnx RUNTIME < normalized-image-xyz.jsonl\n       wigglecontrol controller-sequence SEQUENCE CONFIG SETTINGS (camera/device-free full controller)\n       wigglecontrol sequence-check SEQUENCE CONFIG (camera-free temporal vision)\n       wigglecontrol crop-check IMAGE CONFIG NEW_DIRECTORY [ROI.json] (camera-free exact tensor/model probe)\n       wigglecontrol position-sweep IMAGE CONFIG NEW_DIRECTORY (camera-free controlled input)\n       wigglecontrol image-check IMAGE CONFIG [TILE|--repeat N]\n       wigglecontrol image-check-touch IMAGE CONFIG [single|pair [ITERATIONS]]\n       wigglecontrol camera-check SECONDS CONFIG\n       wigglecontrol camera-check-touch SECONDS CONFIG\n       wigglecontrol run SECONDS CONFIG\n       wigglecontrol run-touch SECONDS CONFIG\nCamera-check commands open the camera; run commands also inject system input.\nPreview tests last 1..90 seconds after the first visible frame, plus bounded preparation.\nConfig-check validates JSON/settings only; it does not test resource availability.");
     println!(
         "Replay and help open no camera/device or models. Sessions are finite (1..120 seconds)."
     );

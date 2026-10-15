@@ -150,7 +150,7 @@ pub fn check(
             "offline_now_equals_source":true,"processing_ms":started.elapsed().as_secs_f64()*1000.0,
             "rediscovery_interval":rediscovery_interval,
             "pair_separation_widths":pair_separation_widths,
-            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,
+            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,
             "tracking_diagnostics":frame.image.as_ref().map(|_|&model.multi_diagnostics),
             "ambiguous":ambiguous,"ambiguity_reason":ambiguity_reason,
             "perception":raw,"hands":hands,"contacts":contacts})
@@ -242,7 +242,7 @@ pub fn check_controller(
             "frame":index,"source_us":frame.source_us,"image":frame.image,"width":width,"height":height,
             "processing_ms":started.elapsed().as_secs_f64()*1000.0,"offline_now_equals_source":true,
             "pair_separation_widths":config.pair_separation_widths,
-            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,
+            "palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,
             "tracking_diagnostics":frame.image.as_ref().map(|_|&perception.multi_diagnostics),
             "visual_macros":classifier.is_some(),"visual_pose":visual_pose,
             "perception":raw,"hands":hands,"contacts":state.contacts,"controller":state,

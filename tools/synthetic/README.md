@@ -609,3 +609,38 @@ keep secondary attempts/raw points separate from hand/contact identities.
 A second crop is not a second person. Source recording metadata retains policy;
 no receiving runtime/profile adoption follows. Actual10Hz adverse-view failure,
 held-release conflicts, paired crossing and Pi resources remain open.
+
+
+### Exact tensors and a converted secondary model
+
+[The fixed-tensor investigation](../../docs/research/fixed-tensor-mixed-model-2026-10.md)
+qualifies a default-off mixed-model source and preserves its ownership/resource
+limits. `wigglecontrol crop-check IMAGE SESSION NEW_DIRECTORY [ROI.json]` exports
+`input.f32` (little-endian RGBfloat32,1×224×224×3) and fixed native inference.
+An explicit ROI is `[center_x_px,center_y_px,side_px,angle_rad]`; otherwise the
+native cold detector supplies it. No camera or input device opens.
+
+`compare_crop_models.py LANDMARK.tflite CROP_DIRECTORY... --expected-sha256 SHA
+--output NEW_REPORT` executes pinned LiteRT2.3.0 on those exact float values.
+Use `litert-requirements.lock` for this optional offline comparison, not the
+receiving runtime. `wigglecontrol-ort-probe MODEL.onnx 224 RUNS INPUT.f32
+NEW_REPORT.json`, with the existing `ORT_DYLIB_PATH`, records all actual Rust ORT
+outputs on the same values. Omitting the final two arguments preserves its
+previous bounded zero-tensor timing mode. Existing reports are never overwritten.
+
+The [asset manifest](tasks-onnx-model.json) and
+`tflite-conversion-requirements.lock` pin the observed conversion. Extract its
+qualified `hand_landmarks_detector.tflite` member from the pinned Tasks bundle;
+convert once with `python -m tf2onnx.convert --tflite MODEL.tflite --output
+NEW_MODEL.onnx --opset 17` in that environment.
+The owning report supplies the full tested command. Verify numerical equivalence
+before selecting a new derivative; a file digest identifies an artifact, not
+physical accuracy. Model binaries stay outside Git with upstream provenance.
+
+An experimental3D/dual session can select `secondary_model:{path,min_presence,
+source_id}` and explicit `gesture_min_confidence`; controller settings must
+match. The new source executes its own initial estimate and recursive crops,
+retaining raw own confidence/eligibility and the original primary owner/cursor.
+It reuses ONNX Runtime, without a receiving Python/Tasks stack. Optional secondary
+metric feedback is now visible in the owned offline workbench. This is not a
+selected live runtime, general ownership fix or accepted human control.

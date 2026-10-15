@@ -166,6 +166,7 @@ pub struct DetectedHand {
     pub tracked: bool,
     /// Bounded same-hand crop alternative; constructors leave its own alternative empty.
     pub secondary: Option<Box<DetectedHand>>,
+    pub secondary_source_id: u64,
 }
 #[derive(Clone)]
 struct TrackedHand {
@@ -287,6 +288,9 @@ pub struct Perception {
     tracking_diagnostics_enabled: bool,
     palm_deduplication: PalmDeduplication,
     dual_crop: bool,
+    secondary_hand: Option<Session>,
+    secondary_min_presence: f64,
+    secondary_source_id: u64,
 }
 fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
     let w = (a[0] + a[2]).min(b[0] + b[2]) - a[0].max(b[0]);
@@ -339,6 +343,9 @@ impl Perception {
             tracking_diagnostics_enabled: false,
             palm_deduplication: PalmDeduplication::default(),
             dual_crop: false,
+            secondary_hand: None,
+            secondary_min_presence: 0.8,
+            secondary_source_id: PROXIMAL_PINCH_SOURCE,
         })
     }
     /// Controlled missing-hand search tradeoff; ordinary runtime retains five frames.
@@ -462,6 +469,16 @@ impl Perception {
         id: u64,
         tracked: bool,
     ) -> Result<Option<DetectedHand>, Box<dyn Error>> {
+        self.infer_roi_with_presence(image, roi, id, tracked, 0.8)
+    }
+    fn infer_roi_with_presence(
+        &mut self,
+        image: &RgbImage,
+        roi: Roi,
+        id: u64,
+        tracked: bool,
+        min_presence: f64,
+    ) -> Result<Option<DetectedHand>, Box<dyn Error>> {
         self.last_roi = Some(roi);
         let input = Tensor::from_array(([1usize, 224, 224, 3], crop(image, roi, 224)))?;
         let outputs = self.hand.run(ort::inputs![input])?;
@@ -482,7 +499,8 @@ impl Perception {
         if !handedness[0].is_finite()
             || !(0.0..=1.0).contains(&handedness[0])
             || !confidence[0].is_finite()
-            || confidence[0] < 0.8
+            || f64::from(confidence[0]) < min_presence
+            || confidence[0] > 1.0
             || landmarks.iter().any(|p| !p.is_finite())
         {
             return Ok(None);
@@ -507,6 +525,7 @@ impl Perception {
             handedness: handedness[0] as f64,
             tracked,
             secondary: None,
+            secondary_source_id: 0,
         }))
     }
     pub fn infer_many(&mut self, image: &RgbImage) -> Result<MultiHands, Box<dyn Error>> {
@@ -546,6 +565,7 @@ impl Perception {
                     None
                 };
                 hand.secondary = secondary.map(Box::new);
+                hand.secondary_source_id = self.secondary_source_id;
                 if let Some(roi) = roi_from(
                     &hand.landmarks,
                     hand.landmarks[0],
@@ -603,9 +623,18 @@ impl Perception {
                         }
                     }
                     let secondary_roi = if self.dual_crop {
-                        let roi = proximal_tracking_roi(&hand);
-                        hand.secondary = Some(Box::new(hand.clone()));
-                        roi
+                        let secondary = if self.secondary_hand.is_some() {
+                            self.secondary_inference(image, roi, &hand)?
+                        } else {
+                            Some(hand.clone())
+                        };
+                        let next_roi = secondary
+                            .as_ref()
+                            .and_then(proximal_tracking_roi)
+                            .or_else(|| proximal_tracking_roi(&hand));
+                        hand.secondary = secondary.map(Box::new);
+                        hand.secondary_source_id = self.secondary_source_id;
+                        next_roi
                     } else {
                         None
                     };
@@ -690,6 +719,27 @@ impl Perception {
         self.dual_crop = enabled;
         self
     }
+    pub fn with_secondary_model(
+        mut self,
+        path: &Path,
+        min_presence: f64,
+        source_id: u64,
+    ) -> Result<Self, Box<dyn Error>> {
+        if !self.dual_crop
+            || !min_presence.is_finite()
+            || !(0.0..=1.0).contains(&min_presence)
+            || source_id <= PROXIMAL_PINCH_SOURCE
+        {
+            return Err(
+                "secondary model requires dual crop, valid presence and a distinct estimator ID"
+                    .into(),
+            );
+        }
+        self.secondary_hand = Some(session(path)?);
+        self.secondary_min_presence = min_presence;
+        self.secondary_source_id = source_id;
+        Ok(self)
+    }
     fn secondary_inference(
         &mut self,
         image: &RgbImage,
@@ -697,7 +747,22 @@ impl Perception {
         primary: &DetectedHand,
     ) -> Result<Option<DetectedHand>, Box<dyn Error>> {
         let saved = (self.hand_score, self.side_score, self.last_roi);
-        let result = self.infer_roi(image, roi, primary.id, true);
+        let result = if let Some(mut alternate) = self.secondary_hand.take() {
+            std::mem::swap(&mut self.hand, &mut alternate);
+            let result = self.infer_roi_with_presence(
+                image,
+                roi,
+                primary.id,
+                true,
+                self.secondary_min_presence,
+            );
+            // Restore primary session/diagnostics even when alternate inference fails.
+            std::mem::swap(&mut self.hand, &mut alternate);
+            self.secondary_hand = Some(alternate);
+            result
+        } else {
+            self.infer_roi(image, roi, primary.id, true)
+        };
         let score = self.hand_score;
         (self.hand_score, self.side_score, self.last_roi) = saved;
         let candidate = result?;
@@ -729,7 +794,7 @@ impl DetectedHand {
     pub fn secondary_debug(&self) -> Option<serde_json::Value> {
         self.secondary.as_ref().map(|h| {
             serde_json::json!({
-                "source_id":PROXIMAL_PINCH_SOURCE,"confidence":h.confidence,
+                "source_id":self.secondary_source_id,"confidence":h.confidence,
                 "world_pinch_distance_m":h.world_pinch_distance_m(),
                 "landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks,
             })
@@ -798,6 +863,72 @@ impl DetectedHand {
 /// The fixed-ROI branch isolates preprocessing/model invariance; cold detection
 /// followed by ten identical frames additionally exercises detection and tracking.
 /// No camera, device, live configuration or production inference path is changed.
+/// Export the exact native RGB float tensor and fixed-ROI inference for an
+/// offline backend comparison. This never opens a camera or input device.
+pub fn crop_check(
+    models: &Path,
+    image: &RgbImage,
+    roi: Option<[f64; 4]>,
+    directory: &Path,
+) -> Result<serde_json::Value, Box<dyn Error>> {
+    use std::io::Write;
+    if image.width().max(image.height()) > 4096 {
+        return Err("crop-check images must be at most4096 pixels per axis".into());
+    }
+    let specified = roi.is_some();
+    let roi = roi.map(|r| Roi {
+        center: XY { x: r[0], y: r[1] },
+        side: r[2],
+        angle: r[3],
+    });
+    if roi.is_some_and(|r| {
+        ![r.center.x, r.center.y, r.side, r.angle]
+            .iter()
+            .all(|v| v.is_finite())
+            || !(8.0..=8192.0).contains(&r.side)
+            || r.center.x.abs() > 8192.0
+            || r.center.y.abs() > 8192.0
+            || r.angle.abs() > std::f64::consts::TAU
+    }) {
+        return Err("invalid crop-check ROI".into());
+    }
+    let mut model = Perception::new(models)?;
+    let roi = if let Some(roi) = roi {
+        roi
+    } else {
+        model.infer(image)?.ok_or("reference hand not detected")?;
+        model.last_roi.ok_or("reference ROI missing")?
+    };
+    let tensor = crop(image, roi, 224);
+    let hand = model.infer_roi(image, roi, 1, false)?;
+    std::fs::create_dir(directory)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))?;
+    }
+    let mut file = std::io::BufWriter::new(std::fs::File::create(directory.join("input.f32"))?);
+    for value in tensor {
+        file.write_all(&value.to_le_bytes())?;
+    }
+    file.flush()?;
+    let report = serde_json::json!({
+        "schema":"wigglecontrol.crop-check/v1","camera_opened":false,"system_input":false,
+        "image_size":[image.width(),image.height()],"roi":roi_values(roi),
+        "roi_policy":if specified {"explicit fixed ROI"} else {"native cold detector ROI"},
+        "tensor":{"file":"input.f32","shape":[1,224,224,3],"dtype":"little-endian float32","rgb_range":[0,1]},
+        "confidence":model.hand_score,"handedness":model.side_score,
+        "native":hand.as_ref().map(|h|serde_json::json!({"world_landmarks":h.world_landmarks,
+            "landmarks":h.landmarks.map(|p|[p.x,p.y]),"gap_m":h.world_pinch_distance_m()})),
+        "limits":"Fixed-crop model comparison, not detection/tracking identity, hand intent or live acceptance."
+    });
+    std::fs::write(
+        directory.join("report.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
+    Ok(report)
+}
+
 pub fn position_sweep(
     models: &Path,
     image: &RgbImage,
@@ -960,6 +1091,7 @@ mod tests {
             handedness: 0.9,
             tracked: true,
             secondary: None,
+            secondary_source_id: 0,
         };
         a.landmarks[5].x = 80.0;
         a.landmarks[17].x = 120.0;
@@ -993,6 +1125,7 @@ mod tests {
             handedness: 0.9,
             tracked: true,
             secondary: None,
+            secondary_source_id: 0,
         };
         for (index, x) in [(5, 60.0), (9, 85.0), (13, 110.0), (17, 140.0)] {
             hand.landmarks[index] = XY { x, y: 100.0 };
@@ -1076,6 +1209,7 @@ mod tests {
             handedness: 0.9,
             tracked: false,
             secondary: None,
+            secondary_source_id: 0,
         };
         hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
         hand.landmarks[5] = XY { x: 180.0, y: 340.0 };

@@ -2,19 +2,19 @@
 
 ## Active controller-evolution goal —2026-10-15
 
-Latest [implemented pinch fusion](research/native-pinch-fusion-2026-10.md) adds
-independent per-estimator open/confirmation/release and one contact/primary cursor.
-Conditional Tasks/native replay now actually executes117/117 near frames in Rust.
-The default-off shared-model native dual crop improves the same655-image20Hz set
-107/117→115/117 near contacts with zero contacts in both negatives. Fresh10Hz
-tracking still loses adverse yaw0/5 and3/4; separated pairs preserve41/41 stable
-counts each, while both crossings retain0/13 dual near holds. All1042 primary
-observations/ambiguity remain exact. This is an experimental source candidate,
-not receiving selection or physical acceptance. Next: conflicting held-release
-controls and efficient crop/model comparison at actual target cadence, then Pi
-resources and human/application acceptance. The prior crop/Tasks report retains
-its analytic-only checkpoint as history; fusion/lifecycle now exist in source.
-Selected Pi runtime/profile and the full roadmap remain active and unchanged.
+Latest [fixed-tensor/mixed-model work](research/fixed-tensor-mixed-model-2026-10.md)
+exports exact native tensors, reproduces286 retained native gaps exactly and
+validates all four converted Tasks outputs against LiteRT on all286 inputs.
+The new optional secondary ONNX Session reuses the existing Rust/ORT runtime.
+Actual image/controller coverage improves115/117→116/117 at20Hz and12/18→17/18
+on the hard actual10Hz scenes, with explicit provider/gesture confidence0.5.
+All1042 primary observations/ambiguity remain exact; V/open controls stay contact-
+free and separated pairs retain41/41 stable counts each. Crossings still have
+0/13 dual near holds; same-side crossing adds five contact frames with unscored
+ownership. General adoption remains rejected. Next: receiving ARM64 image-only
+cost, conflict/release and ownership controls, then fresh human/application
+acceptance. Selected runtime/profile, original trial and the full roadmap remain
+intact. Earlier source/analytic checkpoints below retain their dated scope.
 
 Nicolás authorized a new native Cuevanico goal to evolve the complete camera
 controller through simulation, perception/model comparisons, useful modes,

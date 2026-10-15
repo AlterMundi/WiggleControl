@@ -1,0 +1,29 @@
+{
+  "schema": "wigglecontrol.converted-landmark-model/v1",
+  "source_task_url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+  "source_task_sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+  "member": "hand_landmarks_detector.tflite",
+  "member_sha256": "6acda74af3fbf40e68265c20c7394b2bad81a16a481dcd79ad7a081887c3d6b9",
+  "onnx_sha256": "2672e7204afb4b965c391a9f77f910d392d5c0757c1af1ac7607b7a103a9ef5c",
+  "onnx_bytes": 10903277,
+  "opset": 17,
+  "converter": {
+    "tensorflow_cpu": "2.15.1",
+    "tf2onnx": "1.16.1",
+    "onnx": "1.17.0",
+    "numpy": "1.26.4",
+    "protobuf": "3.20.3",
+    "python": "3.11.15"
+  },
+  "fixed_tensor_validation": {
+    "crops": 286,
+    "maxima": {
+      "Identity": 0.00037384033203125,
+      "Identity_1": 2.86102294921875e-06,
+      "Identity_2": 3.7550926208496094e-06,
+      "Identity_3": 3.948807716369629e-07
+    }
+  },
+  "receiving_qualified": false,
+  "physical_acceptance": false
+}

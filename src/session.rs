@@ -21,6 +21,14 @@ use v4l::{
     video::Capture,
 };
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecondaryLandmarkModel {
+    pub path: String,
+    pub min_presence: f64,
+    pub source_id: u64,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionConfig {
@@ -61,6 +69,10 @@ pub struct SessionConfig {
     pub palm_deduplication: crate::vision::PalmDeduplication,
     #[serde(default)]
     pub dual_crop: bool,
+    #[serde(default)]
+    pub secondary_model: Option<SecondaryLandmarkModel>,
+    #[serde(default)]
+    pub gesture_min_confidence: Option<f64>,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -89,16 +101,28 @@ impl SessionConfig {
         rediscovery: u32,
         separation_override: Option<f64>,
     ) -> Result<Perception, Box<dyn Error>> {
-        Ok(Perception::with_replay_options(
+        let model = Perception::with_replay_options(
             Path::new(&self.models),
             rediscovery,
             separation_override.unwrap_or(self.pair_separation_widths),
         )?
         .with_palm_deduplication(self.palm_deduplication)
-        .with_dual_crop(self.dual_crop))
+        .with_dual_crop(self.dual_crop);
+        if let Some(secondary) = &self.secondary_model {
+            model.with_secondary_model(
+                Path::new(&secondary.path),
+                secondary.min_presence,
+                secondary.source_id,
+            )
+        } else {
+            Ok(model)
+        }
     }
     pub fn gestures(&self) -> Config {
         Config {
+            min_confidence: self
+                .gesture_min_confidence
+                .unwrap_or(Config::default().min_confidence),
             stale_us: self.freshness_ms * 1000,
             close_m: self.pinch_close_m,
             open_m: self.pinch_open_m,
@@ -172,7 +196,9 @@ impl SessionConfig {
                         true
                     };
                     hand.secondary_pinch = Some(crate::PinchEvidence {
-                        source_id: crate::vision::PROXIMAL_PINCH_SOURCE,
+                        source_id: detected
+                            .expect("secondary belongs to this detected hand")
+                            .secondary_source_id,
                         source_us,
                         confidence: secondary.confidence,
                         eligible,
@@ -192,6 +218,17 @@ impl SessionConfig {
         let config: Self = serde_json::from_slice(&data)?;
         if config.dual_crop && !config.pinch_3d {
             return Err("dual crop requires the explicit3D pinch metric".into());
+        }
+        if let Some(secondary) = &config.secondary_model {
+            if !config.dual_crop
+                || !Path::new(&secondary.path).is_absolute()
+                || !secondary.min_presence.is_finite()
+                || !(0.0..=1.0).contains(&secondary.min_presence)
+                || secondary.source_id <= crate::vision::PROXIMAL_PINCH_SOURCE
+                || config.gestures().min_confidence > secondary.min_presence
+            {
+                return Err("secondary model requires dual3D, absolute path, distinct source ID and an explicit compatible gesture confidence threshold".into());
+            }
         }
         if config
             .pinch_onset_max_screen_ratio
@@ -695,7 +732,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -1013,6 +1050,8 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                     "press_intents":summary.button_down_intents,"remaining_ms":preview_clock.as_ref().and_then(|c|c.remaining_ms(Instant::now())),"until_stop":until_stop});
                 if config.dual_crop {
                     data["dual_crop"] = true.into();
+                    data["secondary_model"] = serde_json::to_value(&config.secondary_model)?;
+                    data["gesture_min_confidence"] = config.gestures().min_confidence.into();
                     data["secondary_pinch"] = interpreted
                         .as_ref()
                         .and_then(|h| h.secondary_pinch.as_ref())
@@ -1260,6 +1299,8 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                         interpreted.as_ref().map(|h| h.pinch_onset_allowed).into();
                     if config.dual_crop {
                         data["dual_crop"] = true.into();
+                        data["secondary_model"] = serde_json::to_value(&config.secondary_model)?;
+                        data["gesture_min_confidence"] = config.gestures().min_confidence.into();
                         data["secondary_pinch"] = interpreted
                             .as_ref()
                             .and_then(|h| h.secondary_pinch.as_ref())
@@ -1387,6 +1428,7 @@ mod tests {
             handedness: 0.9,
             tracked: true,
             secondary: None,
+            secondary_source_id: 0,
         };
         hand.landmarks[0] = XY { x: 200.0, y: 400.0 };
         hand.landmarks[5] = XY { x: 180.0, y: 340.0 };
@@ -1510,6 +1552,7 @@ mod tests {
         secondary.landmarks[0] = primary.landmarks[0];
         secondary.landmarks[9] = primary.landmarks[9];
         primary.secondary = Some(Box::new(secondary));
+        primary.secondary_source_id = crate::vision::PROXIMAL_PINCH_SOURCE;
         let h = config
             .observation(Some(&primary), 640, 480, 42)
             .hand

@@ -12,17 +12,17 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
-Current perception work: [implemented native fusion](research/native-pinch-fusion-2026-10.md)
-now provides independently rearmed/confirmed hypotheses, stable contact ownership,
-source/frame validation and loss/Stop handling. Default-off shared-model dual crop
-improves20Hz near coverage107/117→115/117 without contacts in the two negatives.
-Conditional Tasks/native fusion executes117/117 in Rust, rather than an analytic
-union alone. Fresh10Hz native dual tracking still loses an adverse view0/5 and3/4;
-both paired crossings retain0/13 dual near holds. Reject general adoption for now.
-Next: conflict/release controls, broader inputs and efficient crop/model comparison
-at actual target cadence, then Pi resource/latency and physical/application
-acceptance. Existing runtime/calibration and the full modes/macros/participant
-roadmap remain intact. Earlier reports below preserve their dated limitations.
+Current perception work: [fixed tensors and mixed models](research/fixed-tensor-mixed-model-2026-10.md)
+now isolate crop/model effects and validate a converted Tasks landmark model on
+286 exact native inputs. The default-off Rust/ORT secondary model reaches116/117
+near frames at20Hz and17/18 on actual10Hz hard scenes, versus115/117 and12/18
+for shared-model dual crop. Primary1042-frame observations remain exact, with
+no V/open contacts. Separated pairs stay qualified on their existing synthetic
+holds; crossings still fail, adding five unscored contact frames in one layout.
+Do not adopt generally. Next: receiving cost, conflicting release/pose controls
+and ownership handling, then fresh human/application acceptance. Native macros,
+participants and every broader roadmap requirement below remain active. Selected
+runtime/calibration and the original prepared trial are preserved.
 
 Latest#7 source candidate: [late onset permission](research/pinch-onset-veto-2026-10.md)
 uses the previously tested0.38 pixel ratio to veto a new press while retaining raw

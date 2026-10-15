@@ -114,7 +114,11 @@ impl Preview {
                         );
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(10))
+                        thread::sleep(Duration::from_millis(if extra.lock().unwrap().is_some() {
+                            2
+                        } else {
+                            10
+                        }))
                     }
                     Err(_) => break,
                 }

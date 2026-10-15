@@ -19,6 +19,14 @@ It reuses the existing feedback/Stop/mode server. Source protocol/preview tests
 pass; same-host ARM64 model/transport timing and skipped-frame quality still need
 actual execution before receiving selection. No camera or OS input is opened.
 
+Actual [first real-clock receiving results](research/realtime-worker-2026-10.md)
+now expose0/7 one-hand near holds and0/13 dual near holds despite completed GPU/
+HTTP/Rust execution. Source age plus processing cadence retires identities;
+every23 observed one-hand ID change follows an expired previous observation.
+30Hz capture alone reduces age but does not restore contact. Next candidate
+warms the graph before input and reduces optional listener delay, with new stage
+instrumentation. Do not select this controller or stretch freshness to conceal cost.
+
 Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing
 meaning, retaining4/5 adverse near holds and20/20 separated-pair stable counts

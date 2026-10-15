@@ -28,6 +28,7 @@ const MODEL: &str = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf360
 #[derive(Clone)]
 struct Lease {
     sequence: u64,
+    issued_us: u64,
     frame: Arc<Frame>,
 }
 struct Submission {
@@ -103,6 +104,7 @@ impl Bridge {
             "camera_opened":false,"system_input":false}));
         s.latest = Some(Lease {
             sequence,
+            issued_us: 0,
             frame: Arc::new(frame),
         });
         self.changed.notify_all();
@@ -240,7 +242,7 @@ impl Extension for Bridge {
                     ));
                 }
                 let current = s.latest.clone().filter(|f| f.sequence > s.last_issued);
-                if let Some(lease) = current {
+                if let Some(mut lease) = current {
                     let now = monotonic_us()?;
                     if now < lease.frame.source_us || now - lease.frame.source_us > self.stale_us {
                         s.skipped += lease.sequence.saturating_sub(s.last_issued);
@@ -253,8 +255,9 @@ impl Extension for Bridge {
                     s.skipped += lease.sequence.saturating_sub(s.last_issued + 1);
                     s.last_issued = lease.sequence;
                     s.issued += 1;
+                    lease.issued_us = now;
                     s.lease = Some(lease.clone());
-                    let ticket = json!({"run_id":self.run_id,"sequence":lease.sequence,"source_us":lease.frame.source_us,
+                    let ticket = json!({"run_id":self.run_id,"sequence":lease.sequence,"source_us":lease.frame.source_us,"issued_us":lease.issued_us,
                         "width":640,"height":480,"capture_sequence":lease.frame.sequence});
                     Ok(ExtensionResponse {
                         status: "200 OK",
@@ -578,7 +581,7 @@ pub fn run(
                 bridge.finish(lease.sequence, receipt);
                 emit(
                     json!({"event":"frame","sequence":lease.sequence,"capture_sequence":lease.frame.sequence,
-                    "source_us":packet.source_us,"received_us":submission.received_us,"now_us":now,"meaning_us":feedback.meaning_us,
+                    "source_us":packet.source_us,"issued_us":lease.issued_us,"received_us":submission.received_us,"now_us":now,"meaning_us":feedback.meaning_us,
                     "ambiguous":found.ambiguous,"ambiguity_reason":found.ambiguity_reason,"hands":hands,
                     "perception":feedback.raw,"controller":state,"camera_opened":false,"system_input":false}),
                 )?;

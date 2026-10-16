@@ -29,11 +29,21 @@ is opened. The explicit finite camera source now reuses timestamp-validated capt
 recording and the independent native writer through this seam, with a sensor-free
 preflight and fixed graph selection. Source4385fdd receiving preflight, zero-capture missing-camera cleanup and
 normal synthetic regression now pass; terminal feedback is acknowledged before
-listener shutdown. Physical camera/input execution remains unqualified. Next: replay authorized
-retained trial footage with explicit recorded-source provenance, broaden negative/
-ownership coverage, then fresh-ready physical and human/application acceptance. Keep live calibration,
+listener shutdown. Physical camera/input execution remains unqualified. Retained trial replay is now
+measured below; next annotate representative intervals, broaden negative/ownership
+coverage, then fresh-ready physical and human/application acceptance. Keep live calibration,
 selected runtime and original prepared trial intact; do not stretch freshness
 to hide processing cost.
+
+Retained-footage replay now runs on the Pi as an explicitly recorded source
+(source6ab609c), with separate original/new clocks and no capture/input. A first
+60-second window publishes905 original frames and accepts797 at13.265Hz;
+97.091ms median/140.306ms p95 publication→meaning, final neutral and both end
+receipts. No independent labels exist, so detections/contacts are observations,
+not accuracy. Next: annotate short presence/pinch/continuity intervals, compare
+tracker identity and onset/release behavior on identical bytes, then replay the
+recorded400ms gap. Preserve original recording and separate intent labels from
+predictions. Full physical/application acceptance remains required.
 
 Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing

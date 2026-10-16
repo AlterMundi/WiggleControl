@@ -10,7 +10,24 @@ public synthetic warmup is separate. It starts no camera/input and changes no
 labels. The synthetic geometry scorer rejects this source. Retained source
 metadata shows4416 frames over297.120209s, median67.98ms spacing, one400.04ms
 gap with kernel-sequence delta6; requested30FPS is not observed cadence. Cause
-is unknown. No independent labels exist; actual GPU replay qualification is next.
+is unknown. No independent labels exist.
+
+Source6ab609c/CI38833865550 now passes the first actual Pi GPU replay of the
+original first60 seconds:905 published,797 accepted,108 coalesced,0 expired;
+13.265Hz,97.091ms median/140.306ms p95 publication→meaning.388 observations
+contain a hand,47 contain contact;12 track IDs and3 ambiguous observations are
+diagnostics, not accuracy or participant counts. Without independent labels,
+normal hand exits cannot be distinguished from tracking failure by those totals.
+All accepted clocks/provenance and source counts validate. Final state is neutral,
+worker/model and terminal-view acknowledgments pass; native unit exits success.
+Actual running/ended TV views fit1920×1080 without scrolling, clearly mark
+recorded playback/sensors off/input off, then restore the original workbench.
+No original video/index/labels or live calibration is modified. Manual candidate
+is updated, not selected for everyday use. Next: independently mark short retained
+hand/pinch/occlusion intervals and compare continuity/identity before tuning; replay
+the original400ms gap with enough preceding open/held context. Raw imagery,
+landmarks and exact paths remain private. Do not use synthetic accuracy scoring
+or report these timings as acquisition-to-application latency.
 
 New [finite camera-worker source](PROVIDER-TRANSPORT.md#explicit-finite-camera-source)
 connects the qualified lease seam to existing driver-monotonic capture/private

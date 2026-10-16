@@ -1,9 +1,9 @@
 //! Finite camera-free local recorded-frame player and separate human interval labels.
-use crate::recording::{FrameIndex, MAX_BYTES};
+use crate::recording::Reader;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
-    io::{self, Read, Seek, SeekFrom, Write},
+    fs,
+    io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     path::Path,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -34,49 +34,12 @@ pub fn serve(dir: &Path, port: u16, seconds: u64) -> io::Result<()> {
             "review requires port and duration1..3600 seconds",
         ));
     }
-    let raw = fs::read(dir.join("frames.jsonl"))?;
-    if raw.len() > 16 * 1024 * 1024 {
-        return Err(io::Error::other("index too large"));
-    }
-    let rows: Vec<FrameIndex> = String::from_utf8(raw)
-        .map_err(io::Error::other)?
-        .lines()
-        .map(serde_json::from_str)
-        .collect::<Result<_, _>>()?;
-    let mut videos = std::collections::BTreeMap::new();
-    for row in &rows {
-        if row.segment > 1000 {
-            return Err(io::Error::other("invalid segment"));
-        }
-        if let std::collections::btree_map::Entry::Vacant(entry) = videos.entry(row.segment) {
-            let name = if row.segment == 0 {
-                "video.mjpeg".to_string()
-            } else {
-                format!("video-{}.mjpeg", row.segment)
-            };
-            let file = File::open(dir.join(name))?;
-            if file.metadata()?.len() > MAX_BYTES {
-                return Err(io::Error::other("segment too large"));
-            }
-            entry.insert(file);
-        }
-    }
-    if rows.is_empty()
-        || rows.len() > 100000
-        || rows.iter().any(|r| {
-            r.length == 0
-                || r.length > 2 * 1024 * 1024
-                || r.offset
-                    .checked_add(r.length as u64)
-                    .is_none_or(|n| n > videos[&r.segment].metadata().map(|m| m.len()).unwrap_or(0))
-        })
-        || rows.windows(2).any(|r| r[1].source_us <= r[0].source_us)
-    {
-        return Err(io::Error::other("invalid recording index"));
-    }
-    let times: Vec<f64> = rows
+    let mut recording = Reader::open(dir)?;
+    let first = recording.rows()[0].source_us;
+    let times: Vec<f64> = recording
+        .rows()
         .iter()
-        .map(|r| (r.source_us - rows[0].source_us) as f64 / 1000.0)
+        .map(|row| (row.source_us - first) as f64 / 1000.0)
         .collect();
     let duration = *times.last().unwrap();
     let manifest = serde_json::to_vec(
@@ -149,11 +112,8 @@ pub fn serve(dir: &Path, port: u16, seconds: u64) -> io::Result<()> {
                 .and_then(|s| s.strip_suffix(" HTTP/1.1"))
                 .and_then(|s| s.parse::<usize>().ok())
             {
-                if let Some(row) = rows.get(id) {
-                    let mut bytes = vec![0; row.length];
-                    let video = videos.get_mut(&row.segment).unwrap();
-                    video.seek(SeekFrom::Start(row.offset))?;
-                    video.read_exact(&mut bytes)?;
+                if id < recording.rows().len() {
+                    let bytes = recording.frame(id)?;
                     return respond(&mut stream, "200 OK", "image/jpeg", &bytes);
                 }
             }

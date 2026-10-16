@@ -7,12 +7,12 @@ const post=(path,fields={})=>fetch(path,{method:"POST",headers:{"Content-Type":"
 const run = async()=>{
   const config = await (await fetch('/provider/config')).json();
   runId=config.run_id;
-  document.querySelector('h1').textContent=config.camera_source?'WIGGLECONTROL // CAMERA WORKER':'WIGGLECONTROL // REAL-CLOCK FIXTURE';
+  document.querySelector('h1').textContent=config.camera_source?'WIGGLECONTROL // CAMERA WORKER':config.recorded_source?'WIGGLECONTROL // RECORDED HAND REPLAY':'WIGGLECONTROL // REAL-CLOCK FIXTURE';
   const bytes = await (await fetch('/hand_landmarker.task')).arrayBuffer();
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if(hash!==config.model_sha256)throw Error('Provider model digest differs');
-  text('capture-status',config.camera_source?'Preparing GPU worker · camera not acquired':'Preparing GPU worker · synthetic frames only');
+  text('capture-status',config.camera_source?'Preparing GPU worker · camera not acquired':config.recorded_source?'Preparing recorded playback · sensors off':'Preparing GPU worker · synthetic frames only');
   model=await workerSource(base,bytes,config.delegate,config.max_hands);
   // Compile/warm the graph on the displayed public reference before real-clock
   // acquisition begins. Warmup points never enter Rust meaning.

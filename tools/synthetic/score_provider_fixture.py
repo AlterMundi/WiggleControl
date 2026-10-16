@@ -18,6 +18,11 @@ def require(condition, message):
 
 def validate(events):
     require(bool(events), 'Empty journal')
+    sources = [e for e in events if e.get('event') == 'listening']
+    require(len(sources) == 1 and sources[0].get('source_kind') == 'synthetic_encoded_frame_publish',
+            'Independent synthetic geometry scoring requires a declared synthetic source')
+    require(all(e.get('recorded_frame') is None for e in events),
+            'Recorded camera provenance cannot be scored as synthetic geometry')
     terminal = events[-1]
     require(terminal.get('event') == 'stop' and terminal.get('error') is None,
             'Producer did not finish successfully')

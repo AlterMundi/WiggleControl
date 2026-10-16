@@ -14,6 +14,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("provider-recording") if args.len() == 10 => {
+            return wigglecontrol::provider_fixture::run_recording(
+                wigglecontrol::provider_fixture::RecordingOptions {
+                    recording: std::path::Path::new(&args[1]),
+                    session: std::path::Path::new(&args[2]),
+                    settings: std::path::Path::new(&args[3]),
+                    asset_root: std::path::Path::new(&args[4]),
+                    synthetic_warmup: std::path::Path::new(&args[5]),
+                    start_ms: args[6].parse()?,
+                    duration_ms: args[7].parse()?,
+                    port: args[8].parse()?,
+                    max_hands: args[9].parse()?,
+                },
+            );
+        }
         Some("provider-camera" | "provider-camera-preflight")
             if args.len() == 8 || args.len() == 9 =>
         {
@@ -470,6 +485,8 @@ fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (manual camera worker; preflight opens no camera/device)");
     #[cfg(feature = "native-vision")]

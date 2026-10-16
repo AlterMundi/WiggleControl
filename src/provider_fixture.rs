@@ -30,6 +30,7 @@ struct Lease {
     sequence: u64,
     issued_us: u64,
     frame: Arc<Frame>,
+    recorded: Option<crate::recording::FrameIndex>,
 }
 struct Submission {
     lease: Lease,
@@ -60,6 +61,7 @@ struct State {
 }
 struct Bridge {
     camera_source: bool,
+    recorded_source: bool,
     input_requested: bool,
     warmup: Vec<u8>,
     max_hands: usize,
@@ -98,6 +100,7 @@ impl Bridge {
     ) -> Self {
         Self {
             camera_source: false,
+            recorded_source: false,
             input_requested: false,
             warmup: Vec::new(),
             max_hands,
@@ -109,6 +112,13 @@ impl Bridge {
         }
     }
     fn publish(&self, frame: Frame) -> io::Result<u64> {
+        self.publish_recorded(frame, None)
+    }
+    fn publish_recorded(
+        &self,
+        frame: Frame,
+        recorded: Option<crate::recording::FrameIndex>,
+    ) -> io::Result<u64> {
         let mut s = self.state.lock().unwrap();
         s.captured = s
             .captured
@@ -120,11 +130,12 @@ impl Bridge {
         s.captures
             .push(json!({"event":"capture","sequence":sequence,
             "capture_sequence":frame.sequence,"source_us":frame.source_us,
-            "camera_opened":camera_opened,"system_input":input_started}));
+            "camera_opened":camera_opened,"system_input":input_started,"recorded_frame":recorded}));
         s.latest = Some(Lease {
             sequence,
             issued_us: 0,
             frame: Arc::new(frame),
+            recorded,
         });
         self.changed.notify_all();
         Ok(sequence)
@@ -198,7 +209,7 @@ impl Extension for Bridge {
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"package_version":"1.1.1",
-                "camera_source":self.camera_source,"camera_opened":state.camera_opened,
+                "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.input_started}),
                 ))
             }
@@ -438,7 +449,9 @@ fn jpeg(path: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     if !fs::metadata(path)?.is_file() || fs::metadata(path)?.len() > 2 * 1024 * 1024 {
         return Err("expected bounded regular JPEG".into());
     }
-    let data = fs::read(path)?;
+    jpeg_bytes(fs::read(path)?)
+}
+fn jpeg_bytes(data: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> {
     if !data.starts_with(&[0xff, 0xd8, 0xff]) {
         return Err("fixture requires prepared JPEG images".into());
     }
@@ -538,6 +551,69 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
     })
 }
 
+pub struct RecordingOptions<'a> {
+    pub recording: &'a Path,
+    pub session: &'a Path,
+    pub settings: &'a Path,
+    pub asset_root: &'a Path,
+    pub synthetic_warmup: &'a Path,
+    pub start_ms: u64,
+    pub duration_ms: u64,
+    pub port: u16,
+    pub max_hands: usize,
+}
+pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>> {
+    if !(1..=90_000).contains(&options.duration_ms) {
+        return Err("recorded replay duration must be1..90000ms".into());
+    }
+    let manifest = options.recording.join("manifest.json");
+    if fs::metadata(&manifest)?.len() > 16 * 1024 {
+        return Err("recording manifest exceeds16KiB".into());
+    }
+    let metadata: Value = serde_json::from_slice(&fs::read(manifest)?)?;
+    if metadata["schema"] != "wigglecontrol.recording/v1"
+        || metadata["width"] != 640
+        || metadata["height"] != 480
+    {
+        return Err("recorded replay requires recording/v1 at640x480".into());
+    }
+    let reader = crate::recording::Reader::open(options.recording)?;
+    let epoch = reader.rows()[0].source_us;
+    let start = options
+        .start_ms
+        .checked_mul(1000)
+        .and_then(|n| epoch.checked_add(n))
+        .ok_or("recording start overflow")?;
+    let end = start
+        .checked_add(options.duration_ms * 1000)
+        .ok_or("recording end overflow")?;
+    let indices: Vec<_> = reader
+        .rows()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, r)| (r.source_us >= start && r.source_us < end).then_some(i))
+        .collect();
+    let first = *indices
+        .first()
+        .ok_or("recording window contains no frames")?;
+    let last = *indices.last().unwrap();
+    let duration = reader.rows()[last].source_us - reader.rows()[first].source_us;
+    run_engine(RunOptions {
+        session: options.session,
+        settings: options.settings,
+        asset_root: options.asset_root,
+        port: options.port,
+        max_hands: options.max_hands,
+        initial_jpeg: jpeg(options.synthetic_warmup)?,
+        source: Source::Recorded {
+            reader,
+            indices,
+            duration,
+        },
+        preflight: false,
+    })
+}
+
 enum Source {
     Fixture {
         frames: Vec<(u64, Option<PathBuf>)>,
@@ -546,6 +622,11 @@ enum Source {
     Camera {
         seconds: u64,
         inject: bool,
+    },
+    Recorded {
+        reader: crate::recording::Reader,
+        indices: Vec<usize>,
+        duration: u64,
     },
 }
 struct RunOptions<'a> {
@@ -588,13 +669,23 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     }
     let (config, mut controller, mut tracker) = provider::configured(session, settings, 0.5)?;
     let camera_source = matches!(&source, Source::Camera { .. });
+    let recorded_source = matches!(&source, Source::Recorded { .. });
+    let recording_epoch = match &source {
+        Source::Recorded { reader, .. } => Some(reader.rows()[0].source_us),
+        _ => None,
+    };
     let inject = matches!(&source, Source::Camera { inject: true, .. });
     if camera_source && config.recording_directory.is_none() {
         return Err("camera worker trials require private recording_directory".into());
     }
-    let (mut frames, duration) = match source {
-        Source::Fixture { frames, duration } => (frames, duration),
-        Source::Camera { seconds, .. } => (Vec::new(), seconds * 1_000_000),
+    let (mut frames, duration, mut playback) = match source {
+        Source::Fixture { frames, duration } => (frames, duration, None),
+        Source::Camera { seconds, .. } => (Vec::new(), seconds * 1_000_000, None),
+        Source::Recorded {
+            reader,
+            indices,
+            duration,
+        } => (Vec::new(), duration, Some((reader, indices))),
     };
     let mut bridge = Bridge::new(
         assets(asset_root)?,
@@ -603,6 +694,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         max_hands,
     );
     bridge.camera_source = camera_source;
+    bridge.recorded_source = recorded_source;
     bridge.input_requested = inject;
     bridge.warmup = initial_jpeg.clone();
     if preflight {
@@ -631,8 +723,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let mut writer_output = None;
     let mut publisher = crate::delivery::Publisher::default();
     journal.emit(
-        json!({"event":"listening","port":preview.port,"schema":if camera_source {"wigglecontrol.provider-camera/v1"}else{"wigglecontrol.provider-fixture/v1"},
-        "camera_opened":false,"system_input":false,"input_requested":inject,"source_kind":if camera_source {"kernel_monotonic_camera"}else{"synthetic_encoded_frame_publish"}}),
+        json!({"event":"listening","port":preview.port,"schema":if camera_source {"wigglecontrol.provider-camera/v1"}else if recorded_source {"wigglecontrol.provider-recording/v1"}else{"wigglecontrol.provider-fixture/v1"},
+        "camera_opened":false,"system_input":false,"input_requested":inject,"source_kind":if camera_source {"kernel_monotonic_camera"}else if recorded_source {"recorded_frame_republication"}else{"synthetic_encoded_frame_publish"}}),
     )?;
     let mut feedback = Feedback {
         jpeg: initial_jpeg,
@@ -640,6 +732,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         raw: Vec::new(),
         sequence: 0,
         meaning_us: 0,
+        recorded_time_ms: None,
         eligible: false,
     };
     let mut previous_active = (Vec::new(), false);
@@ -710,10 +803,23 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 } else {
                     let (shared, stopped) = (bridge.clone(), capture_stop.clone());
                     let source_frames = std::mem::take(&mut frames);
+                    let mut recorded = playback.take();
                     producer = Some(thread::spawn(move || {
                         let begin = Instant::now();
-                        for (i, (offset, path)) in source_frames.into_iter().enumerate() {
-                            while begin.elapsed().as_micros() < (offset as u128)
+                        let count = recorded
+                            .as_ref()
+                            .map_or(source_frames.len(), |(_, ids)| ids.len());
+                        let recorded_first = recorded
+                            .as_ref()
+                            .map(|(reader, ids)| reader.rows()[ids[0]].source_us);
+                        for i in 0..count {
+                            let offset = recorded.as_ref().map_or_else(
+                                || source_frames[i].0,
+                                |(reader, ids)| {
+                                    reader.rows()[ids[i]].source_us - recorded_first.unwrap()
+                                },
+                            );
+                            while begin.elapsed().as_micros() < offset as u128
                                 && !stopped.load(Ordering::Relaxed)
                             {
                                 thread::sleep(Duration::from_millis(1));
@@ -721,21 +827,32 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                             if stopped.load(Ordering::Relaxed) {
                                 break;
                             }
-                            if let Some(path) = path {
-                                let next = (|| -> Result<(), Box<dyn Error>> {
-                                    let bytes = jpeg(&path)?;
-                                    let source_us = monotonic_us()?;
+                            let next = (|| -> Result<(), Box<dyn Error>> {
+                                if let Some((reader, ids)) = &mut recorded {
+                                    let index = ids[i];
+                                    let original = reader.rows()[index].clone();
+                                    let bytes = jpeg_bytes(reader.frame(index)?)?;
+                                    shared.publish_recorded(
+                                        Frame {
+                                            bytes,
+                                            source_us: monotonic_us()?,
+                                            sequence: index as u32,
+                                        },
+                                        Some(original),
+                                    )?;
+                                } else if let Some(path) = &source_frames[i].1 {
+                                    let bytes = jpeg(path)?;
                                     shared.publish(Frame {
                                         bytes,
-                                        source_us,
+                                        source_us: monotonic_us()?,
                                         sequence: i as u32,
                                     })?;
-                                    Ok(())
-                                })();
-                                if let Err(error) = next {
-                                    shared.state.lock().unwrap().error = Some(error.to_string());
-                                    break;
                                 }
+                                Ok(())
+                            })();
+                            if let Err(error) = next {
+                                shared.state.lock().unwrap().error = Some(error.to_string());
+                                break;
                             }
                         }
                         shared.state.lock().unwrap().eof = true;
@@ -812,6 +929,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     },
                     None,
                 );
+                feedback.recorded_time_ms = lease.recorded.as_ref().and_then(|r| {
+                    recording_epoch.map(|first| (r.source_us - first) as f64 / 1000.0)
+                });
                 feedback.source_us = packet.source_us;
                 feedback.jpeg = lease.frame.bytes.clone();
                 feedback.sequence = lease.sequence;
@@ -826,7 +946,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     json!({"event":"frame","sequence":lease.sequence,"capture_sequence":lease.frame.sequence,
                     "source_us":packet.source_us,"issued_us":lease.issued_us,"received_us":submission.received_us,"now_us":now,"meaning_us":feedback.meaning_us,
                     "ambiguous":found.ambiguous,"ambiguity_reason":found.ambiguity_reason,"hands":hands,
-                    "perception":feedback.raw,"controller":state,"camera_opened":camera_opened,"system_input":inject}),
+                    "perception":feedback.raw,"controller":state,"camera_opened":camera_opened,"system_input":inject,"recorded_frame":lease.recorded}),
                 )?;
                 state
             } else {
@@ -881,6 +1001,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 data["ui_fixture"] = (!camera_source).into();
                 data["synthetic_frame"] = (feedback.source_us == 0).into();
                 data["camera_source"] = camera_source.into();
+                data["recorded_source"] = recorded_source.into();
+                data["recorded_time_ms"] = feedback.recorded_time_ms.into();
                 data["camera_opened"] = camera_opened.into();
                 data["input_available"] = (inject && writer.is_some()).into();
                 data["input_enabled"] = (inject && writer.is_some() && output.running).into();
@@ -951,6 +1073,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     terminal["ui_fixture"] = (!camera_source).into();
     terminal["synthetic_frame"] = (feedback.source_us == 0).into();
     terminal["camera_source"] = camera_source.into();
+    terminal["recorded_source"] = recorded_source.into();
+    terminal["recorded_time_ms"] = feedback.recorded_time_ms.into();
     terminal["camera_opened"] = camera_mailbox.lock().unwrap().opened.into();
     terminal["test_phase"] = if outcome.is_ok() { "complete" } else { "error" }.into();
     terminal["input_available"] = false.into();
@@ -994,6 +1118,7 @@ struct Feedback {
     raw: Vec<Value>,
     sequence: u64,
     meaning_us: u64,
+    recorded_time_ms: Option<f64>,
     eligible: bool,
 }
 
@@ -1033,6 +1158,44 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retained_frame_provenance_never_replaces_the_new_host_clock() {
+        let mut b = Bridge::new(BTreeMap::new(), 300_000, "recorded".into(), 1);
+        b.recorded_source = true;
+        let now = monotonic_us().unwrap();
+        b.publish_recorded(
+            Frame {
+                bytes: vec![1, 2, 3],
+                source_us: now,
+                sequence: 77,
+            },
+            Some(crate::recording::FrameIndex {
+                segment: 1,
+                source_us: 1_000,
+                sequence: 91,
+                offset: 0,
+                length: 3,
+            }),
+        )
+        .unwrap();
+        let state = b.state.lock().unwrap();
+        assert_eq!(state.captures[0]["source_us"], now);
+        assert_eq!(state.captures[0]["capture_sequence"], 77);
+        assert_eq!(state.captures[0]["recorded_frame"]["source_us"], 1_000);
+        assert_eq!(state.captures[0]["recorded_frame"]["sequence"], 91);
+        assert_eq!(state.captures[0]["camera_opened"], false);
+        assert_eq!(
+            state
+                .latest
+                .as_ref()
+                .unwrap()
+                .recorded
+                .as_ref()
+                .unwrap()
+                .segment,
+            1
+        );
+    }
     #[test]
     fn camera_configuration_does_not_claim_acquisition_or_input_before_start() {
         let mut b = Bridge::new(BTreeMap::new(), 300_000, "camera".into(), 1);

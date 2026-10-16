@@ -144,3 +144,39 @@ human perception.
 Source tests and a preflight are preparation evidence only. A real camera trial,
 input delivery, application behavior and comfort must be measured before selecting
 this backend as the receiving default.
+
+## Retained camera recording replay
+
+```sh
+wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS
+```
+
+This camera/device-free path reads an explicitly selected recording/v1 directory
+at640×480. DURATION_MS is1..90000; START_MS is relative to its first original
+frame. The existing raw recorder and annotation player now share one bounded
+indexed reader, including rotated MJPEG segments, exact byte ranges and original
+timestamps/kernel sequences. Replay reads original compressed bytes, without
+re-encoding or modifying video, indices or labels. No previous input actions
+are replayed into the system.
+
+Only the selected window is published, preserving its recorded inter-frame
+spacing and gaps. Original index and `recorded_frame` remain explicit in the
+publication/accepted-frame journal; the latter retains original source_us,
+kernel sequence, segment, offset and length. The new `source_us` is the receiving
+host's monotonic time after reading the encoded frame. Old and new monotonic
+clocks must not be compared as physical latency; they can belong to different
+boots. Measured delay is **replay publication→meaning**, excluding the original
+exposure/acquisition and OS/application output.
+
+Model preparation still uses the separately selected public synthetic warmup.
+The page labels actual input **recorded camera playback**, shows its time in
+the original recording, reports sensors/input off and retains final feedback
+receipts. The original camera configuration's requested frame rate does not
+replace measured index cadence. This provider has no injection option.
+
+Existing annotations remain separate from predictions; an absent label set
+is not evidence of intended clicks or pose correctness. The synthetic geometry
+scorer explicitly refuses recorded-source journals. Report observed detections,
+tracking, timing and held transitions separately from any independent accuracy
+assessment. Private frames, recording paths and annotations stay outside public
+Git and shared research; select only suitable aggregate findings.

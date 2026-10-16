@@ -7,6 +7,7 @@ from score_provider_fixture import stale_releases, validate, wall_time
 def journal():
     common = dict(camera_opened=False, system_input=False)
     return [
+        dict(common, event='listening', source_kind='synthetic_encoded_frame_publish'),
         dict(common, event='capture', sequence=1, capture_sequence=0, source_us=100),
         dict(common, event='capture', sequence=2, capture_sequence=1, source_us=200),
         dict(common, event='frame', sequence=1, capture_sequence=0, source_us=100,
@@ -34,13 +35,13 @@ class JournalEvidenceTests(unittest.TestCase):
         for change in [dict(capture_sequence=1), dict(source_us=99), dict(issued_us=121),
                        dict(meaning_us=119)]:
             events = journal()
-            events[2].update(change)
+            events[3].update(change)
             with self.assertRaises(ValueError):
                 validate(events)
 
     def test_rejects_duplicate_or_hidden_dropped_result(self):
         events = journal()
-        events.insert(3, copy.deepcopy(events[2]))
+        events.insert(4, copy.deepcopy(events[3]))
         with self.assertRaises(ValueError):
             validate(events)
         events = journal()
@@ -48,7 +49,7 @@ class JournalEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate(events)
         events = journal()
-        events[1]['source_us'] = 99
+        events[2]['source_us'] = 99
         with self.assertRaises(ValueError):
             validate(events)
 
@@ -65,8 +66,18 @@ class JournalEvidenceTests(unittest.TestCase):
                        controller=dict(contacts=[], button_down=False, reason='stale_input'))
         events.insert(-1, release)
         self.assertEqual(stale_releases(events)[0]['source_age_ms'], .3)
-        events[2]['controller']['contacts'] = []
+        events[3]['controller']['contacts'] = []
         self.assertEqual(stale_releases(events), [])
+
+    def test_recorded_provenance_is_not_an_independent_synthetic_reference(self):
+        events = journal()
+        events[0]['source_kind'] = 'recorded_frame_republication'
+        with self.assertRaises(ValueError):
+            validate(events)
+        events = journal()
+        events[3]['recorded_frame'] = dict(source_us=1,sequence=9)
+        with self.assertRaises(ValueError):
+            validate(events)
 
 
 if __name__ == '__main__':

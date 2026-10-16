@@ -2,6 +2,16 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+New source2026-10-16: provider-recording reuses a bounded read-only reader shared
+with review-recording. It preserves original rotated MJPEG bytes, indices/kernel
+timestamps and cadence, while separately timestamping new real-clock publication.
+Recorded frames are labelled recorded, never synthetic/current acquisition;
+public synthetic warmup is separate. It starts no camera/input and changes no
+labels. The synthetic geometry scorer rejects this source. Retained source
+metadata shows4416 frames over297.120209s, median67.98ms spacing, one400.04ms
+gap with kernel-sequence delta6; requested30FPS is not observed cadence. Cause
+is unknown. No independent labels exist; actual GPU replay qualification is next.
+
 New [finite camera-worker source](PROVIDER-TRANSPORT.md#explicit-finite-camera-source)
 connects the qualified lease seam to existing driver-monotonic capture/private
 recording, controller modes and independent native writer. A distinct synthetic

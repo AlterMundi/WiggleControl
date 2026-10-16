@@ -78,6 +78,13 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  assert.match(element('capture-status').textContent,/Camera active.*Recording/);
  assert.match(element('banner').textContent,/SYNTHETIC WARMUP/);
  assert.doesNotMatch(element('capture-status').textContent,/Sensors off/);
+ state.recorded_source=true;state.ui_fixture=true;state.camera_source=false;state.synthetic_frame=false;state.recorded_time_ms=40200;state.test_phase='testing';state.remaining_ms=2000;
+ await vm.runInContext('poll()',context);
+ assert.match(element('capture-status').textContent,/Recorded camera playback.*40.200 s.*Sensors off/);
+ assert.match(element('banner').textContent,/RECORDED CAMERA FRAME/);
+ assert.equal(element('test-label').textContent,'RECORDED REPLAY');
+ assert.equal(element('timing-label').textContent,'Replay publish → meaning');
+ state.recorded_source=false;state.ui_fixture=false;state.camera_source=true;
  state.active=false;
  state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];
  const terminalReceipts=[];

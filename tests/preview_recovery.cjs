@@ -103,6 +103,8 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  state.controller=savedController;state.close_ratio=.25;state.pinch_metric='projected_wrist_middle_mcp';
 
  state.recorded_source=false;state.ui_fixture=false;state.camera_source=true;
+ await vm.runInContext('poll()',context);
+ assert.match(element('capture-status').textContent,/Camera active.*Projected pinch/);
  state.active=false;
  state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];
  const terminalReceipts=[];

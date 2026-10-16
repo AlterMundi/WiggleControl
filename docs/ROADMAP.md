@@ -55,6 +55,15 @@ contacts and0/9 open contacts, with both terminal receipts. Next qualify
 continuous/other-view behavior; earlier adverse-yaw failures prevent unconditional
 adoption. Keep raw3D and projected evidence separate.
 
+Dense review of75 original frames now measures one3.412s uninterrupted projected
+contact within3.596s of apparent closure, versus0.426s for the actual3D replay.
+The80s next recorded window retains13.589Hz/99.522ms median transport but most
+side-view appearance labels remain uncertain. The recorded scorer explicitly
+includes coalescing/processing delay and refuses to bridge sparse/gapped labels;
+these are scoped appearance findings, not physical intent or spatial accuracy.
+Next qualify additional continuous views/negatives, owner identity and actual
+human/application use; keep the full modes/macros/participant requirements below.
+
 Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing
 meaning, retaining4/5 adverse near holds and20/20 separated-pair stable counts

@@ -2,6 +2,19 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+Latest dense recorded review covers75 originalframes, with55 apparent-contact,
+15open and5uncertain assistant labels (nonblinded; not physical/intent truth).
+Across about3.6s reviewed closure, actualprojected replay holds3.412s uninterrupted
+versus0.426s estimated3D; reviewed-open heldtime drops444.243→116.262ms. Source
+coalescing and actual meaning delay are included, not just accepted-frame counts.
+The fixed next80s window runs13.589Hz/99.522ms median with many side-view tips
+uncertain; no general accuracy claim. Reusable tools/score_recorded_replay.py
+validates recorded provenance and adjacent-frame appearance accounting, never
+interpolating sparse labels or missing-time gaps. See the maintained recorded-
+pinch report for exact scope. Manual855c22b/CI38837953792 fixes feedback units,
+without selecting a new everyday profile. Next: broader view/negative/ownership
+coverage and physical/application acceptance, not tuning to this single hold.
+
 Latest [retained-pinch comparison](research/recorded-pinch-metrics-2026-10.md)
 finds a stable25s hand track despite missed apparent pinches. A sparse, nonblinded
 assistant visual audit has9 apparent-contact/9 accepted open samples: actual3D

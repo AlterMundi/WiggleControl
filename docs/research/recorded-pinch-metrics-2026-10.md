@@ -159,3 +159,74 @@ preserving misses and early/late release. Test additional recorded positions and
 views without fitting each one independently. Keep configuration selection and
 uncertainty visible; require the owning finite human/application acceptance
 before claiming comfortable system control. No new physical trial is started.
+
+## Dense continuity and another recorded window —2026-10-16
+
+A follow-up inspects every original frame from 51.543–56.471 seconds: 75 images,
+55 apparent-contact, 15 open and five uncertain transition/blur frames. Predictions
+were already available; this remains assistant appearance review, not independent
+human intent or calibrated physical-contact ground truth. All raw bytes/hashes and
+annotations remain private and separate from predictions and human label files.
+
+Only adjacent original ordinals with the same reviewed appearance are interpolated,
+with a 150 ms maximum original-time gap. Sparse labels and missing-time gaps cannot
+become continuous holds. Scoring includes every published source interval, including
+coalesced frames, and actual host publication-to-meaning delay. The duplicate earlier
+cycle stamp of a frame transition is not counted as an earlier semantic decision.
+Independent watchdog ticks retain their own time.
+
+| Actual first-minute replay | Reviewed apparent-contact time | Contact during it | Longest uninterrupted contact within it | Contact during reviewed open time |
+| --- | --- | --- | --- | --- |
+| Estimated 3D, source6ab609c | 3597.498 ms | 425.510 ms | 425.510 ms | 444.243 ms |
+| Projected palm length, source50f4041 | 3596.290 ms | 3412.285 ms | 3412.285 ms | 116.262 ms |
+
+The projected run holds one contact ID throughout that admitted segment. Its
+normalized contact trajectory spans x0.721–0.816 and y0.325–0.625; this is movement
+intent, not observed desktop delivery or a spatial-accuracy measurement. The open
+score covers 872.386/867.811 ms respectively. Both runs have one admitted held
+segment within the reviewed pinch, rather than fragmentation after onset. Most
+of the projected deficit is initial admission/processing delay. The runs use the
+same original video but different actual inference/coalescing and publication
+clocks; the prior identical-prediction comparison remains the metric-isolation
+control. These selected intervals are not a general pinch success rate.
+
+A fixed next window, original180–260 seconds, was selected before its new GPU
+predictions, with unchanged0.38/0.40/300ms/one-hand settings. Actual source50f4041
+publishes1202 frames, accepts1087, coalesces115 and expires none:13.589Hz,
+99.522ms median/132.389ms p95 publication-to-meaning. Final neutral, model/view
+receipts, provenance and successful unit termination pass. Most side-view samples
+have visually hidden tips and remain uncertain. Two in-window apparent contacts
+and two accepted opens match; another open is coalesced and a nearest boundary
+sample falls outside the window. Neither is silently substituted or counted as
+a correct observation. Twelve IDs and295 contact observations are diagnostics,
+not ownership or physical accuracy. Raw acquisition remains off.
+
+The reusable camera/device-free scorer is:
+
+```sh
+python3 tools/score_recorded_replay.py JOURNAL --annotations APPEARANCE_JSON --output RESULT_JSON
+python3 tools/test_score_recorded_replay.py
+```
+
+Annotations declare `schema:wigglecontrol.recorded-appearance/v1`, an
+`annotation_kind` of `assistant_visual_review` or `human_visual_review`, explicit
+`limits`, and `frames` containing original ordinal `index`, original `source_us`
+and `appearance` (`open`, `apparent_tip_contact`, `uncertain`). Original timestamps
+must match the publication provenance. Omitting annotations reports only transport
+diagnostics. The tool does not read images, infer labels or score synthetic geometry;
+outputs must not overwrite source evidence. Tests cover coalesced-frame/delay
+accounting, sparse/gapped labels, provenance/source/clock separation and final-view
+termination. The existing geometry scorer still rejects recorded input.
+
+A monolithic base64 image transfer timed out. The finite indexed reader itself
+completed successfully. Staging exact JPEGs separately on the receiver and streaming
+only missing files with per-frame hashes recovered all75/10,714,656 bytes in33.463s,
+without rerunning inference or modifying the original recording. The cache is a
+transfer aid, not another recording or serving deployment.
+
+The manual receiving artifact855c22b/CI38837953792 now also fixes the projected
+reference label and guide units in standalone feedback and identifies the option
+in camera feedback. This changes presentation, not the measured interpretation.
+Its source-bound binary is verified; existing configuration/calibration remain
+selected as before. Full physical/application acceptance and broader angles,
+negative controls, ownership, macros and participant modes remain open.

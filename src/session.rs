@@ -87,6 +87,9 @@ pub struct SessionConfig {
     /// Opt-in raw-provider quality export; native inference already has presence scores.
     #[serde(default)]
     pub provider_presence_scores: bool,
+    /// Calibrated one-hand provider mouse; pointer/scroll only.
+    #[serde(default)]
+    pub provider_absolute_pointer: bool,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -634,6 +637,15 @@ pub fn controller_config(
     if serde_json::to_value(settings.workspace)? != serde_json::to_value(config.touch_workspace)? {
         return Err("controller workspace settings must match the session".into());
     }
+    if config.provider_absolute_pointer
+        && (!matches!(
+            settings.initial_mode,
+            crate::controller::Mode::Pointer | crate::controller::Mode::Scroll
+        ) || settings.macros.is_some()
+            || settings.visual_macros.is_some())
+    {
+        return Err("absolute provider requires pointer/scroll without macros".into());
+    }
     Ok(crate::controller::Controller::new(settings)?)
 }
 pub(crate) fn write_controller(
@@ -642,7 +654,20 @@ pub(crate) fn write_controller(
     frame: &crate::controller::Output,
     source: Option<u64>,
 ) -> io::Result<u64> {
-    let packet = publisher.packet(frame, monotonic_us()?, source)?;
+    write_controller_mapped(output, publisher, frame, source, None)
+}
+pub(crate) fn write_controller_mapped(
+    output: &mut Option<std::process::ChildStdin>,
+    publisher: &mut crate::delivery::Publisher,
+    frame: &crate::controller::Output,
+    source: Option<u64>,
+    workspace: Option<crate::touch_gestures::Workspace>,
+) -> io::Result<u64> {
+    let now = monotonic_us()?;
+    let packet = match workspace {
+        Some(workspace) => publisher.absolute_packet(frame, now, source, workspace)?,
+        None => publisher.packet(frame, now, source)?,
+    };
     let presses = if matches!(packet, Some(crate::delivery::Packet::Frame { .. })) {
         frame
             .mouse
@@ -668,6 +693,14 @@ pub(crate) fn controller_writer(
         Some(seconds) => vec!["controller-stream".to_owned(), seconds.to_string()],
         None => vec!["controller-stream-until-stop".to_owned()],
     };
+    if config.provider_absolute_pointer {
+        args[0] = if seconds.is_some() {
+            "controller-absolute-stream"
+        } else {
+            "controller-absolute-stream-until-stop"
+        }
+        .into();
+    }
     args.extend([config.gain.to_string(), config.freshness_ms.to_string()]);
     Command::new(std::env::current_exe()?)
         .args(args)

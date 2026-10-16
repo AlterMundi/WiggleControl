@@ -29,6 +29,7 @@ fn packet(
         mode,
         mouse,
         contacts,
+        absolute: None,
     }
 }
 fn apply(s: &mut State, t: u64, p: Packet) -> Batch {
@@ -205,6 +206,7 @@ fn invalid_source_or_competing_output_is_terminal_and_cleanup_preserves_release(
             1 => packet(3, 3, Mode::TwoContacts, vec![], vec![]),
             2 => packet(2, 3, Mode::Pointer, vec![], vec![]),
             3 => Packet::Frame {
+                absolute: None,
                 sequence: 3,
                 issued_us: 3,
                 source_us: 2,
@@ -282,4 +284,85 @@ fn controller_recovers_from_gap_with_a_neutral_transition_not_replayed_contacts(
         .unwrap();
     assert!(matches!(p, Packet::Transition { .. }));
     assert!(apply(&mut s, 300_003, p).touch.is_empty());
+}
+
+#[test]
+fn calibrated_absolute_packets_keep_source_fences_order_buttons_and_release_without_motion() {
+    let mut controller = Controller::new(Settings::default()).unwrap();
+    let mut publisher = Publisher::default();
+    let mut consumer = State::default();
+    let workspace = wigglecontrol::touch_gestures::Workspace {
+        min: Point { x: 0.2, y: 0.3 },
+        max: Point { x: 0.8, y: 0.9 },
+    };
+    let initial = controller.start_at(1);
+    let start = publisher
+        .absolute_packet(&initial, 1, None, workspace)
+        .unwrap()
+        .unwrap();
+    apply(&mut consumer, 1, start);
+    let mut selected = hand(7, false);
+    selected.cursor = Point { x: 0.8, y: 0.3 };
+    let observe = |controller: &mut Controller, now, h: Hand| {
+        controller.observe(
+            now,
+            Frame {
+                version: 1,
+                source_us: now,
+                ambiguous: false,
+                hands: vec![h],
+            },
+            None,
+        )
+    };
+    let open = observe(&mut controller, 10, selected.clone());
+    let packet = publisher
+        .absolute_packet(&open, 10, Some(10), workspace)
+        .unwrap()
+        .unwrap();
+    let events = apply(&mut consumer, 10, packet);
+    assert!(events.mouse.iter().any(|e| e.event_type().0 == 3
+        && e.code() == AbsoluteAxisCode::ABS_X.0
+        && e.value() == 65535));
+    assert!(events.mouse.iter().all(|e| e.event_type().0 != 2));
+    selected.index_tip.x = 0.42;
+    let closing = observe(&mut controller, 20_000, selected.clone());
+    let p = publisher
+        .absolute_packet(&closing, 20_000, Some(20_000), workspace)
+        .unwrap()
+        .unwrap();
+    apply(&mut consumer, 20_000, p);
+    let held = observe(&mut controller, 100_000, selected);
+    assert!(held.button_down);
+    let p = publisher
+        .absolute_packet(&held, 100_000, Some(100_000), workspace)
+        .unwrap()
+        .unwrap();
+    let press = apply(&mut consumer, 100_000, p);
+    assert!(button(&press, 1));
+    let abs_index = press
+        .mouse
+        .iter()
+        .position(|e| e.event_type().0 == 3)
+        .unwrap();
+    let down_index = press
+        .mouse
+        .iter()
+        .position(|e| e.event_type().0 == 1)
+        .unwrap();
+    assert!(abs_index < down_index);
+    assert!(button(&consumer.tick(250_001, 150_000).unwrap(), 0));
+    // A stale held packet cannot extend the watchdog or move/press the cursor.
+    let late = publisher
+        .absolute_packet(&held, 250_002, Some(100_000), workspace)
+        .unwrap()
+        .unwrap();
+    assert!(consumer.apply(250_002, late, 2000.0, 150_000).is_err());
+    let stopped = controller.stop();
+    let p = publisher
+        .absolute_packet(&stopped, 250_003, None, workspace)
+        .unwrap()
+        .unwrap();
+    let released = apply(&mut consumer, 250_003, p);
+    assert!(released.mouse.iter().all(|e| e.event_type().0 != 3));
 }

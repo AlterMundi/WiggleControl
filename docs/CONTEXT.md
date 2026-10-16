@@ -1,5 +1,14 @@
 # Project context — 2026-10-13
 
+## Beta 1 delivery —2026-10-16
+
+Nicolás selected a practical one-hand desktop beta before further open-ended
+research. [BETA-1.md](BETA-1.md) owns that release: fixed GPU1-hand graph, measured
+projected pinch, accepted workspace→absolute mouse, explicit manual Start and
+until-Stop usage. The wider goal is paused and retains its full scope. Dashboard
+entry, receiving and human acceptance are in progress; source tests are distinct
+from delivered or accepted use. No new physical acquisition during preparation.
+
 ## Active controller-evolution goal —2026-10-15
 
 New [actual presence bridge](research/provider-presence-scores-2026-10.md) exports

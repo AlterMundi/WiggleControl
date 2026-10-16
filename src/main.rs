@@ -35,6 +35,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if args.len() == 9 && args[8] != "--inject" {
                 return Err("unknown camera worker option".into());
             }
+            if args[5].parse::<u64>()? == 0 {
+                return Err("finite camera trial duration must be1..90 seconds".into());
+            }
             return wigglecontrol::provider_fixture::run_camera(
                 wigglecontrol::provider_fixture::CameraOptions {
                     session: std::path::Path::new(&args[1]),
@@ -46,6 +49,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     max_hands: args[7].parse()?,
                     inject: args.len() == 9,
                     preflight: args[0] == "provider-camera-preflight",
+                },
+            );
+        }
+        Some("provider-camera-until-stop" | "provider-camera-until-stop-preflight")
+            if args.len() == 7 || args.len() == 8 =>
+        {
+            if args.len() == 8 && args[7] != "--inject" {
+                return Err("unknown camera worker option".into());
+            }
+            return wigglecontrol::provider_fixture::run_camera(
+                wigglecontrol::provider_fixture::CameraOptions {
+                    session: std::path::Path::new(&args[1]),
+                    settings: std::path::Path::new(&args[2]),
+                    asset_root: std::path::Path::new(&args[3]),
+                    synthetic_warmup: std::path::Path::new(&args[4]),
+                    seconds: 0,
+                    port: args[5].parse()?,
+                    max_hands: args[6].parse()?,
+                    inject: args.len() == 8,
+                    preflight: args[0].ends_with("-preflight"),
                 },
             );
         }
@@ -352,6 +375,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args[3].parse()?,
             )?);
         }
+        Some("controller-absolute-stream") if args.len() == 4 => {
+            return Ok(wigglecontrol::delivery::absolute_stream(
+                Some(args[1].parse()?),
+                args[2].parse()?,
+                args[3].parse()?,
+            )?);
+        }
+        Some("controller-absolute-stream-until-stop") if args.len() == 3 => {
+            return Ok(wigglecontrol::delivery::absolute_stream(
+                None,
+                args[1].parse()?,
+                args[2].parse()?,
+            )?);
+        }
         Some("controller-stream-until-stop") if args.len() == 3 => {
             return Ok(wigglecontrol::delivery::stream(
                 None,
@@ -487,6 +524,8 @@ fn print_help() {
     println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (manual camera worker; preflight opens no camera/device)");
     #[cfg(feature = "native-vision")]

@@ -1,5 +1,8 @@
 # Camera controller roadmap
 
+Current human priority: ship and use the [one-hand Beta1](BETA-1.md), then resume
+the full exploration below. Beta scope does not replace the touchscreen goal.
+
 Updated 2026-10-16. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in

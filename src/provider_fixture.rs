@@ -39,6 +39,7 @@ struct Submission {
 }
 #[derive(Default)]
 struct State {
+    preparing: Option<Instant>,
     ready: bool,
     cancelled: bool,
     closed: bool,
@@ -67,6 +68,8 @@ struct Bridge {
     max_hands: usize,
     presence_floor: f64,
     presence_scores: bool,
+    absolute_pointer: bool,
+    manual_start: bool,
     run_id: String,
     state: Mutex<State>,
     changed: Condvar,
@@ -108,6 +111,8 @@ impl Bridge {
             max_hands,
             presence_floor: 0.5,
             presence_scores: false,
+            absolute_pointer: false,
+            manual_start: false,
             run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
@@ -218,7 +223,7 @@ impl Extension for Bridge {
                 Ok(reply(
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"package_version":"1.1.1",
+                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.input_started}),
                 ))
@@ -229,7 +234,8 @@ impl Extension for Bridge {
                 body: self.warmup.clone(),
                 headers: "X-Wiggle-Synthetic: 1\r\n".into(),
             }),
-            ("POST", "/provider/ready")
+            ("POST", "/provider/prepare")
+            | ("POST", "/provider/ready")
             | ("POST", "/provider/stop")
             | ("POST", "/provider/terminal-visible") => {
                 #[derive(Deserialize)]
@@ -249,8 +255,24 @@ impl Extension for Bridge {
                         json!({"error":"different provider run"}),
                     ));
                 }
-                if path == "/provider/ready" {
-                    self.state.lock().unwrap().ready = true;
+                if path == "/provider/prepare" {
+                    let mut state = self.state.lock().unwrap();
+                    if state.preparing.is_some() || state.ready {
+                        return Ok(reply(
+                            "409 Conflict",
+                            json!({"error":"preparation already requested"}),
+                        ));
+                    }
+                    state.preparing = Some(Instant::now());
+                } else if path == "/provider/ready" {
+                    let mut state = self.state.lock().unwrap();
+                    if self.manual_start && state.preparing.is_none() {
+                        return Ok(reply(
+                            "409 Conflict",
+                            json!({"error":"manual Start required"}),
+                        ));
+                    }
+                    state.ready = true;
                 } else if path == "/provider/terminal-visible" {
                     let mut state = self.state.lock().unwrap();
                     if !state.finishing {
@@ -543,8 +565,8 @@ pub struct CameraOptions<'a> {
 }
 
 pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
-    if !(1..=90).contains(&options.seconds) {
-        return Err("camera trial duration must be1..90 seconds".into());
+    if options.seconds > 90 {
+        return Err("camera trial duration must be0(until-stop)..90 seconds".into());
     }
     run_engine(RunOptions {
         session: options.session,
@@ -679,6 +701,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     }
     let (config, mut controller, mut tracker) = provider::configured(session, settings, None)?;
     let presence_floor = config.gestures().min_confidence;
+    if config.provider_absolute_pointer && max_hands != 1 {
+        return Err("absolute provider requires exactly one hand".into());
+    }
+    let absolute_workspace = config
+        .provider_absolute_pointer
+        .then_some(config.touch_workspace);
     let camera_source = matches!(&source, Source::Camera { .. });
     let recorded_source = matches!(&source, Source::Recorded { .. });
     let recording_epoch = match &source {
@@ -698,6 +726,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             duration,
         } => (Vec::new(), duration, Some((reader, indices))),
     };
+    let until_stop = camera_source && duration == 0;
     let mut bridge = Bridge::new(
         assets(asset_root)?,
         config.gestures().stale_us,
@@ -706,6 +735,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     );
     bridge.presence_floor = presence_floor;
     bridge.presence_scores = config.provider_presence_scores;
+    bridge.absolute_pointer = config.provider_absolute_pointer;
+    bridge.manual_start = until_stop;
     bridge.camera_source = camera_source;
     bridge.recorded_source = recorded_source;
     bridge.input_requested = inject;
@@ -714,7 +745,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         println!(
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
-            "recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
+            "until_stop":until_stop,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
             "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
@@ -793,7 +824,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     if inject {
                         let mut child = crate::session::controller_writer(
                             &config,
-                            Some(duration / 1_000_000 + 3),
+                            (!until_stop).then_some(duration / 1_000_000 + 3),
                         )?;
                         writer_output = child.stdin.take();
                         writer = Some(child);
@@ -805,11 +836,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 };
                 started = Some(Instant::now());
                 let initial = controller.start_at(monotonic_us()?);
-                crate::session::write_controller(
+                crate::session::write_controller_mapped(
                     &mut writer_output,
                     &mut publisher,
                     &initial,
                     None,
+                    absolute_workspace,
                 )?;
                 if camera_source {
                     producer = Some(crate::session::camera(
@@ -817,7 +849,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         capture_stop.clone(),
                         camera_mailbox.clone(),
                         recording_frames,
-                        Some(started.unwrap() + Duration::from_micros(duration)),
+                        (!until_stop).then(|| started.unwrap() + Duration::from_micros(duration)),
                     ));
                 } else {
                     let (shared, stopped) = (bridge.clone(), capture_stop.clone());
@@ -880,6 +912,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 }
             }
             if camera_source
+                && !until_stop
                 && started.is_some_and(|s| s.elapsed() >= Duration::from_micros(duration))
             {
                 break;
@@ -902,12 +935,24 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 }
                 mailbox.opened
             };
-            if started.is_none() && prepared.elapsed() > Duration::from_secs(30) {
+            let preparation_expired = if until_stop {
+                bridge
+                    .state
+                    .lock()
+                    .unwrap()
+                    .preparing
+                    .is_some_and(|t| t.elapsed() > Duration::from_secs(30))
+            } else {
+                prepared.elapsed() > Duration::from_secs(30)
+            };
+            if started.is_none() && preparation_expired {
                 return Err("worker preparation timeout".into());
             }
-            if started.is_some_and(|s| {
-                s.elapsed() > Duration::from_micros(duration) + Duration::from_secs(5)
-            }) {
+            if !until_stop
+                && started.is_some_and(|s| {
+                    s.elapsed() > Duration::from_micros(duration) + Duration::from_secs(5)
+                })
+            {
                 return Err("fixture completion timeout".into());
             }
             if let Some(error) = bridge.state.lock().unwrap().error.clone() {
@@ -979,11 +1024,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             } else {
                 controller.tick(now)
             };
-            crate::session::write_controller(
+            crate::session::write_controller_mapped(
                 &mut writer_output,
                 &mut publisher,
                 &output,
                 delivery_source,
+                absolute_workspace,
             )?;
             let active = (
                 output.contacts.iter().map(|c| c.id).collect::<Vec<_>>(),
@@ -1025,6 +1071,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 });
                 let mut data =
                     metadata(&config, &output, &feedback, now, remain, started.is_some());
+                data["awaiting_start"] =
+                    (until_stop && bridge.state.lock().unwrap().preparing.is_none()).into();
+                data["until_stop"] = (until_stop && started.is_some()).into();
                 data["ui_fixture"] = (!camera_source).into();
                 data["synthetic_frame"] = (feedback.source_us == 0).into();
                 data["camera_source"] = camera_source.into();
@@ -1044,6 +1093,14 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 let control_time = monotonic_us()?;
                 let result = match control {
                     crate::preview::ControllerControl::Mode(mode) => {
+                        if config.provider_absolute_pointer
+                            && !matches!(
+                                mode,
+                                crate::controller::Mode::Pointer | crate::controller::Mode::Scroll
+                            )
+                        {
+                            continue;
+                        }
                         controller.set_mode_at(mode, control_time)
                     }
                     crate::preview::ControllerControl::SelectHand(hand_id) => {
@@ -1052,11 +1109,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     crate::preview::ControllerControl::Pause => controller.stop(),
                     crate::preview::ControllerControl::Resume => controller.start_at(control_time),
                 };
-                crate::session::write_controller(
+                crate::session::write_controller_mapped(
                     &mut writer_output,
                     &mut publisher,
                     &result,
                     None,
+                    absolute_workspace,
                 )?;
                 journal.emit(
                     json!({"event":"control","now_us":control_time,"controller":result,"camera_opened":camera_opened,"system_input":inject}),
@@ -1068,8 +1126,13 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     })();
     capture_stop.store(true, Ordering::Relaxed);
     let final_state = controller.stop();
-    let release =
-        crate::session::write_controller(&mut writer_output, &mut publisher, &final_state, None);
+    let release = crate::session::write_controller_mapped(
+        &mut writer_output,
+        &mut publisher,
+        &final_state,
+        None,
+        absolute_workspace,
+    );
     drop(writer_output);
     let writer_exit = writer.map(|mut child| child.wait()).transpose();
     let joined = producer
@@ -1174,21 +1237,81 @@ fn metadata(
     for hand in &mut perception {
         hand.as_object_mut().unwrap().remove("world_landmarks");
     }
-    json!({"active":true,"ui_fixture":true,"input_enabled":false,"input_available":false,"recording":false,
+    let mut data = json!({"active":true,"ui_fixture":true,"input_enabled":false,"input_available":false,"recording":false,
         "width":640,"height":480,"source_us":source,"sequence":sequence,"age_ms":age,"frame_age_ms":age,
         "fresh":source>0&&age<(config.freshness_ms as f64),"freshness_ms":config.freshness_ms,"remaining_ms":remaining,
         "test_phase":if started {"testing"}else{"preparing"},"decode_ms":0,"inference_ms":0,
         "provider_transport":true,"presence_scores":config.provider_presence_scores,"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_presence_threshold_lower_bound"},"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
         "landmarks":first.map(|h|&h["landmarks"]),"confidence":first.map(|h|&h["confidence"]),
         "perception":perception,"controller":state,"visual_macros":feedback.visual_macros,"visual_pose":feedback.visual_pose,"classifier_ms":feedback.classifier_ms,"cursor":state.pointer_cursor,
-        "eligible":eligible,"pinch_ratio":feedback.pinch_ratio,"pinch_metric":config.pinch_metric_name(),"presses":0,"pinch_state":if state.contacts.is_empty(){"touch"}else{"pressed"},
+        "eligible":eligible,"pinch_ratio":feedback.pinch_ratio,"pinch_metric":config.pinch_metric_name(),"presses":0,"pinch_state":if matches!(state.mode,crate::controller::Mode::OneContact|crate::controller::Mode::TwoContacts) {if state.contacts.is_empty(){"touch"}else{"pressed"}}else{state.pointer_state},
         "confirmation_elapsed_ms":state.confirmation_elapsed_us/1000,"confirmation_required_ms":config.gestures().confirm_us/1000,
-        "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason})
+        "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason});
+    data["beta_one_hand"] = config.provider_absolute_pointer.into();
+    data["pointer_model"] = if config.provider_absolute_pointer {
+        "absolute_workspace"
+    } else {
+        "relative"
+    }
+    .into();
+    data["screen_target"] = if config.provider_absolute_pointer {
+        serde_json::to_value(state.pointer_cursor.map(|p| config.touch_workspace.map(p))).unwrap()
+    } else {
+        Value::Null
+    };
+    data
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manual_standby_requires_start_before_ready_and_preserves_run_identity() {
+        let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "beta".into(), 1);
+        bridge.manual_start = true;
+        let body = br#"{"run_id":"beta"}"#;
+        assert_eq!(
+            bridge
+                .respond("POST", "/provider/ready", body)
+                .unwrap()
+                .status,
+            "409 Conflict"
+        );
+        assert!(!bridge.state.lock().unwrap().ready);
+        assert!(bridge.state.lock().unwrap().preparing.is_none());
+        assert_eq!(
+            bridge
+                .respond("POST", "/provider/prepare", br#"{"run_id":"old"}"#)
+                .unwrap()
+                .status,
+            "409 Conflict"
+        );
+        assert_eq!(
+            bridge
+                .respond("POST", "/provider/prepare", body)
+                .unwrap()
+                .status,
+            "200 OK"
+        );
+        assert_eq!(
+            bridge
+                .respond("POST", "/provider/prepare", body)
+                .unwrap()
+                .status,
+            "409 Conflict"
+        );
+        assert_eq!(
+            bridge
+                .respond("POST", "/provider/ready", body)
+                .unwrap()
+                .status,
+            "200 OK"
+        );
+        let state = bridge.state.lock().unwrap();
+        assert!(state.ready && state.preparing.is_some());
+        assert!(!state.camera_opened && !state.input_started && state.captured == 0);
+    }
+
     #[test]
     fn retained_frame_provenance_never_replaces_the_new_host_clock() {
         let mut b = Bridge::new(BTreeMap::new(), 300_000, "recorded".into(), 1);

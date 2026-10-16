@@ -28,6 +28,8 @@ pub enum Packet {
         source_us: u64,
         mode: Mode,
         mouse: Vec<Event>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        absolute: Option<crate::Point>,
         contacts: Vec<Contact>,
     },
     Stop,
@@ -64,9 +66,36 @@ impl Publisher {
                 source_us: source.unwrap(),
                 mode: output.mode,
                 mouse: output.mouse.clone(),
+                absolute: None,
                 contacts: output.contacts.clone(),
             }
         }))
+    }
+    /// Reuse the source-age/transition contract for a calibrated absolute mouse.
+    pub fn absolute_packet(
+        &mut self,
+        output: &Output,
+        now: u64,
+        source: Option<u64>,
+        workspace: crate::touch_gestures::Workspace,
+    ) -> io::Result<Option<Packet>> {
+        workspace.validate().map_err(io::Error::other)?;
+        if !matches!(output.mode, Mode::Pointer | Mode::Scroll) {
+            return Err(invalid(
+                "absolute pointer supports pointer/scroll modes only",
+            ));
+        }
+        let mut packet = self.packet(output, now, source)?;
+        if let Some(Packet::Frame {
+            mouse, absolute, ..
+        }) = &mut packet
+        {
+            mouse.retain(|e| !matches!(e, Event::Move { .. }));
+            if output.mode == Mode::Pointer {
+                *absolute = output.pointer_cursor.map(|p| workspace.map(p));
+            }
+        }
+        Ok(packet)
     }
 }
 #[derive(Default)]
@@ -169,6 +198,7 @@ impl State {
                 source_us,
                 mode,
                 mouse,
+                absolute,
                 contacts,
                 ..
             } => {
@@ -203,11 +233,19 @@ impl State {
                             && mouse.iter().all(|e| !matches!(e, Event::Scroll { .. }))
                     }
                 };
-                if !allowed {
+                if !allowed
+                    || absolute.is_some_and(|p| !p.valid() || mode != Mode::Pointer)
+                    || (absolute.is_some() && mouse.iter().any(|e| matches!(e, Event::Move { .. })))
+                {
                     return Err(invalid("competing or incompatible mode output"));
                 }
                 self.source = Some(source_us);
                 let mut batch = Batch::default();
+                if let Some(p) = absolute {
+                    batch.mouse = self
+                        .mouse
+                        .apply(MouseIntent::Absolute { x: p.x, y: p.y }, gain)?;
+                }
                 for event in mouse {
                     let events = match event {
                         Event::Move { dx, dy } => {
@@ -237,6 +275,17 @@ impl State {
 
 /// Manually invoked device writer. None is an explicit until-stop session.
 pub fn stream(seconds: Option<u64>, gain: f64, watchdog_ms: u64) -> io::Result<()> {
+    stream_mode(seconds, gain, watchdog_ms, false)
+}
+pub fn absolute_stream(seconds: Option<u64>, gain: f64, watchdog_ms: u64) -> io::Result<()> {
+    stream_mode(seconds, gain, watchdog_ms, true)
+}
+fn stream_mode(
+    seconds: Option<u64>,
+    gain: f64,
+    watchdog_ms: u64,
+    absolute: bool,
+) -> io::Result<()> {
     if seconds.is_some_and(|n| !(1..=120).contains(&n))
         || !(50..=1000).contains(&watchdog_ms)
         || !gain.is_finite()
@@ -244,21 +293,28 @@ pub fn stream(seconds: Option<u64>, gain: f64, watchdog_ms: u64) -> io::Result<(
     {
         return Err(invalid("invalid delivery duration/gain/watchdog"));
     }
-    let mut mouse = crate::input::create(false)?;
-    let mut touch = crate::touch::create()?;
+    let mut mouse = crate::input::create(absolute)?;
+    let mut touch = if absolute {
+        None
+    } else {
+        Some(crate::touch::create()?)
+    };
     let mut state = State::default();
     let rx = crate::intent::reader::<Packet>();
     let start = Instant::now();
     let limit = seconds.map(Duration::from_secs).unwrap_or(Duration::MAX);
     let emit = |batch: Batch,
                 mouse: &mut evdev::uinput::VirtualDevice,
-                touch: &mut evdev::uinput::VirtualDevice|
+                touch: &mut Option<evdev::uinput::VirtualDevice>|
      -> io::Result<()> {
         if !batch.mouse.is_empty() {
             mouse.emit(&batch.mouse)?;
         }
         if !batch.touch.is_empty() {
-            touch.emit(&batch.touch)?;
+            touch
+                .as_mut()
+                .ok_or_else(|| invalid("touch output in absolute mouse session"))?
+                .emit(&batch.touch)?;
         }
         Ok(())
     };
@@ -268,6 +324,23 @@ pub fn stream(seconds: Option<u64>, gain: f64, watchdog_ms: u64) -> io::Result<(
                 .recv_timeout(Duration::from_millis(20).min(limit.saturating_sub(start.elapsed())))
             {
                 Ok(Ok(packet)) => {
+                    if let Packet::Transition { mode, .. } | Packet::Frame { mode, .. } = &packet {
+                        if absolute && !matches!(mode, Mode::Pointer | Mode::Scroll) {
+                            return Err(invalid("unsupported absolute mouse mode"));
+                        }
+                    }
+                    if let Packet::Frame {
+                        absolute: target,
+                        mouse,
+                        ..
+                    } = &packet
+                    {
+                        if (!absolute && target.is_some())
+                            || (absolute && mouse.iter().any(|e| matches!(e, Event::Move { .. })))
+                        {
+                            return Err(invalid("pointer packet does not match device"));
+                        }
+                    }
                     let stop = matches!(packet, Packet::Stop);
                     emit(
                         state.apply(

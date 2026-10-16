@@ -13,6 +13,17 @@ These are source behaviors, not actual application acceptance or an issue#8 caus
 Terminal source receipts now separate historical acquisition and confirmed closure.
 No changed runtime or interaction profile is installed on the Pi.
 
+New opt-in source continuity separates estimator `hold` liveness from the original
+source stamp/deadline. Forty synthetic full-pipeline runs retain272/816ms drags
+with1000ms grace and preserve writer-death/Stop/deadline release. Cursor catch-up
+still jumps and noisy opening still interrupts. Six replay comparisons on1883
+older retained predictions show unchanged held time:29 releases have eligible
+projected-open evidence, not missing observations. One Euro improves synthetic
+jitter but increases current-target lag; it is not adopted. Eight new pipeline
+regressions plus provider retention/native checks pass. The maintained report
+above owns exact scope and metrics. Next: output cadence and release/click stability;
+physical/kernel/application qualification remains pending while the Pi is occupied.
+
 After further manual use, Nicolás reports generally reasonable functionality,
 accurate target reach and good-looking hand/pinch tracking, with unreliable double
 pinch double-click, premature drag release and visibly stepped cursor movement.

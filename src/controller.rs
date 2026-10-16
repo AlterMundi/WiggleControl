@@ -85,6 +85,8 @@ pub struct Output {
     pub confirmation_elapsed_us: u64,
     pub pointer_ready: bool,
     pub button_down: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drag_hold: Option<crate::DragHold>,
     pub mouse: Vec<Event>,
     /// Complete current contact set, including an empty release frame.
     pub contacts: Vec<Contact>,
@@ -128,7 +130,13 @@ impl Controller {
             config: settings.gestures,
             precision_gain: settings.precision_gain,
             pointer: Engine::new(settings.gestures)?,
-            touches: touch_gestures::Gestures::new(settings.gestures, settings.workspace)?,
+            touches: touch_gestures::Gestures::new(
+                Config {
+                    drag_grace_us: 0,
+                    ..settings.gestures
+                },
+                settings.workspace,
+            )?,
             macros: settings.macros.map(macros::Engine::new).transpose()?,
             visual_policy: settings.visual_macros,
             last_macro_action: None,
@@ -153,6 +161,7 @@ impl Controller {
             confirmation_elapsed_us: self.pointer.confirmation_elapsed_us(),
             pointer_ready: self.pointer_ready,
             button_down: self.pointer.pinch_state() == "pressed",
+            drag_hold: self.pointer.drag_hold(),
             mouse,
             contacts: self.contacts.clone(),
             awaiting_open_hands: self.touches.awaiting_open_hands(),
@@ -319,10 +328,20 @@ impl Controller {
         if self
             .watermark
             .is_some_and(|t| now.saturating_sub(t) >= self.config.stale_us)
+            && self
+                .pointer
+                .drag_hold()
+                .is_none_or(|hold| now >= hold.until_us)
         {
             return self.neutralize("stale_input");
         }
         let mouse = self.pointer.tick(now);
+        // Tick-only releases have no new observation and need a delivery transition.
+        if !mouse.is_empty() {
+            let mut output = self.neutralize("pointer_state_expired");
+            output.mouse.splice(0..0, mouse);
+            return output;
+        }
         self.contacts = self.touches.tick(now);
         if let Some(macros) = &mut self.macros {
             macros.tick(now);
@@ -365,7 +384,30 @@ impl Controller {
             released.mouse.splice(0..0, tick.mouse);
             return released;
         }
-        let selected = self.selected_hand(&frame);
+        let selected = if frame.hands.is_empty() && !self.mode.touch() {
+            self.pointer
+                .drag_hold()
+                .map(|h| h.hand_id)
+                .or_else(|| self.selected_hand(&frame))
+        } else {
+            self.selected_hand(&frame)
+        };
+        if let Some(hold) = self.pointer.drag_hold() {
+            let owner_changed = selected.is_some_and(|id| id != hold.hand_id);
+            let disengaged = frame
+                .hands
+                .iter()
+                .any(|h| h.id == hold.hand_id && !h.engaged);
+            if owner_changed || disengaged {
+                let mut output = self.neutralize(if owner_changed {
+                    "drag_owner_changed"
+                } else {
+                    "hand_not_engaged"
+                });
+                output.mouse.splice(0..0, tick.mouse);
+                return output;
+            }
+        }
         let mut mouse = tick.mouse;
         if selected != self.primary {
             self.pointer_ready = false;
@@ -394,6 +436,10 @@ impl Controller {
             let mut hand = frame.hands.iter().find(|h| Some(h.id) == selected).cloned();
             if hand.as_ref().is_none_or(|h| {
                 !h.engaged || !h.pinch_eligible || h.confidence < self.config.min_confidence
+            }) && !self.pointer.drag_hold().is_some_and(|hold| {
+                now < hold.until_us
+                    && selected == Some(hold.hand_id)
+                    && hand.as_ref().is_none_or(|h| h.engaged)
             }) {
                 self.pointer_ready = false;
             }

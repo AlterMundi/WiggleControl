@@ -108,3 +108,9 @@ pipeline replay; see the [interaction baseline](research/one-hand-interaction-20
 This correction is not yet deployed and does not diagnose the sticky drag.
 The replacement one-hand goal is active. The human has reserved the receiving
 screen for Farscape; receiving injection and heavy experiments wait until it is free.
+
+The next source-only candidate adds optional bounded drag continuity, with
+independent writer liveness and geometric same-owner return. It is disabled by
+default and is not installed. Synthetic dropouts improve, but older retained
+predictions show no held-time change, and catch-up motion/noisy opening remain
+unfinished. See the same comparison report; do not treat this as Beta acceptance.

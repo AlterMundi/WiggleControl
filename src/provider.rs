@@ -51,6 +51,8 @@ pub struct Tracker {
     pair_separation: f64,
     presence_floor: f64,
     presence_scores: bool,
+    absence_retention_us: u64,
+    last_visible: Option<u64>,
 }
 impl Tracker {
     pub fn new(
@@ -76,6 +78,8 @@ impl Tracker {
             pair_separation,
             presence_floor,
             presence_scores: false,
+            absence_retention_us: 0,
+            last_visible: None,
         })
     }
     pub fn with_presence_scores(mut self) -> Self {
@@ -84,6 +88,21 @@ impl Tracker {
     }
     pub fn clear(&mut self) {
         self.hands.clear();
+        self.last_visible = None;
+    }
+    pub fn with_absence_retention(mut self, duration_us: u64) -> Result<Self, &'static str> {
+        if duration_us < self.stale_us || duration_us > 2_000_000 {
+            return Err("absence retention requires source freshness..2000000us");
+        }
+        self.absence_retention_us = duration_us;
+        Ok(self)
+    }
+    fn retaining_absent_owner(&self, now: u64) -> bool {
+        self.absence_retention_us > 0
+            && self.hands.len() == 1
+            && self
+                .last_visible
+                .is_some_and(|source| now >= source && now - source < self.absence_retention_us)
     }
     fn unknown(&mut self, reason: &'static str) -> MultiHands {
         self.clear();
@@ -95,9 +114,14 @@ impl Tracker {
     }
     pub fn tick(&mut self, now: u64) {
         if self.last_now.is_some_and(|n| now < n)
+            || (self.absence_retention_us > 0
+                && self
+                    .last_visible
+                    .is_some_and(|source| now.saturating_sub(source) >= self.absence_retention_us))
             || self
                 .watermark
                 .is_some_and(|(_, t)| now < t || now - t > self.stale_us)
+                && !self.retaining_absent_owner(now)
         {
             self.clear();
         }
@@ -121,6 +145,7 @@ impl Tracker {
         if self
             .watermark
             .is_some_and(|(_, t)| frame.source_us - t > self.stale_us)
+            && !self.retaining_absent_owner(frame.now_us)
         {
             self.clear();
         }
@@ -262,7 +287,10 @@ impl Tracker {
                 hand.id = self.next_id;
             }
         }
-        self.hands = next.clone();
+        if !next.is_empty() || !self.retaining_absent_owner(frame.now_us) {
+            self.hands = next.clone();
+            self.last_visible = (!next.is_empty()).then_some(frame.source_us);
+        }
         Ok(MultiHands {
             hands: next,
             ambiguous: false,
@@ -305,6 +333,9 @@ pub(crate) fn configured(
     )?;
     if config.provider_presence_scores {
         tracker = tracker.with_presence_scores();
+    }
+    if config.pointer_drag_grace_ms > 0 {
+        tracker = tracker.with_absence_retention(config.gestures().drag_grace_us)?;
     }
     let controller: Controller = crate::session::controller_config(&config, settings)?;
     if controller.visual_policy().is_some_and(|policy| {
@@ -480,6 +511,41 @@ mod tests {
     }
     fn tracker() -> Tracker {
         Tracker::new(300_000, 1.2, 0.5).unwrap()
+    }
+    #[test]
+    fn optional_one_hand_absence_retention_preserves_only_matched_unexpired_owners() {
+        let mut t = tracker().with_absence_retention(1_000_000).unwrap();
+        let original = t.observe(&frame(1, vec![hand(0.0, 0.01)])).unwrap().hands[0].id;
+        for i in 2..=8 {
+            let absent = t.observe(&frame(i, vec![])).unwrap();
+            assert!(absent.hands.is_empty() && !absent.ambiguous);
+        }
+        let returned = t.observe(&frame(9, vec![hand(5.0, 0.01)])).unwrap();
+        assert_eq!(returned.hands[0].id, original);
+        assert!(returned.hands[0].tracked);
+        for i in 10..=18 {
+            assert!(t.observe(&frame(i, vec![])).unwrap().hands.is_empty());
+        }
+        // Recent empty reports do not refresh last actual visible-hand evidence.
+        let expired = t.observe(&frame(19, vec![hand(5.0, 0.01)])).unwrap();
+        assert_ne!(expired.hands[0].id, original);
+        let current = expired.hands[0].id;
+        t.observe(&frame(20, vec![])).unwrap();
+        let mut different = hand(5.0, 0.01);
+        different.right_probability = 0.01;
+        let changed = t.observe(&frame(21, vec![different])).unwrap();
+        assert_ne!(changed.hands[0].id, current);
+
+        let mut t = tracker().with_absence_retention(1_000_000).unwrap();
+        let first = t.observe(&frame(1, vec![hand(0.0, 0.01)])).unwrap().hands[0].id;
+        t.tick(600_001);
+        let returned = t.observe(&frame(8, vec![hand(0.0, 0.01)])).unwrap();
+        assert_eq!(returned.hands[0].id, first);
+        t.tick(1_700_001);
+        assert_ne!(
+            t.observe(&frame(19, vec![hand(0.0, 0.01)])).unwrap().hands[0].id,
+            first
+        );
     }
     #[test]
     fn optional_depth_is_not_fabricated_and_invalid_depth_retires_the_owner() {

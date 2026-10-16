@@ -13,8 +13,9 @@ import statistics
 import subprocess
 
 
-CASES = ('stationary', 'linear', 'reversal', 'double_pinch',
-         'drag_gap_272ms', 'drag_gap_816ms')
+CASES = ('stationary', 'linear', 'reversal', 'double_pinch', 'double_pinch_drift',
+         'drag_gap_272ms', 'drag_gap_816ms', 'drag_gap_1496ms',
+         'drag_gap_no_samples', 'drag_open_noise')
 LATENCY_US = 65_000
 STEP_US = 68_000
 SCREEN = (1920, 1080)
@@ -22,7 +23,7 @@ SCREEN = (1920, 1080)
 
 def position(case, t):
     seconds = max(0, t) / 1_000_000
-    if case == 'linear' or case.startswith('drag_gap'):
+    if case == 'linear' or case.startswith('drag_'):
         return min(0.7, 0.3 + 0.16 * seconds)
     if case == 'reversal':
         return 0.3 + 0.25 * min(seconds, max(0, 2 - seconds))
@@ -30,9 +31,9 @@ def position(case, t):
 
 
 def closed(case, t):
-    if case.startswith('drag_gap'):
+    if case.startswith('drag_'):
         return 136_001 <= t < 2_176_001
-    if case == 'double_pinch':
+    if case.startswith('double_pinch'):
         return 136_001 <= t < 340_001 or 476_001 <= t < 680_001
     return False
 
@@ -43,16 +44,22 @@ def fixture(case):
     for i in range(37):
         source = 1 + i * STEP_US
         missing = (case == 'drag_gap_272ms' and 8 <= i <= 10 or
-                   case == 'drag_gap_816ms' and 8 <= i <= 18)
+                   case == 'drag_gap_816ms' and 8 <= i <= 18 or
+                   case == 'drag_gap_1496ms' and 8 <= i <= 28)
+        if case == 'drag_gap_no_samples' and 8 <= i <= 10:
+            continue
         x = position(case, source)
         if case == 'stationary':
             x += 0.002 * (-1 if i % 2 else 1)
+        if case == 'double_pinch_drift' and closed(case, source):
+            x += 0.004 if source < 400_000 else -0.004
+        observed_closed = closed(case, source) and not (case == 'drag_open_noise' and i == 10)
         hands = [] if missing else [{
             'id': 1, 'confidence': 0.99, 'engaged': True, 'pinch_eligible': True,
             'cursor': {'x': x, 'y': 0.5},
             'thumb_tip': {'x': 0.4, 'y': 0.5},
-            'index_tip': {'x': 0.42 if closed(case, source) else 0.52, 'y': 0.5},
-            'palm_width': 0.2, 'pinch_distance_ratio': 0.2 if closed(case, source) else 0.6,
+            'index_tip': {'x': 0.42 if observed_closed else 0.52, 'y': 0.5},
+            'palm_width': 0.2, 'pinch_distance_ratio': 0.2 if observed_closed else 0.6,
         }]
         now = source + LATENCY_US
         commands.append((now, {'type': 'frame', 'now_us': now, 'observation': {
@@ -78,6 +85,8 @@ def score(case, commands, rows):
                 xy[event['code']] = event['value'] / 65535
             if event['kind'] == 1 and event['code'] == 272:
                 buttons.append({'at_us': now, 'down': bool(event['value']),
+                                'cursor_px': [v * size for v, size in zip(xy, SCREEN)]
+                                if None not in xy else None,
                                 'synthetic_intent_closed': closed(case, now - LATENCY_US)})
         if None in xy:
             continue
@@ -93,6 +102,7 @@ def score(case, commands, rows):
     duration = sum(b[0] - a[0] for a, b in zip(errors, errors[1:]))
     rms = math.sqrt(sum(a[1] ** 2 * (b[0] - a[0])
                         for a, b in zip(errors, errors[1:])) / duration)
+    presses = [b for b in buttons if b['down']]
     return {
         'case': case, 'source_interval_ms': STEP_US / 1000,
         'synthetic_delivery_delay_ms': LATENCY_US / 1000,
@@ -103,6 +113,11 @@ def score(case, commands, rows):
             (b - a) / 1000 for a, b in zip(move_times, move_times[1:]))
         if len(move_times) > 1 else None,
         'presses': sum(b['down'] for b in buttons),
+        'press_intervals_ms': [(b['at_us'] - a['at_us']) / 1000
+                               for a, b in zip(presses, presses[1:])],
+        'successive_press_distances_px': [math.dist(a['cursor_px'], b['cursor_px'])
+                                          for a, b in zip(presses, presses[1:])
+                                          if a['cursor_px'] is not None and b['cursor_px'] is not None],
         'releases_while_synthetic_intent_closed': sum(
             not b['down'] and b['synthetic_intent_closed'] for b in buttons),
         'button_events': buttons,
@@ -114,16 +129,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', required=True, type=Path)
     parser.add_argument('--output-dir', required=True, type=Path)
+    parser.add_argument('--drag-grace-ms', type=int, default=0)
+    parser.add_argument('--filter', choices=('exponential', 'one-euro'), default='exponential')
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
+    binary_digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     root = args.output_dir
     root.mkdir(parents=True, exist_ok=False)
     settings = root / 'settings.json'
-    settings.write_text(json.dumps({
+    config = {
         'gestures': {'min_confidence': 0.5, 'close_ratio': 0.38, 'open_ratio': 0.4,
-                     'stale_us': 300_000},
+                     'stale_us': 300_000, 'drag_grace_us': args.drag_grace_ms * 1000},
         'workspace': {'min': {'x': 0.2, 'y': 0.2}, 'max': {'x': 0.8, 'y': 0.8}},
-    }) + '\n')
+    }
+    if args.filter == 'one-euro':
+        config['gestures']['adaptive_smoothing'] = {
+            'min_cutoff_hz': 1.0, 'beta': 10.0, 'derivative_cutoff_hz': 1.0, 'speed_floor': 0.0}
+    settings.write_text(json.dumps(config) + '\n')
     results = []
     for case in CASES:
         commands = fixture(case)
@@ -135,12 +157,15 @@ def main():
         (root / f'{case}-receipts.jsonl').write_text(run.stdout)
         rows = [json.loads(line) for line in run.stdout.splitlines()]
         results.append(score(case, commands, rows))
+    if hashlib.sha256(binary.read_bytes()).hexdigest() != binary_digest:
+        raise ValueError('Binary changed during the comparison; retain partial evidence and retry a new case')
     report = {
         'schema': 'wigglecontrol.one-hand-baseline/v1',
         'evidence': 'synthetic_intent_and_motion_device_free_actual_rust_pipeline',
-        'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+        'binary_sha256': binary_digest,
         'tool_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'screen': SCREEN, 'cases': results,
+        'settings': config,
         'limits': 'No camera, compositor, application or human acceptance; selected synthetic cases only.',
     }
     (root / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')

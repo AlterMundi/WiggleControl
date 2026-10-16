@@ -32,6 +32,14 @@ pub enum Packet {
         absolute: Option<crate::Point>,
         contacts: Vec<Contact>,
     },
+    /// Estimator liveness plus a fixed last-observation deadline; no motion/press.
+    Hold {
+        sequence: u64,
+        issued_us: u64,
+        source_us: u64,
+        until_us: u64,
+        mode: Mode,
+    },
     Stop,
 }
 #[derive(Default)]
@@ -45,7 +53,10 @@ impl Publisher {
         now: u64,
         source: Option<u64>,
     ) -> io::Result<Option<Packet>> {
-        if !output.transition && (!output.running || source.is_none()) {
+        let hold = output
+            .drag_hold
+            .filter(|h| output.button_down && (h.in_grace || source.is_none()));
+        if !output.transition && (!output.running || (source.is_none() && hold.is_none())) {
             return Ok(None);
         }
         self.sequence = self
@@ -58,6 +69,14 @@ impl Publisher {
                 issued_us: now,
                 mode: output.mode,
                 enabled: output.running,
+            }
+        } else if let Some(hold) = hold {
+            Packet::Hold {
+                sequence: self.sequence,
+                issued_us: now,
+                source_us: hold.source_us,
+                until_us: hold.until_us,
+                mode: output.mode,
             }
         } else {
             Packet::Frame {
@@ -113,6 +132,7 @@ pub struct State {
     source: Option<u64>,
     now: Option<u64>,
     received: Option<u64>,
+    hold_until: Option<u64>,
 }
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
@@ -120,6 +140,7 @@ fn invalid(message: &'static str) -> io::Error {
 impl State {
     pub fn release(&mut self) -> Batch {
         self.ready = false;
+        self.hold_until = None;
         Batch {
             mouse: self.mouse.release(),
             touch: self.touch.release(),
@@ -134,6 +155,7 @@ impl State {
             if self
                 .received
                 .is_some_and(|t| now.saturating_sub(t) >= watchdog_us)
+                || self.hold_until.is_some_and(|deadline| now >= deadline)
             {
                 self.release()
             } else {
@@ -163,6 +185,7 @@ impl State {
         if self
             .received
             .is_some_and(|t| now.saturating_sub(t) >= watchdog_us)
+            || self.hold_until.is_some_and(|deadline| now >= deadline)
         {
             self.ready = false;
         }
@@ -173,6 +196,11 @@ impl State {
                 ..
             }
             | Packet::Frame {
+                sequence,
+                issued_us,
+                ..
+            }
+            | Packet::Hold {
                 sequence,
                 issued_us,
                 ..
@@ -188,6 +216,29 @@ impl State {
         self.sequence = Some(sequence);
         self.received = Some(now);
         match packet {
+            Packet::Hold {
+                source_us,
+                until_us,
+                mode,
+                ..
+            } => {
+                if !self.ready
+                    || !self.mouse.is_held()
+                    || !matches!(mode, Mode::Pointer | Mode::Precision)
+                    || self.mode != Some(mode)
+                    || self.source != Some(source_us)
+                    || source_us > issued
+                    || until_us <= now
+                    || until_us > source_us.saturating_add(2_000_000)
+                    || self.hold_until.is_some_and(|deadline| until_us > deadline)
+                {
+                    return Err(invalid(
+                        "hold requires an existing drag and its bounded original source deadline",
+                    ));
+                }
+                self.hold_until = Some(until_us);
+                Ok(Batch::default())
+            }
             Packet::Transition { mode, enabled, .. } => {
                 let batch = self.release();
                 self.mode = Some(mode);
@@ -240,6 +291,7 @@ impl State {
                     return Err(invalid("competing or incompatible mode output"));
                 }
                 self.source = Some(source_us);
+                self.hold_until = None;
                 let mut batch = Batch::default();
                 if let Some(p) = absolute {
                     batch.mouse = self
@@ -324,7 +376,10 @@ fn stream_mode(
                 .recv_timeout(Duration::from_millis(20).min(limit.saturating_sub(start.elapsed())))
             {
                 Ok(Ok(packet)) => {
-                    if let Packet::Transition { mode, .. } | Packet::Frame { mode, .. } = &packet {
+                    if let Packet::Transition { mode, .. }
+                    | Packet::Frame { mode, .. }
+                    | Packet::Hold { mode, .. } = &packet
+                    {
                         if absolute && !matches!(mode, Mode::Pointer | Mode::Scroll) {
                             return Err(invalid("unsupported absolute mouse mode"));
                         }

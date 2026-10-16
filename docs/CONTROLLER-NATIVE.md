@@ -174,6 +174,15 @@ consumer contract and emits actual Linux event codes using the existing state
 encoders. Its clocks are explicitly supplied by replay commands. It opens no
 sensor or uinput descriptor and reports `system_input:false`.
 
+The optional one-hand drag candidate uses `gestures.drag_grace_us` (default0;
+when enabled, source freshness..2000000us). Matching camera-worker sessions use
+`pointer_drag_grace_ms` with explicit absolute-provider selection. A `hold` packet
+keeps an already pressed pointer from the same last delivered source until a
+fixed source-derived deadline, without movement, new presses or source refresh.
+It does not extend that deadline. Independent producer watchdog, Stop, mode/owner
+changes and confirmed opening release; touch loss behavior stays unchanged. See
+the [comparison and limits](research/one-hand-interaction-2026-10.md).
+
 Tests cover button/two-slot release, transition-before-repress, watchdog latching,
 source/sequence/mode integrity, malformed/EOF cleanup, pending HTTP controls and
 pre-acquisition config agreement. The native UI was exercised on Cuevanico at

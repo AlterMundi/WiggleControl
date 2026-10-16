@@ -146,6 +146,9 @@ fn default_onset_allowed() -> bool {
 fn is_true(value: &bool) -> bool {
     *value
 }
+fn is_zero(value: &u64) -> bool {
+    *value == 0
+}
 impl Hand {
     pub(crate) fn invalid_reason(&self) -> Option<&'static str> {
         if !self.confidence.is_finite() || !(0.0..=1.0).contains(&self.confidence) {
@@ -254,6 +257,9 @@ pub struct Config {
     pub open_m: f64,
     pub confirm_us: u64,
     pub stale_us: u64,
+    /// Opt-in bounded continuity of an established drag; never source freshness.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub drag_grace_us: u64,
     pub smoothing_us: f64,
     /// Opt-in experiment; None preserves the original exponential filter.
     pub adaptive_smoothing: Option<filter::OneEuroConfig>,
@@ -269,6 +275,7 @@ impl Default for Config {
             open_m: 0.03,
             confirm_us: 40_000,
             stale_us: 150_000,
+            drag_grace_us: 0,
             smoothing_us: 30_000.0,
             adaptive_smoothing: None,
             scroll_steps_per_unit: 12.0,
@@ -314,6 +321,14 @@ impl PinchTrack {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct DragHold {
+    pub hand_id: u64,
+    pub source_us: u64,
+    pub until_us: u64,
+    pub in_grace: bool,
+}
+
 pub struct Engine {
     config: Config,
     running: bool,
@@ -325,6 +340,7 @@ pub struct Engine {
     cursor: Option<Point>,
     cursor_filter: filter::OneEuro,
     held: bool,
+    drag_gap: bool,
     pinches: [PinchTrack; 2],
     secondary_source: Option<u64>,
     scrolling: bool,
@@ -349,6 +365,8 @@ impl Engine {
             || config.open_m > 1.0
             || config.confirm_us == 0
             || config.stale_us <= config.confirm_us
+            || config.drag_grace_us > 2_000_000
+            || (config.drag_grace_us != 0 && config.drag_grace_us < config.stale_us)
             || !config.smoothing_us.is_finite()
             || config.smoothing_us < 0.0
             || !config.scroll_steps_per_unit.is_finite()
@@ -367,6 +385,7 @@ impl Engine {
             cursor: None,
             cursor_filter: filter::OneEuro::default(),
             held: false,
+            drag_gap: false,
             pinches: Default::default(),
             secondary_source: None,
             scrolling: false,
@@ -386,6 +405,29 @@ impl Engine {
     /// Read-only diagnostic state; does not modify gesture decisions.
     pub fn cursor_position(&self) -> Option<Point> {
         self.cursor
+    }
+    pub fn drag_hold(&self) -> Option<DragHold> {
+        if !self.held || self.config.drag_grace_us == 0 || self.scrolling {
+            return None;
+        }
+        let source_us = self.last_source?;
+        Some(DragHold {
+            hand_id: self.hand_id?,
+            source_us,
+            until_us: source_us.saturating_add(self.config.drag_grace_us),
+            in_grace: self.drag_gap
+                || self
+                    .last_now
+                    .is_some_and(|now| now.saturating_sub(source_us) >= self.config.stale_us),
+        })
+    }
+    fn retain_drag(&mut self, now: u64) -> bool {
+        if self.drag_hold().is_some_and(|h| now < h.until_us) {
+            self.drag_gap = true;
+            true
+        } else {
+            false
+        }
     }
     pub fn pinch_state(&self) -> &'static str {
         if !self.running {
@@ -431,10 +473,16 @@ impl Engine {
             return self.cancel("consumer_clock_regression");
         }
         self.last_now = Some(now_us);
+        if self.drag_hold().is_some_and(|h| now_us >= h.until_us) {
+            return self.cancel("drag_grace_expired");
+        }
         if self
             .last_received
             .is_some_and(|last| now_us.saturating_sub(last) >= self.config.stale_us)
         {
+            if self.retain_drag(now_us) {
+                return Vec::new();
+            }
             return self.cancel("stale_input");
         }
         Vec::new()
@@ -451,6 +499,7 @@ impl Engine {
             });
         }
         self.held = false;
+        self.drag_gap = false;
         self.pinches = Default::default();
         self.secondary_source = None;
         self.hand_id = None;
@@ -499,10 +548,16 @@ impl Engine {
         }
         self.watermark = Some(observation.source_us);
         let Some(hand) = observation.hand else {
+            if self.retain_drag(now_us) {
+                return events;
+            }
             events.extend(self.cancel("tracking_lost"));
             return events;
         };
         if !hand.engaged || hand.confidence < self.config.min_confidence || !hand.pinch_eligible {
+            if hand.engaged && self.hand_id == Some(hand.id) && self.retain_drag(now_us) {
+                return events;
+            }
             events.extend(self.cancel("hand_not_eligible"));
             self.last_rejection = Some(if !hand.engaged {
                 "hand_not_engaged"
@@ -514,6 +569,7 @@ impl Engine {
             return events;
         }
         self.last_rejection = None;
+        self.drag_gap = false;
         if self.hand_id != Some(hand.id) {
             events.extend(self.cancel("hand_changed"));
             self.hand_id = Some(hand.id);

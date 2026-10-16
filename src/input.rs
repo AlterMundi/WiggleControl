@@ -27,6 +27,9 @@ pub struct MouseState {
     residual: [f64; 2],
 }
 impl MouseState {
+    pub(crate) fn is_held(&self) -> bool {
+        self.held
+    }
     pub fn apply(&mut self, intent: MouseIntent, gain: f64) -> io::Result<Vec<InputEvent>> {
         let mut events = Vec::new();
         match intent {

@@ -90,6 +90,9 @@ pub struct SessionConfig {
     /// Calibrated one-hand provider mouse; pointer/scroll only.
     #[serde(default)]
     pub provider_absolute_pointer: bool,
+    /// Experimental one-hand drag continuity; independent of source freshness.
+    #[serde(default)]
+    pub pointer_drag_grace_ms: u64,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -155,6 +158,7 @@ impl SessionConfig {
             close_ratio: self.pinch_close_ratio,
             open_ratio: self.pinch_open_ratio,
             adaptive_smoothing: self.adaptive_smoothing,
+            drag_grace_us: self.pointer_drag_grace_ms.saturating_mul(1000),
             ..Config::default()
         }
     }
@@ -254,6 +258,9 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        if config.pointer_drag_grace_ms > 0 && !config.provider_absolute_pointer {
+            return Err("pointer drag grace requires the explicit absolute provider".into());
+        }
         if config.pinch_3d && config.pinch_2d_reference != Pinch2dReference::PalmWidth {
             return Err("projected pinch reference requires pinch_3d=false".into());
         }

@@ -59,3 +59,32 @@ Known limits: projected pinch can fail at adverse angles; tracking loss cuts a
 drag and requires reopening. This beta does not solve occlusion, participant
 ownership, macros or touchscreen equivalence. The next useful evidence is seated
 pointer alignment, deliberate clicks/drags, loss/Stop and actual application use.
+
+## Receiving delivery —2026-10-16
+
+Manual Beta1 source `1cf0aed6b52028b510f14dc098b4cf342febd400` passes CI38849576988
+(replay, native and ARM64). Receiving binary SHA256 is
+`f4ad91eaf5f8b1e5f44c0e87d68e57ec6ea71666d23094c4025e068234a40eb9`.
+The separate explicit launcher is sourceb855c48, CI38849745647 allgreen.
+The dashboard buttons are daimon-integrators6b36436, CI38849765459 allgreen.
+No build runs on the Pi. Existing runtime/calibration/system panel binary remain
+retained; the new panel uses a reversible user-service override.
+
+On the actual desktop, **WG1** opens the beta and **■ WG1** stops its two named
+user units. Open the feedback window, press **Start Beta1** when ready, then
+minimize that window to use ordinary applications; retain it for the GPU worker.
+Return through WG1 for mode/pause/feedback. Use the dedicated Stop WG1 control,
+which also closes this beta browser. The older panel capture Stop remains a
+separate control. Neither beta unit is enabled at boot and Restart is disabled.
+The earlier experiment workbench was closed at Nicolás's request and is not
+restored automatically.
+
+Actual standby is observed at1440×990 inside the1920×1080 desktop, with no page
+scroll, visible Start/Stop and the compact native panel. An earlier1080×820 view
+had a footer/control overlap; enlarging the receiving feedback window resolves
+it. The server remains idle beyond the old30s preparation bound: zero GPU workers,
+camera/input/recording false and independent observer camera/mic false. Existing
+calibration digest is unchanged. These are startup/layout/source-delivery proofs.
+No new camera or input session has been started by the operator. Physical pointer
+alignment, repeated pinch/drag, background throughput, Stop and comfort acceptance
+remain for Nicolás's first use. Do not infer them from an idle Start button.

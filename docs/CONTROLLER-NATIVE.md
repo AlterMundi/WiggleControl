@@ -205,6 +205,26 @@ python3 tools/one_hand_baseline.py --binary target/debug/wigglecontrol \
 The tool's `--cursor-max-lead 1 --cursor-no-direction-check` recreates time-only
 prediction for comparison; it is not a recommended receiving profile.
 
+Optional `cursor_output.click_stabilization:{}` holds the previous visible point
+during pinch closing and early press while retaining the real observed target.
+Defaults are normalized-screen `radius:0.008`, `closing_us:200000` and
+`pressed_us:150000`. Exceeding radius or the applicable deadline yields to motion
+for the rest of that gesture. A locked release occurs at the held visible point;
+normal hover then resumes. Feedback distinguishes `click_locked` from uncertainty
+`frozen`. This changes position only, never button meaning or source freshness.
+Mirror the complete object in session `pointer_cursor_output` as above. Compare
+using `one_hand_baseline.py --cursor-output --click-stabilization`; the outer
+option is absent by default and no receiving profile is adopted.
+
+Gesture `confirm_us` now permits explicit0 for single-observation onset, still
+requiring prior open evidence and onset permission. Worker session
+`press_confirm_us` must match it; omission remains40000us. This is an experimental
+tradeoff, not the selected beta: zero also accepts isolated false closures. A
+positive threshold shorter than the observation interval still needs two closed
+observations. `tools/score_click_timing.py --binary target/debug/wigglecontrol
+--output-dir NEW_DIRECTORY` compares known synthetic double pinches over sampling
+phases, without claiming application double-click acceptance or measured latency.
+
 Tests cover button/two-slot release, transition-before-repress, watchdog latching,
 source/sequence/mode integrity, malformed/EOF cleanup, pending HTTP controls and
 pre-acquisition config agreement. The native UI was exercised on Cuevanico at

@@ -364,7 +364,6 @@ impl Engine {
             || config.close_m <= 0.0
             || config.open_m <= config.close_m
             || config.open_m > 1.0
-            || config.confirm_us == 0
             || config.stale_us <= config.confirm_us
             || config.drag_grace_us > 2_000_000
             || (config.drag_grace_us != 0 && config.drag_grace_us < config.stale_us)

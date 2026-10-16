@@ -13,9 +13,9 @@ import statistics
 import subprocess
 
 
-CASES = ('stationary', 'linear', 'reversal', 'move_stop', 'step', 'double_pinch', 'double_pinch_drift',
+CASES = ('stationary', 'linear', 'reversal', 'move_stop', 'step', 'double_pinch', 'double_pinch_drift', 'fine_drag',
          'drag_gap_272ms', 'drag_gap_816ms', 'drag_gap_1496ms',
-         'drag_gap_no_samples', 'drag_open_noise')
+         'drag_gap_no_samples', 'drag_open_noise','rest_false_close')
 LATENCY_US = 65_000
 STEP_US = 68_000
 SCREEN = (1920, 1080)
@@ -31,11 +31,15 @@ def position(case, t):
         return 0.3 + 0.24 * min(seconds, 1)
     if case == 'step':
         return 0.3 if seconds < 1 else 0.7
+    if case == 'fine_drag':
+        return 0.5+0.006*max(0,min(seconds,2.176)-0.204)
     return 0.5
 
 
 def closed(case, t):
     if case.startswith('drag_'):
+        return 136_001 <= t < 2_176_001
+    if case == 'fine_drag':
         return 136_001 <= t < 2_176_001
     if case.startswith('double_pinch'):
         return 136_001 <= t < 340_001 or 476_001 <= t < 680_001
@@ -57,14 +61,9 @@ def fixture(case, tick_us=16_667):
             x += 0.002 * (-1 if i % 2 else 1)
         if case == 'double_pinch_drift' and closed(case, source):
             x += 0.004 if source < 400_000 else -0.004
-        observed_closed = closed(case, source) and not (case == 'drag_open_noise' and i == 10)
-        hands = [] if missing else [{
-            'id': 1, 'confidence': 0.99, 'engaged': True, 'pinch_eligible': True,
-            'cursor': {'x': x, 'y': 0.5},
-            'thumb_tip': {'x': 0.4, 'y': 0.5},
-            'index_tip': {'x': 0.42 if observed_closed else 0.52, 'y': 0.5},
-            'palm_width': 0.2, 'pinch_distance_ratio': 0.2 if observed_closed else 0.6,
-        }]
+        observed_closed = (closed(case, source) and not (case == 'drag_open_noise' and i == 10)
+                           or case == 'rest_false_close' and i==10)
+        hands = [] if missing else [observation_hand(x,observed_closed)]
         now = source + LATENCY_US
         commands.append((now, {'type': 'frame', 'now_us': now, 'observation': {
             'version': 1, 'source_us': source, 'ambiguous': False, 'hands': hands}}))
@@ -72,6 +71,13 @@ def fixture(case, tick_us=16_667):
     commands.extend((t, {'type': 'tick', 'now_us': t})
                     for t in range(tick_us, end + 1, tick_us))
     return sorted(commands, key=lambda entry: entry[0])
+
+
+def observation_hand(x,closed):
+    return {'id': 1, 'confidence': 0.99, 'engaged': True, 'pinch_eligible': True,
+            'cursor': {'x': x, 'y': 0.5},'thumb_tip': {'x': 0.4, 'y': 0.5},
+            'index_tip': {'x': 0.42 if closed else 0.52, 'y': 0.5},
+            'palm_width': 0.2, 'pinch_distance_ratio': 0.2 if closed else 0.6}
 
 
 def score(case, commands, rows):
@@ -128,6 +134,7 @@ def score(case, commands, rows):
         'p95_movement_interval_ms': intervals[min(len(intervals)-1,round(len(intervals)*0.95))]
         if intervals else None,
         'presses': sum(b['down'] for b in buttons),
+        'presses_while_synthetic_intent_open':sum(b['down'] and not b['synthetic_intent_closed'] for b in buttons),
         'press_intervals_ms': [(b['at_us'] - a['at_us']) / 1000
                                for a, b in zip(presses, presses[1:])],
         'successive_press_distances_px': [math.dist(a['cursor_px'], b['cursor_px'])
@@ -145,6 +152,7 @@ def main():
     parser.add_argument('--binary', required=True, type=Path)
     parser.add_argument('--output-dir', required=True, type=Path)
     parser.add_argument('--drag-grace-ms', type=int, default=0)
+    parser.add_argument('--confirm-ms',type=float,default=40)
     parser.add_argument('--filter', choices=('exponential', 'one-euro'), default='exponential')
     parser.add_argument('--tick-ms',type=float,default=16.667)
     parser.add_argument('--cursor-output', action='store_true')
@@ -154,7 +162,13 @@ def main():
     parser.add_argument('--cursor-max-speed', type=float, default=2)
     parser.add_argument('--cursor-max-lead', type=float, default=0.01)
     parser.add_argument('--cursor-no-direction-check', action='store_true')
+    parser.add_argument('--click-stabilization',action='store_true')
+    parser.add_argument('--click-radius',type=float,default=0.008)
+    parser.add_argument('--click-closing-ms',type=float,default=200)
+    parser.add_argument('--click-pressed-ms',type=float,default=150)
     args = parser.parse_args()
+    if args.click_stabilization and not args.cursor_output:
+        parser.error('--click-stabilization requires --cursor-output')
     tick_us=round(args.tick_ms*1000)
     if not 1_000 <= tick_us <= 100_000:
         parser.error('--tick-ms must be1..100')
@@ -165,7 +179,8 @@ def main():
     settings = root / 'settings.json'
     config = {
         'gestures': {'min_confidence': 0.5, 'close_ratio': 0.38, 'open_ratio': 0.4,
-                     'stale_us': 300_000, 'drag_grace_us': args.drag_grace_ms * 1000},
+                     'stale_us': 300_000, 'drag_grace_us': args.drag_grace_ms * 1000,
+                     'confirm_us':round(args.confirm_ms*1000)},
         'workspace': {'min': {'x': 0.2, 'y': 0.2}, 'max': {'x': 0.8, 'y': 0.8}},
     }
     if args.filter == 'one-euro':
@@ -180,6 +195,10 @@ def main():
             'max_prediction_distance': args.cursor_max_lead,
             'consistent_prediction': not args.cursor_no_direction_check,
         }
+        if args.click_stabilization:
+            config['cursor_output']['click_stabilization']={
+                'radius':args.click_radius,'closing_us':round(args.click_closing_ms*1000),
+                'pressed_us':round(args.click_pressed_ms*1000)}
     settings.write_text(json.dumps(config) + '\n')
     results = []
     for case in CASES:

@@ -31,7 +31,9 @@ struct Pipeline {
 }
 impl Pipeline {
     fn new(grace: u64) -> Self {
-        let config = cursor::Config::default();
+        Self::with_config(grace, cursor::Config::default())
+    }
+    fn with_config(grace: u64, config: cursor::Config) -> Self {
         let controller = Controller::new(Settings {
             cursor_output: Some(config),
             gestures: Config {
@@ -309,4 +311,90 @@ fn derived_motion_reserves_transport_time_before_the_source_fence() {
         .apply(437_001, packet.unwrap(), 2000.0, WATCHDOG)
         .unwrap();
     assert!(delivered.mouse.is_empty());
+}
+
+#[test]
+fn click_stabilization_keeps_real_observations_and_down_up_at_the_visible_point() {
+    let mut p = Pipeline::with_config(
+        1_000_000,
+        cursor::Config {
+            click_stabilization: Some(cursor::ClickConfig::default()),
+            ..cursor::Config::default()
+        },
+    );
+    p.frame(1, vec![hand(7, 0.5, false)]);
+    p.frame(68_001, vec![hand(7, 0.504, true)]);
+    let candidate = p.publisher.cursor_feedback().unwrap();
+    assert!(candidate.click_locked);
+    assert!(candidate.observed.x > candidate.estimated.x);
+    let (_, _, down) = p.frame(136_001, vec![hand(7, 0.504, true)]);
+    assert!(button(&down, 1));
+    assert_eq!(p.publisher.cursor_feedback().unwrap().estimated.x, 0.5);
+    let (_, _, up) = p.frame(204_001, vec![hand(7, 0.501, false)]);
+    assert!(button(&up, 0));
+    assert!(up
+        .mouse
+        .iter()
+        .filter(|e| e.event_type() == EventType::ABSOLUTE && e.code() == 0)
+        .all(|e| e.value() == 32768));
+    assert!(!p.publisher.cursor_feedback().unwrap().click_locked);
+    p.until(285_000);
+    assert!(p.publisher.cursor_feedback().unwrap().estimated.x > 0.5);
+}
+
+#[test]
+fn click_stabilization_yields_to_drag_motion_and_expires_for_fine_motion() {
+    for move_outside in [false, true] {
+        let mut p = Pipeline::with_config(
+            1_000_000,
+            cursor::Config {
+                click_stabilization: Some(cursor::ClickConfig {
+                    pressed_us: 100_000,
+                    ..cursor::ClickConfig::default()
+                }),
+                ..cursor::Config::default()
+            },
+        );
+        p.frame(1, vec![hand(7, 0.5, false)]);
+        p.frame(68_001, vec![hand(7, 0.501, true)]);
+        p.frame(136_001, vec![hand(7, 0.501, true)]);
+        let (_, _, batch) = p.frame(
+            204_001,
+            vec![hand(7, if move_outside { 0.55 } else { 0.503 }, true)],
+        );
+        assert!(!button(&batch, 0) && !button(&batch, 1));
+        if move_outside {
+            assert!(!p.publisher.cursor_feedback().unwrap().click_locked);
+            assert_eq!(p.publisher.cursor_feedback().unwrap().estimated.x, 0.5);
+        }
+        p.until(330_000);
+        assert!(!p.publisher.cursor_feedback().unwrap().click_locked);
+        assert!(p.publisher.cursor_feedback().unwrap().estimated.x > 0.5);
+    }
+}
+
+#[test]
+fn unconfirmed_pinch_cannot_lock_hover_indefinitely_and_stop_clears_click_state() {
+    let mut p = Pipeline::with_config(
+        1_000_000,
+        cursor::Config {
+            click_stabilization: Some(cursor::ClickConfig {
+                closing_us: 80_000,
+                ..cursor::ClickConfig::default()
+            }),
+            ..cursor::Config::default()
+        },
+    );
+    p.frame(1, vec![hand(7, 0.5, false)]);
+    let mut veto = hand(7, 0.502, true);
+    veto.pinch_onset_allowed = false;
+    p.frame(68_001, vec![veto.clone()]);
+    assert!(p.publisher.cursor_feedback().unwrap().click_locked);
+    p.frame(136_001, vec![veto.clone()]);
+    p.until(220_000);
+    p.frame(204_001, vec![veto]);
+    assert!(!p.publisher.cursor_feedback().unwrap().click_locked);
+    let (out, _, batch) = p.command(p.now + 1, Command::Stop, None);
+    assert!(!out.button_down && !button(&batch, 1));
+    assert!(p.publisher.cursor_feedback().is_none());
 }

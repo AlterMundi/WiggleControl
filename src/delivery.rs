@@ -176,7 +176,13 @@ impl Publisher {
                         self.cursor_owner = output.primary_hand;
                     }
                     cursor
-                        .observe(source.unwrap(), now, workspace.map(point))
+                        .observe(
+                            source.unwrap(),
+                            now,
+                            workspace.map(point),
+                            output.pointer_state == "closing",
+                            output.button_down,
+                        )
                         .map_err(io::Error::other)?;
                     *absolute = cursor
                         .sample(now, true)

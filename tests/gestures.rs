@@ -270,6 +270,47 @@ fn stopped_engine_ignores_observations_and_invalid_config_is_rejected() {
 }
 
 #[test]
+fn explicit_zero_confirmation_observes_open_veto_and_loss_before_single_frame_onset() {
+    let mut e = Engine::new(Config {
+        confirm_us: 0,
+        ..Config::default()
+    })
+    .unwrap();
+    e.start();
+    assert!(!e
+        .observe(1, frame(1, 7, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    e.observe(20_001, frame(20_001, 7, 0.6, 0.5));
+    let mut veto = frame(30_001, 7, 0.1, 0.5);
+    veto.hand.as_mut().unwrap().pinch_onset_allowed = false;
+    assert!(!e
+        .observe(30_001, veto)
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(40_001, frame(40_001, 7, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(50_001, frame(50_001, 7, 0.6, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert!(e
+        .observe(60_001, frame(60_001, 7, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(
+            70_001,
+            Observation {
+                version: 1,
+                source_us: 70_001,
+                hand: None
+            }
+        )
+        .contains(&Event::Button { down: false }));
+    assert!(!e
+        .observe(80_001, frame(80_001, 7, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+}
+
+#[test]
 fn fresh_delayed_frames_preserve_drag_but_stale_frames_do_not() {
     let mut e = engine();
     e.observe(80_001, frame(1, 1, 0.6, 0.5));

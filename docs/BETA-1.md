@@ -18,6 +18,14 @@ Visual macros, measured-presence internals, precision and multi-contact modes ar
 not selected. These are release choices, not evidence that every hand/view works.
 The saved calibration and prior runtime remain available for rollback.
 
+Local source experiments now include bounded drag continuity, independent cursor
+reconstruction and brief click stabilization. Their
+[measured tradeoffs](research/one-hand-interaction-2026-10.md) are not receiving
+adoption: the installed beta and calibration remain unchanged. Single-observation
+press confirmation is available only by explicit matching configuration; its false
+closure counterexample prevents selecting it as the default. The Pi is reserved
+for Farscape, so issue#8 and integrated application/human acceptance remain pending.
+
 ## Manual startup and use
 
 The receiving dashboard entry opens the beta's feedback/control view. The manual

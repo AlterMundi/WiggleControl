@@ -174,6 +174,22 @@ fn controller_preflight_rejects_divergent_settings_without_acquiring_any_receivi
     assert!(!unsupported.status.success());
     assert!(String::from_utf8_lossy(&unsupported.stderr)
         .contains("explicit camera-worker provider workflow"));
+    source["press_confirm_us"] = 0.into();
+    fs::write(&session, source.to_string()).unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("gesture settings must match"));
+    fs::write(
+        &modes,
+        r#"{"cursor_output":{},"gestures":{"confirm_us":0}}"#,
+    )
+    .unwrap();
+    assert!(check().status.success());
+    source["pointer_cursor_output"]["click_stabilization"] = serde_json::json!({"radius":0});
+    fs::write(&session, source.to_string()).unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("click stabilization requires"));
+    source["pointer_cursor_output"]
+        .as_object_mut()
+        .unwrap()
+        .remove("click_stabilization");
     source["pointer_cursor_output"]["prediction_us"] = 100_001.into();
     fs::write(&session, source.to_string()).unwrap();
     assert!(String::from_utf8_lossy(&check().stderr).contains("prediction0..100ms"));

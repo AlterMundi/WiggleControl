@@ -18,6 +18,17 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+Current one-hand work adds opt-in bounded drag continuity, independent absolute
+cursor output and brief click stabilization. The
+[interaction comparison](research/one-hand-interaction-2026-10.md) records
+synthetic smoothness/click gains, lag/overshoot costs and unchanged button counts
+under stabilization on older retained observations. Explicit single-observation
+onset improves short synthetic pinches but admits false closures; confirmation
+remains40ms by default. None of these profiles is installed or human-accepted.
+Receiving issue[#8](https://github.com/AlterMundi/WiggleControl/issues/8), actual
+double-click/drop behavior and integrated seated-use acceptance remain open.
+The human reconfirmed Farscape use; continue locally until the Pi is available.
+
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,
 100 executions/50 matched pairs retain exact public detector outputs, including

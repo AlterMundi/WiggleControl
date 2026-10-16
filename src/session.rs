@@ -47,6 +47,9 @@ pub struct SessionConfig {
     pub gain: f64,
     #[serde(default = "default_freshness_ms")]
     pub freshness_ms: u64,
+    /// Zero explicitly selects single-observation onset; default remains temporal.
+    #[serde(default = "default_press_confirm_us")]
+    pub press_confirm_us: u64,
     #[serde(default)]
     pub pinch_3d: bool,
     /// Explicit projected metric experiment. Never an estimate in meters.
@@ -108,6 +111,9 @@ fn default_open_m() -> f64 {
 fn default_freshness_ms() -> u64 {
     150
 }
+fn default_press_confirm_us() -> u64 {
+    Config::default().confirm_us
+}
 fn default_close_ratio() -> f64 {
     Config::default().close_ratio
 }
@@ -161,6 +167,7 @@ impl SessionConfig {
             open_ratio: self.pinch_open_ratio,
             adaptive_smoothing: self.adaptive_smoothing,
             drag_grace_us: self.pointer_drag_grace_ms.saturating_mul(1000),
+            confirm_us: self.press_confirm_us,
             ..Config::default()
         }
     }

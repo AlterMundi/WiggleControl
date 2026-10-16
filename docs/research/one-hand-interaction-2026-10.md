@@ -235,6 +235,97 @@ reserved for Farscape. The next iteration must address pinch-induced cursor drif
 release evidence stability and real application double-click/drag requirements,
 then compare the integrated candidate using actual receiving timing and human use.
 
+## Click stabilization and sampling limits
+
+Source inspection confirms that the provider cursor already uses the midpoint of
+index/pinky MCP landmarks5/17, mirrored horizontally. It is not the index tip.
+The existing palm anchor and accepted workspace are preserved. Pinch-induced
+cursor drift is a synthetic counterexample and a possible physical effect, not a
+verified explanation of the reported double-click failure.
+
+An optional `cursor_output.click_stabilization` holds the preceding visible cursor
+while closing/early press stays within a small radius. Radius exit or a finite
+closing/pressed deadline disables locking for the remainder of that gesture, so
+fine drags eventually move too. A release while locked is emitted at the held
+point before hover resumes. Real observed position/source and button decisions
+are preserved; `click_locked` is distinct from uncertainty `frozen`. Defaults for
+this inner option are radius0.008 normalized screen units, closing200ms and
+pressed150ms; the option itself remains absent by default. Session and controller
+objects must match before acquisition.
+
+Five profiles run the same14 generated command streams with5ms ticks,68ms
+observations and65ms supplied delay:70 cases, identical input bytes, all neutral
+at EOF. Measurement binary SHA256:
+`718608081cd95067cc6840ff1558e1a2954a940af68400285e11be695c548bef`.
+
+| Candidate | Pinch-drift press separation(px) | Fine-drag target RMS(px) |
+| --- | ---: | ---: |
+|Reconstruction reference, no click lock |21.65|1.25|
+|Click lock, pressed80ms |0.41|1.31|
+|Click lock, pressed150ms |0.26|1.45|
+|Click lock, pressed300ms |0.26|2.03|
+
+These are two emitted presses, not an application's accepted double-click. Longer
+locking improves this stationary example while delaying fine movement. Gap-return
+maxstep remains76.79px; the isolated noisy opening still interrupts the held drag.
+The click stabilizer does not solve those separate problems.
+
+### Temporal confirmation is limited by observations
+
+`tools/score_click_timing.py` supplies two known closures at a stable target across
+17 phases of a68ms source schedule,5ms ticks and65ms supplied delay. Each profile
+runs102 cases. Actual encoded mouse events are identical under40ms and1ms press
+confirmation in every case. Any positive confirmation below68ms still needs a
+second closed observation. Explicit0ms can use the first eligible closed sample;
+prior open evidence and onset permission remain required. It is configurable as
+`gestures.confirm_us:0` and matching session `press_confirm_us:0`, not adopted.
+
+| Closure/open interval(ms) | Two complete pairs/17 phases,40ms |1ms |0ms |
+| --- | ---: | ---: | ---: |
+|60/80 |0|0|14|
+|80/80 |0|0|17|
+|100/100 |7|7|17|
+|140/100 |17|17|17|
+|200/100 |17|17|17|
+|140/40 |10|10|10|
+
+All306 cases end neutral. A40ms open interval can fall between observations, so
+neither policy can reliably distinguish the two closures; no extra click is
+synthesized. For the140/100 case, first-gesture down occurs median165ms after its
+known intent onset with40/1ms confirmation,97ms with0ms. Those include the
+assumed65ms delay and sampling phase: they are not measured camera/device latency.
+The measurement binary is the same as the motion table above.
+
+The added resting-hand counterexample supplies one false closed observation while
+known synthetic intent stays open. It emits no press at40ms and one unwanted
+press at0ms. Shorter confirmation therefore has a concrete false-action cost;
+default40000us remains unchanged. Increasing actual useful observation cadence is
+another candidate, but requested capture FPS is not proof of delivered cadence.
+No camera controls or receiving settings were inspected/changed during Farscape.
+
+### Cross-check against retained provider outputs
+
+Six device-free pipeline executions reuse the same two older windows from the
+preceding retained comparison:796 and1087 normalized predictions, preserving
+source/arrival intervals, ambiguity and hands. Provider inference is not repeated;
+the previously saved provider receipts are translated into controller frames.
+All three profiles within each window consume identical commands, use1000ms drag
+grace, and end with matching releases and neutral EOF. Binary SHA256:
+`73cc51bf8b28c9a9b4377494e1e757b8baa14bb6c2e8364b56b38bcfe98cecfc`.
+
+The150ms click stabilizer preserves12/18 presses and11.382696/21.486957s held time.
+Its encoded motion differs from the reconstruction reference by up to18.61/16.21px.
+That is an intervention size, not an accuracy improvement: no independent intended
+cursor labels exist. Adding0ms confirmation gives12/22 presses and12.233388/
+24.237793s held time. The four additional presses cannot be classified as recovered
+intent or false positives from these unlabelled outputs. This is another reason
+not to adopt single-observation onset from the synthetic success count alone.
+
+Native-feature tests and Clippy pass, including stable down/up position, bounded
+locking, intentional/fine drag escape, onset veto, Stop and explicit zero-onset
+rearming. No Pi operation or physical/application acceptance occurs. The human
+explicitly reconfirmed continued Farscape use; receiving work remains deferred.
+
 ## Next comparison
 
 Keep the new bounded continuity and cursor reconstruction protocols while tuning

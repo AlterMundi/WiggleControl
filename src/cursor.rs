@@ -4,6 +4,37 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct ClickConfig {
+    pub radius: f64,
+    pub closing_us: u64,
+    pub pressed_us: u64,
+}
+impl Default for ClickConfig {
+    fn default() -> Self {
+        Self {
+            radius: 0.008,
+            closing_us: 200_000,
+            pressed_us: 150_000,
+        }
+    }
+}
+impl ClickConfig {
+    fn validate(self) -> Result<(), &'static str> {
+        if !self.radius.is_finite()
+            || !(0.0001..=0.05).contains(&self.radius)
+            || !(20_000..=500_000).contains(&self.closing_us)
+            || !(20_000..=500_000).contains(&self.pressed_us)
+        {
+            return Err(
+                "click stabilization requires radius0.0001..0.05 and closing/pressed20..500ms",
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub interval_us: u64,
     pub smoothing_us: f64,
@@ -14,6 +45,7 @@ pub struct Config {
     pub velocity_smoothing_us: f64,
     /// Euclidean speed in normalized screen coordinates/second.
     pub max_speed_per_s: f64,
+    pub click_stabilization: Option<ClickConfig>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -25,11 +57,15 @@ impl Default for Config {
             consistent_prediction: true,
             velocity_smoothing_us: 80_000.0,
             max_speed_per_s: 2.0,
+            click_stabilization: None,
         }
     }
 }
 impl Config {
     pub fn validate(self) -> Result<(), &'static str> {
+        if let Some(click) = self.click_stabilization {
+            click.validate()?;
+        }
         if !(4_000..=50_000).contains(&self.interval_us)
             || !self.smoothing_us.is_finite()
             || !(0.0..=200_000.0).contains(&self.smoothing_us)
@@ -56,6 +92,97 @@ pub struct Sample {
     pub estimated: Point,
     pub prediction_us: u64,
     pub frozen: bool,
+    pub click_locked: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+enum Click {
+    #[default]
+    Idle,
+    Locked {
+        observed: Point,
+        output: Point,
+        started: u64,
+        pressed_at: Option<u64>,
+    },
+    Bypass,
+    Release,
+}
+impl Click {
+    fn deadline(self, config: ClickConfig) -> Option<u64> {
+        match self {
+            Self::Locked {
+                started,
+                pressed_at,
+                ..
+            } => Some(pressed_at.map_or_else(
+                || started.saturating_add(config.closing_us),
+                |t| t.saturating_add(config.pressed_us),
+            )),
+            _ => None,
+        }
+    }
+    fn observe(
+        &mut self,
+        config: ClickConfig,
+        now: u64,
+        observed: Point,
+        active: bool,
+        pressed: bool,
+        previous: Option<Sample>,
+    ) -> Option<Point> {
+        if !active {
+            let released = match *self {
+                Self::Locked {
+                    output,
+                    pressed_at: Some(_),
+                    ..
+                } => Some(output),
+                _ => None,
+            };
+            *self = if released.is_some() {
+                Self::Release
+            } else {
+                Self::Idle
+            };
+            return released;
+        }
+        if matches!(self, Self::Idle | Self::Release) {
+            let anchor = previous
+                .map(|s| (s.observed, s.estimated))
+                .unwrap_or((observed, observed));
+            *self = Self::Locked {
+                observed: anchor.0,
+                output: anchor.1,
+                started: now,
+                pressed_at: pressed.then_some(now),
+            };
+        }
+        if self
+            .deadline(config)
+            .is_some_and(|deadline| now >= deadline)
+        {
+            *self = Self::Bypass;
+            return None;
+        }
+        if let Self::Locked {
+            observed: anchor,
+            output,
+            pressed_at,
+            ..
+        } = self
+        {
+            if observed.distance(*anchor) > config.radius {
+                *self = Self::Bypass;
+                return None;
+            }
+            if pressed && pressed_at.is_none() {
+                *pressed_at = Some(now);
+            }
+            return Some(*output);
+        }
+        None
+    }
 }
 
 pub(crate) struct Cursor {
@@ -64,6 +191,7 @@ pub(crate) struct Cursor {
     velocity: Point,
     next_emit_us: u64,
     consistent_intervals: u8,
+    click: Click,
 }
 fn alpha(dt_us: u64, tau_us: f64) -> f64 {
     if tau_us == 0.0 {
@@ -93,6 +221,7 @@ impl Cursor {
             velocity: Point { x: 0.0, y: 0.0 },
             next_emit_us: 0,
             consistent_intervals: 0,
+            click: Click::Idle,
         })
     }
     pub fn reset(&mut self) {
@@ -100,6 +229,7 @@ impl Cursor {
         self.velocity = Point { x: 0.0, y: 0.0 };
         self.next_emit_us = 0;
         self.consistent_intervals = 0;
+        self.click = Click::Idle;
     }
     pub fn feedback(&self) -> Option<Sample> {
         self.sample
@@ -109,6 +239,8 @@ impl Cursor {
         source_us: u64,
         now: u64,
         observed: Point,
+        closing: bool,
+        pressed: bool,
     ) -> Result<(), &'static str> {
         if source_us > now
             || !observed.valid()
@@ -118,8 +250,15 @@ impl Cursor {
         {
             return Err("cursor observation requires ordered, finite source evidence");
         }
+        let lock = self.config.click_stabilization.and_then(|cfg| {
+            self.click
+                .observe(cfg, now, observed, closing || pressed, pressed, self.sample)
+        });
         if let Some(sample) = &mut self.sample {
-            if sample.frozen {
+            if sample.frozen || sample.click_locked {
+                if sample.click_locked {
+                    sample.estimated_us = now;
+                }
                 self.velocity = Point { x: 0.0, y: 0.0 };
                 self.consistent_intervals = 0;
             } else {
@@ -149,6 +288,7 @@ impl Cursor {
             sample.observed = observed;
             sample.source_us = source_us;
             sample.frozen = false;
+            sample.click_locked = false;
         } else {
             self.sample = Some(Sample {
                 source_us,
@@ -158,8 +298,19 @@ impl Cursor {
                 estimated: observed,
                 prediction_us: 0,
                 frozen: false,
+                click_locked: false,
             });
             self.next_emit_us = now.saturating_add(self.config.interval_us);
+        }
+        if let Some(point) = lock {
+            let sample = self.sample.as_mut().unwrap();
+            sample.estimated = point;
+            sample.predicted = point;
+            sample.estimated_us = now;
+            sample.prediction_us = 0;
+            sample.click_locked = true;
+            self.velocity = Point { x: 0.0, y: 0.0 };
+            self.consistent_intervals = 0;
         }
         Ok(())
     }
@@ -179,11 +330,35 @@ impl Cursor {
         Ok(())
     }
     pub fn sample(&mut self, now: u64, force: bool) -> Result<Option<Sample>, &'static str> {
+        if self.config.click_stabilization.is_some_and(|cfg| {
+            self.click
+                .deadline(cfg)
+                .is_some_and(|deadline| now >= deadline)
+        }) {
+            self.click = Click::Bypass;
+            if let Some(sample) = &mut self.sample {
+                sample.click_locked = false;
+            }
+            self.velocity = Point { x: 0.0, y: 0.0 };
+            self.consistent_intervals = 0;
+        }
         let Some(sample) = &mut self.sample else {
             return Ok(None);
         };
         if now < sample.estimated_us {
             return Err("cursor clock regressed");
+        }
+        if sample.click_locked {
+            if force {
+                sample.estimated_us = now;
+                let locked = *sample;
+                if matches!(self.click, Click::Release) {
+                    self.click = Click::Idle;
+                    sample.click_locked = false;
+                }
+                return Ok(Some(locked));
+            }
+            return Ok(None);
         }
         if sample.frozen || (!force && now < self.next_emit_us) {
             return Ok(None);

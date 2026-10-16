@@ -33,6 +33,18 @@ freeze/recovery, Stop/source expiry and owner-handoff tests pass. No new receivi
 run/deployment occurs. The report above owns precise scope and non-adoption;
 next: pinch-induced drift, release stability and actual app requirements.
 
+An additional optional click stabilizer temporarily holds the visible point during
+closing/early press, yielding to displacement or a finite deadline. It preserves
+the real observed target and button decisions. Five identical-input profiles over
+14 synthetic cases reduce pinch-correlated press separation21.65→0.26px with the
+150ms candidate, while slightly worsening fine-drag lag. Three102-case sampling
+sweeps show40→1ms confirmation changes no mouse events at68ms observations;
+explicit0ms recognizes shorter pinches but accepts a false one-frame closure.
+Older retained outputs also show18→22 presses in one window with0ms, without
+intent labels to classify them. Default confirmation remains40ms and stabilization
+is absent by default. Native tests/Clippy pass; all work remains local. The human
+reconfirmed Farscape occupancy: no receiving screen, input, camera or deployment.
+
 After further manual use, Nicolás reports generally reasonable functionality,
 accurate target reach and good-looking hand/pinch tracking, with unreliable double
 pinch double-click, premature drag release and visibly stepped cursor movement.
@@ -64,8 +76,9 @@ until-Stop usage. The wider goal is paused and retains its full scope. Dashboard
 WG1/Stop WG1 entry and manual ARM64 beta are delivered. First human use exposed
 a desktop drag that persisted after source shutdown/device removal. Escape and
 a virtual-pointer click failed; restarting only PCManFM's desktop process cleared
-it, verified after pointer movement. Both beta units are stopped pending a
-camera-free kernel/application delivery reproduction. Application acceptance
+it, verified after pointer movement. Both beta units were stopped at the last
+receiving inspection, pending a camera-free kernel/application reproduction.
+No new live inspection occurred during Farscape. Application acceptance
 failed; the cause remains unknown. See BETA-1.md for evidence and next work.
 
 ## Active controller-evolution goal —2026-10-15

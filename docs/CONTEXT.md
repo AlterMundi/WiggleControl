@@ -9,8 +9,14 @@ warmup endpoint avoids using a human image for graph preparation. Explicit
 provider-camera-preflight performs no acquisition or device creation; live
 provider-camera requires fresh human readiness, recording and optional --inject.
 Camera/recording state stays distinct from the retained warmup image. Final
-neutral/error feedback remains visible. Source integration is not physical
-acceptance or an everyday runtime selection; receiving checks remain pending.
+neutral/error feedback remains visible. Source4385fdd now passes source-bound ARM64 receiving preflight, a zero-capture
+missing-camera failure/close test and the synthetic regression (13.93Hz/80.576ms
+median,65.6% near wall time). A controlled close-ack hold exposes a terminal-view
+race; the corrected run waits for a run-scoped view receipt and model close
+after camera/input teardown. Actual SESSION ERROR and SESSION ENDED views fit
+1920×1080 and retain both receipts. Physical camera/input and everyday-runtime
+selection remain unqualified; next is a fresh-ready finite recorded camera trial.
+This continuation is dated2026-10-16; earlier measured source dates are retained.
 
 Latest [real-clock receiving comparison](research/realtime-worker-2026-10.md)
 qualifies actual synthetic JPEG→GPU worker→Rust on Pi. At identical one-contact

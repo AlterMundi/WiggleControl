@@ -161,3 +161,52 @@ before interpreting this narrow one-hand gain as robust control. Then qualify
 finite camera-to-input use, real applications and human comfort. The receiving
 manual artifact is usable for finite camera/device-free fixtures only; it is
 not an enabled everyday camera controller or boot service.
+
+## Camera-source preparation and terminal visibility — 2026-10-16
+
+Source18674ef connects the existing driver-monotonic V4L capture, private raw
+recorder, controller modes and independent native writer to this worker seam.
+Sourceb6cbc18 distinguishes driver-stamp timing from encoded fixture publication.
+The new finite camera command and sensor/device-free preflight are documented in
+[the transport contract](../PROVIDER-TRANSPORT.md#explicit-finite-camera-source).
+It requires private recording, explicit graph capacity and a fresh human ready
+acknowledgment; system input remains a separate explicit option. Original runtime,
+profile/calibration, power selection and earlier prepared trial remain intact.
+
+Actual receiving preflight checks the saved calibrated workspace, explicit0.5
+provider floor, public warmup/SDK/model assets and existing device access without
+acquiring sensors or creating an input device. The code reuses recording/v1;
+synthetic graph warmup never becomes a camera frame or human annotation. This
+is preparation evidence, not a successful physical stream or application test.
+
+A deliberate nonexistent camera path then exercises the actual Pi GPU worker
+and live-source error path. It retains zero driver/published frames, a real
+producer error, neutral final input and acknowledged worker close. Its first
+terminal DOM instead says reconnecting: worker-close acknowledgment can end the
+listener before the preview polls its terminal metadata. Holding only that
+POST acknowledgment1000ms on the sameb6 source makes the correct SESSION ERROR
+view persist. This isolates a visibility/lifecycle race; it is unrelated to the
+earlier delayed-result held-contact watchdog test.
+
+Correction4385fdd (ARM64/native/replay CI38827867803) adds a run-scoped terminal
+view acknowledgment after two animation frames. The listener waits for both
+view and worker-close receipts, bounded by2seconds, after camera/input teardown.
+A stale or pre-publication acknowledgment is rejected. Missing view receipts
+stay explicit and do not become observed human perception. No new capture follows.
+
+Actual source-bound ARM64 receiving verification reproduces the nonexistent-
+camera error **without** interception, with terminal_visible=true, worker_closed=
+true, zero frames/contacts/input and retained SESSION ERROR / camera not acquired
+feedback. The displayed page fits1920×1080 without scroll. The normal public-
+synthetic regression captures189/accepts88/skips101/expires0, at13.93Hz and
+80.576ms median/101.748ms p95 encoded-publication→meaning. Full-source near
+coverage is984.949/1500.656ms (65.6%), with zero open-hold contact time. Both
+terminal receipts are true and final contacts empty. This confirms the new
+source/recording/writer connection does not remove the narrow fixture gain;
+it does not establish physical hand accuracy or OS/application delivery.
+
+The manual experiment artifact is usable for finite synthetic qualification and
+preflight, and prepared for a fresh human-directed camera trial. It is not a
+selected everyday controller or boot capture service. Broad negatives, crossings/
+ownership, visual macros/image-depth, participant roles, continuous GPU use and
+human/application comfort remain required by the full roadmap.

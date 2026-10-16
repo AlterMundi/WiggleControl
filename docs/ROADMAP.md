@@ -1,6 +1,6 @@
 # Camera controller roadmap
 
-Updated 2026-10-15. This is the current development entry point. The original
+Updated 2026-10-16. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.
@@ -27,9 +27,11 @@ holds and44% of expected near wall time. Delayed-result releases at302.739ms
 failures, controlled comparisons and reproducible scoring. No camera or OS input
 is opened. The explicit finite camera source now reuses timestamp-validated capture/private
 recording and the independent native writer through this seam, with a sensor-free
-preflight and fixed graph selection. Receiving camera/input execution is not yet
-qualified. Next: verify the staged source, broaden negative/ownership coverage
-and qualify human/application use. Keep live calibration,
+preflight and fixed graph selection. Source4385fdd receiving preflight, zero-capture missing-camera cleanup and
+normal synthetic regression now pass; terminal feedback is acknowledged before
+listener shutdown. Physical camera/input execution remains unqualified. Next:
+a fresh-ready finite recorded camera trial, broader negative/ownership coverage
+and human/application acceptance. Keep live calibration,
 selected runtime and original prepared trial intact; do not stretch freshness
 to hide processing cost.
 

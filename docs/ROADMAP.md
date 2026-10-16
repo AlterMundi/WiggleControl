@@ -24,7 +24,8 @@ cursor output and brief click stabilization. The
 synthetic smoothness/click gains, lag/overshoot costs and unchanged button counts
 under stabilization on older retained observations. Explicit single-observation
 onset improves short synthetic pinches but admits false closures; confirmation
-remains40ms by default. None of these profiles is installed or human-accepted.
+remains40ms by default. The optional profiles are staged separately for finite
+comparison; none is selected for WG1 or human-accepted.
 Receiving issue[#8](https://github.com/AlterMundi/WiggleControl/issues/8), actual
 double-click/drop behavior and integrated seated-use acceptance remain open.
 The human subsequently freed the Pi and explicitly resumed the one-hand goal.
@@ -45,12 +46,16 @@ usage sequence rather than inferring a cause. Exact-position mouse pairs open th
 owned folder at300ms but not500ms; pinch-to-double-click and spatial tolerance still
 need actual qualification. See the trace report for limits.
 
-An a1cbb99 ARM64 candidate is separately staged with reference and optional smooth/
-one-second drag-grace configs; both receiving preflights pass without camera/input.
-The selected beta, calibration and disabled macros are unchanged. Next qualify
-reversible A/B standby/Stop and input observation, then request fresh readiness for
-physical seated-use comparison. Preflight and the synthetic motion gains above do
-not establish SDK throughput, actual cursor cadence or human comfort.
+A d8f9bb9 ARM64 candidate stages the same reference and optional smooth/one-second
+drag-grace profiles with [manual finite trials and independent input observation](ONE-HAND-TRIAL.md).
+Both receiving preflights pass; actual idle beyond89s and frontend Stop confirm
+no acquisition and successful provider/observer teardown. The actual1920x1018
+standby fits the display. A camera-free owned-folder case independently retained
+the virtual mouse's down/up and device removal; issue#8 remains unreproduced.
+The selected beta, calibration and disabled macros are unchanged. Next obtain
+fresh readiness for a45s seated-use comparison, preserving private video and
+semantic/kernel evidence. Standby and synthetic gains do not establish actual
+camera throughput, motion cadence, natural double-pinch or human comfort.
 
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,

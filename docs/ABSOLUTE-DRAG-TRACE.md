@@ -188,3 +188,20 @@ it does not diagnose the human's failed double pinch. Both owned test views were
 closed with individually guarded finite native clicks, and remaining empty click
 fixtures were identity-checked before removal. The original desktop process stayed
 in place. No human folder, desktop setting or physical input configuration changed.
+
+## Independent trial observer qualification —2026-10-16
+
+The new [finite trial observer](ONE-HAND-TRIAL.md) was attached to one exact owned
+writer before its first scripted packet. During one fresh camera-free desktop
+folder move, it and the existing fixture observer each retained47 records, one
+down/up, no loss or partial records and subsequent device removal. The original
+empty source moved by identity; an inspected cursor-alive hover image showed no
+floating folder. Only that verified empty fixture was removed afterwards.
+
+The independent observer retains its own read timestamps and labels kernel clock
+identity unverified. Agreement on event counts/edges does not measure independent
+read latency. Initial button state and general startup coverage remain unknown;
+this case's gated packet start does not establish complete future camera-session
+coverage. A later manual45s standby/Stop test correctly ended without attaching
+to any input device. Actual human Beta input observation is the next step;
+issue#8 remains open, unreproduced and without a demonstrated cause or fix.

@@ -186,3 +186,37 @@ The manifest's receiving-qualified flag remains false. Actual SDK/provider timin
 input observation, reversible A/B launcher/standby preparation and fresh-ready
 physical trials are next. Installed1cf0aed remains the selected beta. There is no
 new background model, camera, input writer or discarded experiment service.
+
+## Manual finite comparison preparation —2026-10-16
+
+Source `d8f9bb920776caaba8d5ab386230d757b286c8ce`, CI38956972191, passes
+replay/native/ARM64 jobs. Receiving executable SHA256 is
+`a9af09be68df91dd12dc534296c7f2e7865e2a3457d1ac14cf681f3d6532e34f`.
+It adds the [manual finite trial/observer tools](ONE-HAND-TRIAL.md), using the
+same reference/smooth configuration bytes described above. The separate trial
+units are manually started, not enabled, with no restart. WG1 still selects1cf0aed;
+the calibration, models, recording root, physical input and power profile remain.
+
+Both manual45s preflights pass with recording configured and acquisition off.
+An actual source/browser remained idle for at least89.7s with no virtual mouse,
+camera captured0 and no input started. Rendered standby is1920x1018, without
+page overflow; Start/Stop fit and the right panel margin is preserved. The initial
+1440x990 restored browser window required explicit compositor maximization;
+the startup flag alone did not establish desktop fit. Clicking the actual
+frontend Stop ended the provider and observer with exit0, reaped both and left
+the unit inactive/success, no virtual node and empty stderr. No camera/model
+trial ran. Observer startup coverage correctly remains unknown before attachment.
+
+A separate camera-free owned-folder move qualified the new independent observer
+against the existing fixture observer: each retained47 records, one down/up,
+no loss/partial records and device removal. Original source identity moved and
+the inspected cursor-alive image showed no floating folder; the empty fixture
+was then retired. Attachment preceded all scripted packets in this particular
+case. This is event/lifecycle evidence, not a signed ownership claim, issue#8
+reproduction, natural pinch accuracy or end-to-end latency measurement.
+
+The receiving runbook owns exact trial selection/Stop/rollback and private logs.
+Physical45s comparison remains pending fresh human readiness and manual Start.
+Keep camera video, semantic journal, raw kernel edges, application result and
+human observations separate; do not promote this candidate to the everyday beta
+or mark its manifest receiving-qualified from standby/source checks alone.

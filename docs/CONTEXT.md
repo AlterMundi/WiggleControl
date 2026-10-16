@@ -12,12 +12,16 @@ application evidence, not pinch recognition or human comfort acceptance. See
 [the trace report](ABSOLUTE-DRAG-TRACE.md). Owned views/empty fixtures were retired;
 no app restart, camera or production runtime/profile switch occurred.
 
-A separate a1cbb99 ARM64 candidate is staged on the Pi, with byte-preserved reference
-configs and an opt-in smooth/one-second drag-grace profile. Both pass the supported
-camera-worker preflight without acquisition or input. It has no activated service
-or selected user launcher yet; installed Beta1 is unchanged. Next prepare reversible
-A/B use with actual input observation, then obtain fresh human readiness for the
-physical test. The old workbench remains closed.
+A separate d8f9bb9 ARM64 candidate now provides a manual-Start, finite45s trial
+and independent virtual-event observation. Reference and optional smooth/one-second
+drag-grace profiles preserve the earlier a1cbb99 configuration bytes. Both pass
+receiving preflight. Actual standby remained camera/input off beyond89s; rendered
+1920x1018 controls fit, and frontend Stop reaped provider/observer successfully
+without acquisition. The independent observer also qualified against a camera-free
+owned-folder move. See [ONE-HAND-TRIAL.md](ONE-HAND-TRIAL.md) and the latest
+[Beta receiving checkpoint](BETA-1.md#manual-finite-comparison-preparation-2026-10-16).
+WG1 still selects installed1cf0aed; physical candidate acceptance and issue#8 remain
+pending. Obtain fresh human readiness before Start. The old workbench remains closed.
 
 The human resumed the existing one-hand goal and explicitly freed the Pi on
 2026-10-16; its objective/accounting were preserved. Camera-free desktop tests

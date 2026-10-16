@@ -249,6 +249,29 @@ pub enum Event {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseConfig {
+    /// Successive eligible openings without intervening measured closure/deadband.
+    pub confirm_us: u64,
+    /// A wider opening bypasses confirmation. Relative to the selected open metric.
+    pub immediate_open_factor: f64,
+}
+impl ReleaseConfig {
+    fn validate(self, stale_us: u64) -> Result<(), &'static str> {
+        if !(1_000..=200_000).contains(&self.confirm_us)
+            || self.confirm_us >= stale_us
+            || !self.immediate_open_factor.is_finite()
+            || !(1.0..=3.0).contains(&self.immediate_open_factor)
+        {
+            return Err(
+                "release confirmation requires1..200ms below freshness and open factor1..3",
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub min_confidence: f64,
@@ -257,6 +280,9 @@ pub struct Config {
     pub close_m: f64,
     pub open_m: f64,
     pub confirm_us: u64,
+    /// Opt-in opening evidence filter; omission preserves immediate release.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_confirmation: Option<ReleaseConfig>,
     pub stale_us: u64,
     /// Opt-in bounded continuity of an established drag; never source freshness.
     #[serde(skip_serializing_if = "is_zero")]
@@ -275,6 +301,7 @@ impl Default for Config {
             close_m: 0.02,
             open_m: 0.03,
             confirm_us: 40_000,
+            release_confirmation: None,
             stale_us: 150_000,
             drag_grace_us: 0,
             smoothing_us: 30_000.0,
@@ -289,6 +316,7 @@ struct PinchTrack {
     armed: bool,
     held: bool,
     candidate: Option<u64>,
+    opening: Option<u64>,
     vetoed: bool,
 }
 impl PinchTrack {
@@ -298,17 +326,31 @@ impl PinchTrack {
         distance: f64,
         close: f64,
         open: f64,
-        confirm_us: u64,
+        config: &Config,
         allowed: bool,
     ) {
         self.vetoed = false;
         if distance >= open {
+            if self.held {
+                if let Some(release) = config.release_confirmation {
+                    if distance < open * release.immediate_open_factor {
+                        let since = *self.opening.get_or_insert(source_us);
+                        if source_us - since < release.confirm_us {
+                            return;
+                        }
+                    }
+                }
+            }
             self.held = false;
             self.armed = true;
             self.candidate = None;
-        } else if distance <= close && self.armed && !self.held {
+            self.opening = None;
+            return;
+        }
+        self.opening = None;
+        if distance <= close && self.armed && !self.held {
             let since = *self.candidate.get_or_insert(source_us);
-            if source_us - since >= confirm_us {
+            if source_us - since >= config.confirm_us {
                 if allowed {
                     self.held = true;
                     self.candidate = None;
@@ -328,6 +370,13 @@ pub struct DragHold {
     pub source_us: u64,
     pub until_us: u64,
     pub in_grace: bool,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct ReleasePending {
+    pub since_source_us: u64,
+    pub elapsed_us: u64,
+    pub required_us: u64,
 }
 
 pub struct Engine {
@@ -350,6 +399,9 @@ pub struct Engine {
 }
 impl Engine {
     pub fn new(config: Config) -> Result<Self, &'static str> {
+        if let Some(release) = config.release_confirmation {
+            release.validate(config.stale_us)?;
+        }
         if let Some(filter) = config.adaptive_smoothing {
             filter.validate()?;
         }
@@ -428,6 +480,15 @@ impl Engine {
         } else {
             false
         }
+    }
+    pub fn release_pending(&self) -> Option<ReleasePending> {
+        let required_us = self.config.release_confirmation?.confirm_us;
+        let since_source_us = self.pinches.iter().filter_map(|p| p.opening).min()?;
+        Some(ReleasePending {
+            since_source_us,
+            elapsed_us: self.last_source?.saturating_sub(since_source_us),
+            required_us,
+        })
     }
     pub fn pinch_state(&self) -> &'static str {
         if !self.running {
@@ -635,7 +696,7 @@ impl Engine {
             distance,
             close,
             open,
-            self.config.confirm_us,
+            &self.config,
             hand.pinch_onset_allowed,
         );
         if let Some(secondary) = hand
@@ -652,7 +713,7 @@ impl Engine {
                 secondary.distance_m,
                 self.config.close_m,
                 self.config.open_m,
-                self.config.confirm_us,
+                &self.config,
                 secondary.onset_allowed,
             );
         } else {

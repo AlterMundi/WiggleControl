@@ -89,6 +89,8 @@ pub struct Output {
     pub button_down: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub drag_hold: Option<crate::DragHold>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_pending: Option<crate::ReleasePending>,
     pub mouse: Vec<Event>,
     /// Complete current contact set, including an empty release frame.
     pub contacts: Vec<Contact>,
@@ -138,6 +140,7 @@ impl Controller {
             touches: touch_gestures::Gestures::new(
                 Config {
                     drag_grace_us: 0,
+                    release_confirmation: None,
                     ..settings.gestures
                 },
                 settings.workspace,
@@ -167,6 +170,7 @@ impl Controller {
             pointer_ready: self.pointer_ready,
             button_down: self.pointer.pinch_state() == "pressed",
             drag_hold: self.pointer.drag_hold(),
+            release_pending: self.pointer.release_pending(),
             mouse,
             contacts: self.contacts.clone(),
             awaiting_open_hands: self.touches.awaiting_open_hands(),

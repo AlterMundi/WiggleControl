@@ -326,12 +326,93 @@ locking, intentional/fine drag escape, onset veto, Stop and explicit zero-onset
 rearming. No Pi operation or physical/application acceptance occurs. The human
 explicitly reconfirmed continued Farscape use; receiving work remains deferred.
 
+## Opening evidence: drag continuity versus deliberate release
+
+Missing observations and an eligible measurement above the open threshold are
+different evidence. A second opt-in experiment, `gestures.release_confirmation`,
+requires another eligible weak-open sample after a source-clock interval, while
+an opening at least `immediate_open_factor` times the selected open metric releases
+immediately. Session `pointer_release_confirmation` must match, and unsupported
+native workflows reject it before acquisition. Omission preserves immediate
+release. The controller's touch modes explicitly keep immediate opening behavior.
+
+Pending weak opening has separate `release_pending` diagnostics with first source,
+elapsed source time and required interval; the button stays held. Closing/deadband
+cancels pending opening. Unknown evidence neither confirms nor erases it: only a
+new eligible same-owner opening can confirm. Thus repeated unknown/open reports
+do not restart confirmation indefinitely. A same-owner closed return cancels it;
+existing freshness/grace deadlines, independent writer watchdog, owner/mode change
+and Stop remain authoritative. No timer manufactures an opening observation.
+Fresh cursor motion is not separately frozen during weak-open confirmation.
+
+Four profiles each consume the same18 generated commands:72 actual pipeline
+executions, identical input bytes within each case, all neutral at EOF. Reference
+includes1000ms drag grace and the150ms click stabilizer. The new weak-opening
+profiles use factor1.25 and40/80ms confirmation; a factor3/40ms control also delays
+the fixture's wider0.6 openings. Binary SHA256:
+`a36c2653eb75160b803d187f1077274dc0e23dc3d6d8b0564b6eaf3dd9aee1eb`.
+
+| Known synthetic behavior | Immediate release | Weak40ms | Weak80ms |
+| --- | ---: | ---: | ---: |
+|One weak false-open pulse during drag: presses |2|1|1|
+|Same observations, intentional brief release: presses |2|1|1|
+|Final weak opening: additional supplied-clock release delay(ms) |0|68|136|
+|Double pinch with136ms weak open gap: presses |2|2|1|
+
+The false-open and intentional-release pair has **identical observation bytes**;
+only its declared synthetic intent differs. This ratio-only policy cannot infer
+which interpretation was intended. Rejecting the noisy release also merges the
+deliberate one. A single wider false-open still cuts the drag with factor1.25;
+factor3 filters that pulse but delays the normal wider final release by68ms.
+These are concrete costs, not a qualified improvement from increased held time.
+
+Three additional102-case phase sweeps use weak observed open ratio0.42,68ms source
+spacing and the same40ms press confirmation as before. Two complete button pairs
+out of17 phases are:
+
+| Closure/open interval(ms) | Immediate release | Weak40ms | Weak80ms |
+| --- | ---: | ---: | ---: |
+|60/80 |0|0|0|
+|80/80 |0|0|0|
+|100/100 |7|0|0|
+|140/100 |17|8|0|
+|200/100 |17|8|0|
+|140/40 |10|0|0|
+
+All306 end neutral with identical input bytes across the three profiles. Debouncing
+opening harms rapid weak-open double pinches at this source cadence. Clearer
+openings bypass the filter, but that distinction is a threshold hypothesis, not
+physical intent truth. These results reject universal opening delay as a default.
+No extra click or inferred unobserved opening is introduced to hide this limit.
+
+Eight retained-output runs, repeated after the pending-unknown refinement, preserve
+all encoded mouse batches from the first experiment. Final binary SHA256:
+`90da2425ced2810876a14af2170dae8709ad451d732eb33215fb1549c1ef50d7`.
+The same two older windows have no independent intent labels:
+
+| Profile | Window1 presses / held seconds | Window2 presses / held seconds |
+| --- | ---: | ---: |
+|Immediate release |12 /11.382696|18 /21.486957|
+|Weak40ms |12 /11.836328|18 /21.980819|
+|Weak80ms |11 /11.964388|18 /22.054900|
+|Factor3,40ms |12 /12.224126|18 /22.745865|
+
+More held time may represent recovered continuity or unwanted release delay; one
+fewer press may be a filtered false action or a lost real gesture. The available
+labels cannot decide. No profile is selected for receiving use. Tests cover weak
+confirmation, deadband cancellation, source versus consumer clocks, uncertain
+same-owner open/closed return, immediate clear opening, Stop, serialized actual
+button delivery, writer watchdog and unchanged touch release/loss. Native tests,
+pre-acquisition configuration checks and Clippy pass. All work remains local;
+Farscape occupancy and pending issue#8/application/human acceptance are unchanged.
+
 ## Next comparison
 
 Keep the new bounded continuity and cursor reconstruction protocols while tuning
 the measured tradeoff and separating pinch motion from intended cursor motion.
-Distinguish noisy opening from absent evidence and fast deliberate
-release before changing confirmation. The replay seam can evaluate these decisions
+The optional opening comparison now exposes a concrete ambiguity and double-click
+cost; retain immediate release by default until independent intent evidence supports
+a better policy. The replay seam can evaluate these decisions
 without consuming the receiving screen. Real libinput/compositor/application and
 human comfort remain separate acceptance steps. The separation of observation
 freshness, estimator liveness and bounded drag state is a candidate for selected

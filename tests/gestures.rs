@@ -465,3 +465,93 @@ fn metric_pinch_uses_depth_distance_not_projected_palm_and_preserves_hold_hyster
     e.observe(250_001, invalid);
     assert_eq!(e.pinch_block_reason(), Some("invalid_hand"));
 }
+
+#[test]
+fn release_confirmation_filters_only_consecutive_weak_open_evidence() {
+    let mut e = Engine::new(Config {
+        release_confirmation: Some(wigglecontrol::ReleaseConfig {
+            confirm_us: 40_000,
+            immediate_open_factor: 1.25,
+        }),
+        ..Config::default()
+    })
+    .unwrap();
+    e.start();
+    e.observe(1, frame(1, 7, 0.6, 0.5));
+    e.observe(20_001, frame(20_001, 7, 0.1, 0.5));
+    assert!(e
+        .observe(60_001, frame(60_001, 7, 0.1, 0.5))
+        .contains(&Event::Button { down: true }));
+    assert!(!e
+        .observe(80_001, frame(80_001, 7, 0.42, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert_eq!(e.release_pending().unwrap().elapsed_us, 0);
+    // A consumer tick cannot manufacture a second opening observation.
+    assert!(e.tick(130_001).is_empty());
+    assert_eq!(e.release_pending().unwrap().elapsed_us, 0);
+    e.observe(140_001, frame(140_001, 7, 0.39, 0.5));
+    assert!(e.release_pending().is_none()); // Deadband interrupts confirmation too.
+    e.observe(160_001, frame(160_001, 7, 0.42, 0.5));
+    assert!(!e
+        .observe(190_001, frame(190_001, 7, 0.42, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert_eq!(e.release_pending().unwrap().elapsed_us, 30_000);
+    assert!(e
+        .observe(200_001, frame(200_001, 7, 0.42, 0.5))
+        .contains(&Event::Button { down: false }));
+    assert!(e.release_pending().is_none());
+    e.observe(220_001, frame(220_001, 7, 0.1, 0.5));
+    e.observe(260_001, frame(260_001, 7, 0.1, 0.5));
+    // A clear opening releases immediately, without another sample or timer.
+    assert!(e
+        .observe(270_001, frame(270_001, 7, 0.6, 0.5))
+        .contains(&Event::Button { down: false }));
+}
+
+#[test]
+fn missing_evidence_neither_confirms_nor_erases_opening_and_stop_stays_immediate() {
+    for returns_open in [false, true] {
+        let mut e = Engine::new(Config {
+            drag_grace_us: 1_000_000,
+            release_confirmation: Some(wigglecontrol::ReleaseConfig {
+                confirm_us: 40_000,
+                immediate_open_factor: 1.25,
+            }),
+            ..Config::default()
+        })
+        .unwrap();
+        e.start();
+        e.observe(1, frame(1, 7, 0.6, 0.5));
+        e.observe(20_001, frame(20_001, 7, 0.1, 0.5));
+        e.observe(60_001, frame(60_001, 7, 0.1, 0.5));
+        e.observe(80_001, frame(80_001, 7, 0.42, 0.5));
+        assert!(e
+            .observe(
+                90_001,
+                Observation {
+                    version: 1,
+                    source_us: 90_001,
+                    hand: None
+                }
+            )
+            .is_empty());
+        assert_eq!(e.release_pending().unwrap().elapsed_us, 0);
+        // Tick/absence is no new opening evidence. A same-owner return is.
+        assert!(e.tick(300_001).is_empty());
+        let events = e.observe(
+            400_001,
+            frame(400_001, 7, if returns_open { 0.42 } else { 0.1 }, 0.5),
+        );
+        assert_eq!(
+            events.contains(&Event::Button { down: false }),
+            returns_open
+        );
+        assert!(e.release_pending().is_none());
+        if !returns_open {
+            e.observe(420_001, frame(420_001, 7, 0.42, 0.5));
+            assert_eq!(e.release_pending().unwrap().since_source_us, 420_001);
+            assert!(e.stop().contains(&Event::Button { down: false }));
+            assert!(e.release_pending().is_none());
+        }
+    }
+}

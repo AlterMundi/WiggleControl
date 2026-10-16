@@ -225,6 +225,24 @@ observations. `tools/score_click_timing.py --binary target/debug/wigglecontrol
 --output-dir NEW_DIRECTORY` compares known synthetic double pinches over sampling
 phases, without claiming application double-click acceptance or measured latency.
 
+Optional `gestures.release_confirmation` takes explicit `confirm_us` (1000..200000,
+below freshness) and `immediate_open_factor` (1..3). Matching worker sessions use
+`pointer_release_confirmation`. An established pointer hold requires successive
+eligible weak openings separated by that source interval; an opening at least
+factor×the selected open threshold releases immediately. Closing/deadband cancels
+the pending state. Unknown reports do not advance confirmation or erase previous
+opening evidence; only another eligible opening can confirm, within the existing
+freshness/grace bounds. `controller.release_pending` reports its source and elapsed/
+required interval separately from held/grace state. Stop and writer death still
+release. Controller touch modes retain immediate release.
+
+Compare `one_hand_baseline.py --release-confirm-ms 40 --release-open-factor 1.25`
+and `score_click_timing.py --open-ratio 0.42 --release-confirm-ms 40` with otherwise
+identical baseline inputs. This filter is absent by default: it merges a deliberate
+brief release that has the same observations as an isolated false opening, and
+worsens weak-open double-pinch coverage. See the report for the rejected tradeoff;
+it is an experiment, not a receiving recommendation.
+
 Tests cover button/two-slot release, transition-before-repress, watchdog latching,
 source/sequence/mode integrity, malformed/EOF cleanup, pending HTTP controls and
 pre-acquisition config agreement. The native UI was exercised on Cuevanico at

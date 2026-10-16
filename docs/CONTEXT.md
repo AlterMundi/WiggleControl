@@ -45,6 +45,15 @@ intent labels to classify them. Default confirmation remains40ms and stabilizati
 is absent by default. Native tests/Clippy pass; all work remains local. The human
 reconfirmed Farscape occupancy: no receiving screen, input, camera or deployment.
 
+Opening-evidence comparison now distinguishes weak measured opening from missing
+data. An optional source-clock filter with immediate wider-opening escape avoids
+one synthetic noisy release but merges the byte-identical deliberate short release.
+At68ms observations, weak40ms confirmation reduces two-pair coverage17→8/17 in
+the140/100ms double-pinch sweep;80ms gives0/17. Eight retained comparisons show
+more held time without intent labels to establish benefit. It stays absent by
+default; source/touch/Stop/watchdog and pre-acquisition regressions pass. All work
+remains local; the receiving runtime/calibration and issue#8 are unchanged.
+
 After further manual use, Nicolás reports generally reasonable functionality,
 accurate target reach and good-looking hand/pinch tracking, with unreliable double
 pinch double-click, premature drag release and visibly stepped cursor movement.

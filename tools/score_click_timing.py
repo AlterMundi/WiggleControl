@@ -16,7 +16,7 @@ from one_hand_baseline import observation_hand
 WAVES = ((60, 80), (80, 80), (100, 100), (140, 100), (200, 100), (140, 40))
 
 
-def fixture(close_ms, open_ms, phase_us, period_us, delay_us):
+def fixture(close_ms, open_ms, phase_us, period_us, delay_us, open_ratio=0.6):
     close, opening = close_ms * 1000, open_ms * 1000
     start = 400_000
     second = start + close + opening
@@ -31,9 +31,12 @@ def fixture(close_ms, open_ms, phase_us, period_us, delay_us):
         observed[1] += last
         gap_open += start + close <= source < second
         now = source + delay_us
+        hand = observation_hand(0.5, first or last)
+        if not first and not last:
+            hand['pinch_distance_ratio'] = open_ratio
         commands.append((now, {'type': 'frame', 'now_us': now, 'observation': {
             'version': 1, 'source_us': source, 'ambiguous': False,
-            'hands': [observation_hand(0.5, first or last)]}}))
+            'hands': [hand]}}))
     last = commands[-1][0]
     commands.extend((t, {'type': 'tick', 'now_us': t}) for t in range(5000, last + 1, 5000))
     commands.sort(key=lambda item: item[0])
@@ -48,6 +51,9 @@ def main():
     parser.add_argument('--period-ms', type=float, default=68)
     parser.add_argument('--delay-ms', type=float, default=65)
     parser.add_argument('--confirm-ms', type=float, default=40)
+    parser.add_argument('--release-confirm-ms', type=float)
+    parser.add_argument('--release-open-factor', type=float, default=1.25)
+    parser.add_argument('--open-ratio', type=float, default=0.6)
     parser.add_argument('--phases', type=int, default=17)
     args = parser.parse_args()
     period, delay, confirm = (round(t * 1000) for t in
@@ -56,19 +62,25 @@ def main():
         parser.error('Require period10..200ms, delay0..<100ms and1..100 phases')
     if not 0 <= confirm < 300_000:
         parser.error('Require confirmation0..<300ms')
+    if not 0.4 <= args.open_ratio <= 3:
+        parser.error('Require observed open ratio0.4..3')
     binary = args.binary.resolve(strict=True)
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     root = args.output_dir
     root.mkdir(parents=True, exist_ok=False)
     config = root / 'settings.json'
-    config.write_text(json.dumps({'gestures': {'min_confidence': 0.5, 'close_ratio': 0.38,
-                                              'open_ratio': 0.4, 'confirm_us': confirm,
-                                              'stale_us': 300_000}}) + '\n')
+    settings = {'gestures': {'min_confidence': 0.5, 'close_ratio': 0.38,
+                             'open_ratio': 0.4, 'confirm_us': confirm, 'stale_us': 300_000}}
+    if args.release_confirm_ms is not None:
+        settings['gestures']['release_confirmation'] = {
+            'confirm_us': round(args.release_confirm_ms*1000),
+            'immediate_open_factor': args.release_open_factor}
+    config.write_text(json.dumps(settings) + '\n')
     cases = []
     for close, opening in WAVES:
         for phase in range(args.phases):
             offset = round(phase * period / args.phases)
-            commands, observed, gap_open = fixture(close, opening, offset, period, delay)
+            commands, observed, gap_open = fixture(close, opening, offset, period, delay, args.open_ratio)
             raw = ''.join(json.dumps(c) + '\n' for _, c in commands)
             name = f'close{close}-open{opening}-phase{offset}'
             (root / (name + '-commands.jsonl')).write_text(raw)
@@ -108,6 +120,7 @@ def main():
               'tool_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'hand_fixture_tool_sha256':hashlib.sha256(Path(__file__).with_name('one_hand_baseline.py').read_bytes()).hexdigest(),
               'period_us': period, 'delay_us': delay, 'confirm_us': confirm,
+              'settings': settings, 'observed_open_ratio': args.open_ratio,
               'limits': 'Known synthetic gestures and supplied clocks/delay; no model, camera, physical accuracy or application double-click acceptance.',
               'summaries': summaries, 'cases': cases}
     (root / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')

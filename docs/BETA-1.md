@@ -25,6 +25,9 @@ adoption: the installed beta and calibration remain unchanged. Single-observatio
 press confirmation is available only by explicit matching configuration; its false
 closure counterexample prevents selecting it as the default. The Pi is reserved
 for Farscape, so issue#8 and integrated application/human acceptance remain pending.
+An optional weak-opening confirmation experiment also stays disabled: it filters
+one noisy opening but merges an indistinguishable deliberate brief release and
+reduces weak-open double-pinch coverage. More replay held time is not acceptance.
 
 ## Manual startup and use
 

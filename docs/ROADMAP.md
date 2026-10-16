@@ -28,6 +28,10 @@ remains40ms by default. None of these profiles is installed or human-accepted.
 Receiving issue[#8](https://github.com/AlterMundi/WiggleControl/issues/8), actual
 double-click/drop behavior and integrated seated-use acceptance remain open.
 The human reconfirmed Farscape use; continue locally until the Pi is available.
+The latest opening-evidence comparison also rejects universal release debounce:
+its isolated-noise benefit has a measured deliberate-release/double-pinch cost.
+Intent-labelled retained evidence and actual application trials remain necessary
+before selecting that optional policy; immediate opening remains the default.
 
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,

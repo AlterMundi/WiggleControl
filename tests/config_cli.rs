@@ -183,6 +183,35 @@ fn controller_preflight_rejects_divergent_settings_without_acquiring_any_receivi
     )
     .unwrap();
     assert!(check().status.success());
+    source["pointer_release_confirmation"] =
+        serde_json::json!({"confirm_us":40000,"immediate_open_factor":1.25});
+    fs::write(&session, source.to_string()).unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("gesture settings must match"));
+    fs::write(&modes, r#"{"cursor_output":{},"gestures":{"confirm_us":0,"release_confirmation":{"confirm_us":40000,"immediate_open_factor":1.25}}}"#).unwrap();
+    assert!(check().status.success());
+    source["pointer_cursor_output"] = serde_json::Value::Null;
+    fs::write(&session, source.to_string()).unwrap();
+    let unsupported = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .args(["camera-check", "1"])
+        .arg(&session)
+        .output()
+        .unwrap();
+    assert!(!unsupported.status.success());
+    assert!(String::from_utf8_lossy(&unsupported.stderr)
+        .contains("release confirmation is supported by the explicit camera-worker"));
+    source["pointer_cursor_output"] = serde_json::json!({});
+    source["pointer_release_confirmation"]["confirm_us"] = 300_000.into();
+    fs::write(&session, source.to_string()).unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("release confirmation requires"));
+    source
+        .as_object_mut()
+        .unwrap()
+        .remove("pointer_release_confirmation");
+    fs::write(
+        &modes,
+        r#"{"cursor_output":{},"gestures":{"confirm_us":0}}"#,
+    )
+    .unwrap();
     source["pointer_cursor_output"]["click_stabilization"] = serde_json::json!({"radius":0});
     fs::write(&session, source.to_string()).unwrap();
     assert!(String::from_utf8_lossy(&check().stderr).contains("click stabilization requires"));

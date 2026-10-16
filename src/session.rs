@@ -97,6 +97,8 @@ pub struct SessionConfig {
     #[serde(default)]
     pub pointer_drag_grace_ms: u64,
     #[serde(default)]
+    pub pointer_release_confirmation: Option<crate::ReleaseConfig>,
+    #[serde(default)]
     pub pointer_cursor_output: Option<crate::cursor::Config>,
 }
 fn default_pair_separation_widths() -> f64 {
@@ -168,6 +170,7 @@ impl SessionConfig {
             adaptive_smoothing: self.adaptive_smoothing,
             drag_grace_us: self.pointer_drag_grace_ms.saturating_mul(1000),
             confirm_us: self.press_confirm_us,
+            release_confirmation: self.pointer_release_confirmation,
             ..Config::default()
         }
     }
@@ -275,6 +278,9 @@ impl SessionConfig {
         }
         if config.pointer_drag_grace_ms > 0 && !config.provider_absolute_pointer {
             return Err("pointer drag grace requires the explicit absolute provider".into());
+        }
+        if config.pointer_release_confirmation.is_some() && !config.provider_absolute_pointer {
+            return Err("release confirmation requires the explicit absolute provider".into());
         }
         if config.pinch_3d && config.pinch_2d_reference != Pinch2dReference::PalmWidth {
             return Err("projected pinch reference requires pinch_3d=false".into());
@@ -788,6 +794,12 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     if config.pointer_cursor_output.is_some() {
         return Err(
             "cursor output is supported by the explicit camera-worker provider workflow".into(),
+        );
+    }
+    if config.pointer_release_confirmation.is_some() {
+        return Err(
+            "release confirmation is supported by the explicit camera-worker provider workflow"
+                .into(),
         );
     }
     if controller_path.is_some() && (touch || profile_path.is_some() || guided) {

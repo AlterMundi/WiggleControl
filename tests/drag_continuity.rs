@@ -42,8 +42,12 @@ struct Pipeline {
 }
 impl Pipeline {
     fn new() -> Self {
+        Self::with_release(None)
+    }
+    fn with_release(release_confirmation: Option<wigglecontrol::ReleaseConfig>) -> Self {
         let controller = Controller::new(Settings {
             gestures: Config {
+                release_confirmation,
                 stale_us: WATCHDOG,
                 drag_grace_us: 1_000_000,
                 ..Config::default()
@@ -84,6 +88,49 @@ impl Pipeline {
             batch.touch.extend(next.touch);
         }
         (output, packet, batch)
+    }
+}
+
+#[test]
+fn pending_weak_release_remains_held_through_the_wire_but_never_blocks_stop_or_watchdog() {
+    let config = || {
+        Some(wigglecontrol::ReleaseConfig {
+            confirm_us: 40_000,
+            immediate_open_factor: 1.25,
+        })
+    };
+    let weak = || {
+        let mut h = hand(7, true);
+        h.pinch_distance_ratio = Some(0.42);
+        h
+    };
+    let mut p = Pipeline::with_release(config());
+    let (out, packet, batch) = p.step(100_001, frame(100_001, vec![weak()]));
+    assert!(out.button_down && out.release_pending.is_some());
+    assert!(matches!(
+        packet,
+        Some(Packet::Frame {
+            source_us: 100_001,
+            ..
+        })
+    ));
+    assert!(!button(&batch, 0));
+    let (out, _, batch) = p.step(168_001, frame(168_001, vec![hand(7, true)]));
+    assert!(out.button_down && out.release_pending.is_none());
+    assert!(!button(&batch, 0) && !button(&batch, 1));
+    p.step(236_001, frame(236_001, vec![weak()]));
+    let (out, _, batch) = p.step(304_001, frame(304_001, vec![weak()]));
+    assert!(!out.button_down && out.release_pending.is_none());
+    assert!(button(&batch, 0));
+    for stop in [false, true] {
+        let mut p = Pipeline::with_release(config());
+        p.step(100_001, frame(100_001, vec![weak()]));
+        if stop {
+            let (out, _, batch) = p.step(100_002, Command::Stop);
+            assert!(button(&batch, 0) && out.release_pending.is_none());
+        } else {
+            assert!(button(&p.delivery.tick(400_001, WATCHDOG).unwrap(), 0));
+        }
     }
 }
 
@@ -281,6 +328,10 @@ fn drag_grace_cannot_keep_touch_contacts_or_an_unestablished_mouse_press_alive()
         gestures: Config {
             stale_us: WATCHDOG,
             drag_grace_us: 1_000_000,
+            release_confirmation: Some(wigglecontrol::ReleaseConfig {
+                confirm_us: 40_000,
+                immediate_open_factor: 1.25,
+            }),
             ..Config::default()
         },
         ..Settings::default()
@@ -308,5 +359,19 @@ fn drag_grace_cannot_keep_touch_contacts_or_an_unestablished_mouse_press_alive()
             .len(),
         1
     );
-    assert!(touch.command(frame(100_001, vec![])).contacts.is_empty());
+    let mut weak_open = hand(7, false);
+    weak_open.pinch_distance_ratio = Some(0.42);
+    assert!(touch
+        .command(frame(100_001, vec![weak_open]))
+        .contacts
+        .is_empty());
+    touch.command(frame(120_001, vec![hand(7, true)]));
+    assert_eq!(
+        touch
+            .command(frame(160_001, vec![hand(7, true)]))
+            .contacts
+            .len(),
+        1
+    );
+    assert!(touch.command(frame(200_001, vec![])).contacts.is_empty());
 }

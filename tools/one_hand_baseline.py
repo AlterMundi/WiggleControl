@@ -15,7 +15,9 @@ import subprocess
 
 CASES = ('stationary', 'linear', 'reversal', 'move_stop', 'step', 'double_pinch', 'double_pinch_drift', 'fine_drag',
          'drag_gap_272ms', 'drag_gap_816ms', 'drag_gap_1496ms',
-         'drag_gap_no_samples', 'drag_open_noise','rest_false_close')
+         'drag_gap_no_samples', 'drag_open_noise','rest_false_close',
+         'drag_weak_open_noise', 'drag_intended_brief_weak_open', 'drag_weak_release',
+         'double_pinch_weak_open')
 LATENCY_US = 65_000
 STEP_US = 68_000
 SCREEN = (1920, 1080)
@@ -38,6 +40,8 @@ def position(case, t):
 
 def closed(case, t):
     if case.startswith('drag_'):
+        if case == 'drag_intended_brief_weak_open' and 680_001 <= t < 748_001:
+            return False
         return 136_001 <= t < 2_176_001
     if case == 'fine_drag':
         return 136_001 <= t < 2_176_001
@@ -63,7 +67,13 @@ def fixture(case, tick_us=16_667):
             x += 0.004 if source < 400_000 else -0.004
         observed_closed = (closed(case, source) and not (case == 'drag_open_noise' and i == 10)
                            or case == 'rest_false_close' and i==10)
+        if case in ('drag_weak_open_noise', 'drag_intended_brief_weak_open') and i == 10:
+            observed_closed = True  # Identical observations, different known synthetic intent.
         hands = [] if missing else [observation_hand(x,observed_closed)]
+        if hands and (case in ('drag_weak_open_noise', 'drag_intended_brief_weak_open') and i == 10
+                      or case == 'drag_weak_release' and source >= 2_176_001
+                      or case == 'double_pinch_weak_open' and 340_001 <= source < 476_001):
+            hands[0]['pinch_distance_ratio'] = 0.42
         now = source + LATENCY_US
         commands.append((now, {'type': 'frame', 'now_us': now, 'observation': {
             'version': 1, 'source_us': source, 'ambiguous': False, 'hands': hands}}))
@@ -142,6 +152,10 @@ def score(case, commands, rows):
                                           if a['cursor_px'] is not None and b['cursor_px'] is not None],
         'releases_while_synthetic_intent_closed': sum(
             not b['down'] and b['synthetic_intent_closed'] for b in buttons),
+        'final_open_release_delay_ms': next(
+            ((b['at_us']-LATENCY_US-2_176_001)/1000 for b in buttons
+             if not b['down'] and b['at_us']-LATENCY_US>=2_176_001),None)
+            if case.startswith('drag_') or case=='fine_drag' else None,
         'button_events': buttons,
         'eof_neutral': not rows[-1]['controller']['button_down'],
     }
@@ -153,6 +167,8 @@ def main():
     parser.add_argument('--output-dir', required=True, type=Path)
     parser.add_argument('--drag-grace-ms', type=int, default=0)
     parser.add_argument('--confirm-ms',type=float,default=40)
+    parser.add_argument('--release-confirm-ms', type=float)
+    parser.add_argument('--release-open-factor', type=float, default=1.25)
     parser.add_argument('--filter', choices=('exponential', 'one-euro'), default='exponential')
     parser.add_argument('--tick-ms',type=float,default=16.667)
     parser.add_argument('--cursor-output', action='store_true')
@@ -183,6 +199,10 @@ def main():
                      'confirm_us':round(args.confirm_ms*1000)},
         'workspace': {'min': {'x': 0.2, 'y': 0.2}, 'max': {'x': 0.8, 'y': 0.8}},
     }
+    if args.release_confirm_ms is not None:
+        config['gestures']['release_confirmation'] = {
+            'confirm_us':round(args.release_confirm_ms*1000),
+            'immediate_open_factor':args.release_open_factor}
     if args.filter == 'one-euro':
         config['gestures']['adaptive_smoothing'] = {
             'min_cutoff_hz': 1.0, 'beta': 10.0, 'derivative_cutoff_hz': 1.0, 'speed_floor': 0.0}

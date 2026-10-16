@@ -29,9 +29,9 @@ is opened. The explicit finite camera source now reuses timestamp-validated capt
 recording and the independent native writer through this seam, with a sensor-free
 preflight and fixed graph selection. Source4385fdd receiving preflight, zero-capture missing-camera cleanup and
 normal synthetic regression now pass; terminal feedback is acknowledged before
-listener shutdown. Physical camera/input execution remains unqualified. Next:
-a fresh-ready finite recorded camera trial, broader negative/ownership coverage
-and human/application acceptance. Keep live calibration,
+listener shutdown. Physical camera/input execution remains unqualified. Next: replay authorized
+retained trial footage with explicit recorded-source provenance, broaden negative/
+ownership coverage, then fresh-ready physical and human/application acceptance. Keep live calibration,
 selected runtime and original prepared trial intact; do not stretch freshness
 to hide processing cost.
 

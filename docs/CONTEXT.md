@@ -15,7 +15,10 @@ median,65.6% near wall time). A controlled close-ack hold exposes a terminal-vie
 race; the corrected run waits for a run-scoped view receipt and model close
 after camera/input teardown. Actual SESSION ERROR and SESSION ENDED views fit
 1920×1080 and retain both receipts. Physical camera/input and everyday-runtime
-selection remain unqualified; next is a fresh-ready finite recorded camera trial.
+selection remain unqualified. Next, reuse authorized retained private trial footage
+for offline/real-clock replay and broaden negatives before requesting another
+fresh-ready physical trial. Playback must preserve its recorded-source provenance
+and must not be labelled synthetic or current camera acquisition.
 This continuation is dated2026-10-16; earlier measured source dates are retained.
 
 Latest [real-clock receiving comparison](research/realtime-worker-2026-10.md)

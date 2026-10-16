@@ -1,7 +1,10 @@
 # Camera controller roadmap
 
-Current human priority: ship and use the [one-hand Beta1](BETA-1.md), then resume
-the full exploration below. Beta scope does not replace the touchscreen goal.
+Current human priority: evolve the [one-hand Beta1](BETA-1.md) into a fluent,
+responsive everyday controller before resuming multipoint exploration. The
+replacement [goal specification](ONE-HAND-GOAL.md) preserves the human's physical
+feedback, temporal-continuity proposal and completion criteria. It does not edit
+or resume the harness goal automatically. The full touchscreen scope below remains.
 
 Updated 2026-10-16. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving

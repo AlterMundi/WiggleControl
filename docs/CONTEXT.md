@@ -1,5 +1,29 @@
 # Project context — 2026-10-13
 
+## One-hand interaction priority —2026-10-16
+
+After further manual use, Nicolás reports generally reasonable functionality,
+accurate target reach and good-looking hand/pinch tracking, with unreliable double
+pinch double-click, premature drag release and visibly stepped cursor movement.
+He proposes temporal interpretation between observations and device output:
+bounded drag continuity, stationary stabilization and measured motion prediction.
+These are human observations and design hypotheses, not independently labelled
+accuracy. [ONE-HAND-GOAL.md](ONE-HAND-GOAL.md) is the requested replacement goal
+file. The human controls native goal Clear/Resume; do not mark the old broad goal
+complete or claim this file changed it. Multipoint remains in ROADMAP.md.
+
+Three actual Beta1 sessions retain15515 indexed private camera frames over
+approximately1228.586seconds of summed source spans, plus controller journals.
+All five referenced MJPEG segment sizes match their final indexed ends. This is
+an index/size check, not proof every JPEG decodes or every acquisition was kept.
+The evidence includes no screen recording, audio or independent intent labels.
+The current engine cancels immediately on a missing/ineligible observation and
+on the configured300ms freshness boundary; reopening is then required. Cursor
+filtering updates only on new observations, including in absolute output. These
+source behaviors motivate separate gap/gesture and output-cadence experiments;
+they do not establish the cause of each reported physical failure. Reuse existing
+exponential/One Euro filters and the independent writer rather than duplicating them.
+
 ## Beta 1 delivery —2026-10-16
 
 Nicolás selected a practical one-hand desktop beta before further open-ended

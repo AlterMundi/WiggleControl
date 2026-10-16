@@ -102,3 +102,9 @@ camera acquisition. Stop must be qualified at the application level as well as
 the controller/device levels. The terminal journal's camera_opened/system_input
 fields currently retain historical acquisition flags; use actual unit/device
 observations for teardown, and correct the receipt fields before acceptance.
+
+Follow-up source corrects these terminal fields and adds a device-free absolute
+pipeline replay; see the [interaction baseline](research/one-hand-interaction-2026-10.md).
+This correction is not yet deployed and does not diagnose the sticky drag.
+The replacement one-hand goal is active. The human has reserved the receiving
+screen for Farscape; receiving injection and heavy experiments wait until it is free.

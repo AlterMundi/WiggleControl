@@ -166,7 +166,7 @@ application gestures and compositor device classification require separate proof
 ```sh
 wigglecontrol mode-replay SETTINGS.json < controller.jsonl
 wigglecontrol delivery-replay GAIN WATCHDOG_MS < packets.jsonl
-wigglecontrol pipeline-replay SETTINGS.json GAIN WATCHDOG_MS < controller.jsonl
+wigglecontrol pipeline-replay SETTINGS.json GAIN WATCHDOG_MS [--absolute] < controller.jsonl
 ```
 
 The full pipeline serializes actual writer packets, decodes them through its

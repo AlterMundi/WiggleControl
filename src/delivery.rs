@@ -423,12 +423,32 @@ pub fn pipeline_replay_stdin(
     gain: f64,
     watchdog_ms: u64,
 ) -> io::Result<()> {
+    pipeline_replay(settings, gain, watchdog_ms, false)
+}
+
+/// Exercise the same calibrated absolute publisher as Beta1, without device fds.
+pub fn absolute_pipeline_replay_stdin(
+    settings: &std::path::Path,
+    gain: f64,
+    watchdog_ms: u64,
+) -> io::Result<()> {
+    pipeline_replay(settings, gain, watchdog_ms, true)
+}
+
+fn pipeline_replay(
+    settings: &std::path::Path,
+    gain: f64,
+    watchdog_ms: u64,
+    absolute: bool,
+) -> io::Result<()> {
     use crate::controller::{Command, Controller, Settings};
     if !(50..=1000).contains(&watchdog_ms) || !gain.is_finite() || !(1.0..=10_000.0).contains(&gain)
     {
         return Err(invalid("invalid pipeline gain/watchdog"));
     }
-    let mut controller = Controller::new(Settings::load(settings)?).map_err(io::Error::other)?;
+    let settings = Settings::load(settings)?;
+    let workspace = settings.workspace;
+    let mut controller = Controller::new(settings).map_err(io::Error::other)?;
     let mut publisher = Publisher::default();
     let mut state = State::default();
     let mut now = 0;
@@ -440,7 +460,7 @@ pub fn pipeline_replay_stdin(
         writeln!(
             out,
             "{}",
-            serde_json::json!({"schema":"wigglecontrol.pipeline-output/v1","camera_opened":false,"system_input":false,
+            serde_json::json!({"schema":"wigglecontrol.pipeline-output/v1","camera_opened":false,"system_input":false,"absolute_pointer":absolute,
             "controller":output,"packet":packet,"mouse":values(batch.mouse),"touch":values(batch.touch)})
         )?;
         out.flush()
@@ -476,7 +496,18 @@ pub fn pipeline_replay_stdin(
                 return Err(error);
             }
         };
-        let packet = publisher.packet(&output, now, source)?;
+        let packet = if absolute {
+            publisher.absolute_packet(&output, now, source, workspace)
+        } else {
+            publisher.packet(&output, now, source)
+        };
+        let packet = match packet {
+            Ok(packet) => packet,
+            Err(error) => {
+                publish(controller.stop(), None, state.release())?;
+                return Err(error);
+            }
+        };
         if let Some(packet) = &packet {
             let decoded = serde_json::from_slice(&serde_json::to_vec(packet)?)?;
             match state.apply(now, decoded, gain, watchdog_ms * 1000) {

@@ -47,6 +47,7 @@ struct State {
     terminal_visible: bool,
     camera_opened: bool,
     input_started: bool,
+    writer_reaped: bool,
     eof: bool,
     error: Option<String>,
     captured: u64,
@@ -59,6 +60,18 @@ struct State {
     lease: Option<Lease>,
     submission: Option<Submission>,
     receipt: Option<(u64, Value)>,
+}
+impl State {
+    /// Acquisition history is retained separately from confirmed current input.
+    fn system_input(&self) -> Option<bool> {
+        if !self.input_started || self.writer_reaped {
+            Some(false)
+        } else if self.eof {
+            None // A failed child wait does not prove that its device is gone.
+        } else {
+            Some(true)
+        }
+    }
 }
 struct Bridge {
     camera_source: bool,
@@ -135,11 +148,11 @@ impl Bridge {
             .ok_or_else(|| io::Error::other("frame sequence exhausted"))?;
         let sequence = s.captured;
         let camera_opened = s.camera_opened;
-        let input_started = s.input_started;
+        let system_input = s.system_input();
         s.captures
             .push(json!({"event":"capture","sequence":sequence,
             "capture_sequence":frame.sequence,"source_us":frame.source_us,
-            "camera_opened":camera_opened,"system_input":input_started,"recorded_frame":recorded}));
+            "camera_opened":camera_opened,"system_input":system_input,"recorded_frame":recorded}));
         s.latest = Some(Lease {
             sequence,
             issued_us: 0,
@@ -225,7 +238,7 @@ impl Extension for Bridge {
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
-                "input_requested":self.input_requested,"system_input":state.input_started}),
+                "input_requested":self.input_requested,"system_input":state.system_input()}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -1135,6 +1148,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     );
     drop(writer_output);
     let writer_exit = writer.map(|mut child| child.wait()).transpose();
+    let writer_reaped = writer_exit.is_ok();
     let joined = producer
         .map(|p| p.join())
         .transpose()
@@ -1156,7 +1170,10 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         s.latest = None;
         s.skipped += s.captured.saturating_sub(s.last_issued);
         s.last_issued = s.captured;
-        s.camera_opened = camera_mailbox.lock().unwrap().opened;
+        // join has returned, including on panic: the producer's camera fd is gone.
+        // Mailbox.opened is retained acquisition history, not current activity.
+        s.camera_opened = false;
+        s.writer_reaped = writer_reaped;
     }
     let mut terminal = metadata(&config, &final_state, &feedback, monotonic_us()?, 0, true);
     terminal["active"] = false.into();
@@ -1165,7 +1182,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     terminal["camera_source"] = camera_source.into();
     terminal["recorded_source"] = recorded_source.into();
     terminal["recorded_time_ms"] = feedback.recorded_time_ms.into();
-    terminal["camera_opened"] = camera_mailbox.lock().unwrap().opened.into();
+    terminal["camera_opened"] = false.into();
     terminal["test_phase"] = if outcome.is_ok() { "complete" } else { "error" }.into();
     terminal["input_available"] = false.into();
     terminal["recording"] = false.into();
@@ -1197,7 +1214,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,"terminal_visible":s.terminal_visible,
         "error":outcome.as_ref().err().map(ToString::to_string),"camera_opened":s.camera_opened,
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
-        "source_kind":camera.source_kind,"system_input":s.input_started}),
+        "source_kind":camera.source_kind,"system_input":s.system_input(),
+        "camera_was_opened":camera.opened,"input_was_started":s.input_started,
+        "writer_reaped":s.writer_reaped}),
     )?;
     outcome
 }
@@ -1265,6 +1284,24 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn terminal_activity_distinguishes_acquisition_history_from_reaped_or_unknown_input() {
+        let bridge = Bridge::new(BTreeMap::new(), 300_000, "teardown".into(), 1);
+        {
+            let mut state = bridge.state.lock().unwrap();
+            state.input_started = true;
+            assert_eq!(state.system_input(), Some(true));
+            state.eof = true;
+            assert_eq!(state.system_input(), None);
+            state.writer_reaped = true;
+            assert_eq!(state.system_input(), Some(false));
+            assert!(state.input_started); // Preserve the historical acquisition.
+        }
+        let response = bridge.respond("GET", "/provider/config", b"").unwrap();
+        let value: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(value["system_input"], false);
+        assert_eq!(value["camera_opened"], false);
+    }
     #[test]
     fn manual_standby_requires_start_before_ready_and_preserves_run_identity() {
         let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "beta".into(), 1);

@@ -88,6 +88,12 @@ boundary and private video retention. Coordinate finite desktop injection;
 protect human files with owned scratch tasks. Do not resume the old workbench,
 start capture automatically, contact peers or initiate a global Stop.
 
+Current human constraint after goal creation: the Pi is being used to watch
+Farscape. Develop locally without using its screen, injecting input, acquiring
+camera data, changing its deployment/services or running heavy receiving tests
+until the human makes it available. This temporarily overrides visible receiving
+experimentation; local device-free work can continue.
+
 Maintain BETA-1.md, ROADMAP.md, the relevant issues and the receiving runbook with
 what is implemented, deployed, observed and still uncertain. Evaluate substantial
 reusable findings for collective research; keep raw private recordings and native

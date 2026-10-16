@@ -414,7 +414,23 @@ The optional opening comparison now exposes a concrete ambiguity and double-clic
 cost; retain immediate release by default until independent intent evidence supports
 a better policy. The replay seam can evaluate these decisions
 without consuming the receiving screen. Real libinput/compositor/application and
-human comfort remain separate acceptance steps. The separation of observation
-freshness, estimator liveness and bounded drag state is a candidate for selected
-collective research; preserve its synthetic/retained limits and publish with the
-integrated comparison rather than claiming physical improvement now.
+human comfort remain separate acceptance steps.
+
+## Selected collective continuation —2026-10-16
+
+The continuing question is now selected in collective-research as immutable
+`research/wigglecontrol/compaii/temporal-input-20261016-v1.md`, derived from public
+sourcef028c13 and the camera-free diagnostic preparation atfc7bb9d. It relates
+earlier worker/recorded evidence to source freshness, estimator liveness, bounded
+drag/cursor state and sampled-intent ambiguity. This report remains the full
+technical source; the selected synthesis includes rejected tradeoffs and pending
+physical/application/human acceptance, with no private images, landmarks, access,
+personal memory or native-session export.
+
+The contribution and authored map relation are accepted, then separately indexed
+in coherent non-stale generation26/UI26 (36documents/292chunks). Exact accepted
+document bytes, preserved selected payload, liveness search, selected snapshot,
+unchanged earlier selected sources and version-aware current/published map bytes
+pass. The global graph includes the new source without establishing every
+relationship or another being's reading/adoption. The prior coherent generation25
+checkpoint is retained. No receiving controller/profile deployment follows.

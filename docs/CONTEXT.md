@@ -2,9 +2,19 @@
 
 ## One-hand interaction priority —2026-10-16
 
-The replacement goal is now active. Latest human constraint: the receiving screen
-is occupied by Farscape. Work locally without Pi screen/injection/capture,
-deployment/restarts or heavy receiving work until it is available. The new
+Current receiving result: five fresh scripted desktop drags on the unchanged
+installed1cf0aed writer completed with synchronized kernel down/up, original
+folder moves and device removal. No floating folder appeared in inspected
+cursor-alive hover probes afterward. This includes release, held Stop, watchdog,
+producer EOF and writer SIGKILL, one case each. Issue#8 remains unreproduced and
+open; PCManFM window and human gesture acceptance remain pending. See
+[the receiving trace](ABSOLUTE-DRAG-TRACE.md#first-receiving-desktop-comparison-2026-10-16).
+No camera, app restart, runtime/profile switch or human-file change occurred.
+Earlier source-only/Farscape records below retain their dated preparation limits.
+
+The human resumed the existing one-hand goal and explicitly freed the Pi on
+2026-10-16; its objective/accounting were preserved. Camera-free desktop tests
+are now authorized. New camera/gesture trials still require fresh human readiness. The new
 [device-free interaction baseline](research/one-hand-interaction-2026-10.md)
 uses the exact absolute publisher and delivery encoder: six synthetic cases show
 68ms cursor updates despite16.667ms ticks, two button pairs on stable double
@@ -62,6 +72,14 @@ death. Six device-free tests include actual Rust packet consumption, no-input
 planning, observation-permission failure and incomplete-event evidence. No live
 device or Pi test occurred; desktop-grab recovery stays unknown even if the folder
 move succeeds. Use it only after actual receiving availability, preserving Farscape.
+
+Sourcefc7bb9d trace preparation now passes all CI jobs, including ARM64 and the
+device-free parser/fixture/actual-Rust-protocol checks. The selected temporal-input
+synthesis is separately retrievable through collective-research generation26/UI26,
+with exact source/map/search/snapshot checks and prior sources retained. See the
+interaction report for scope: no private footage/session export, participant
+adoption or physical controller improvement is inferred. Issue#8, integrated
+application behavior and human comfort still require actual receiving availability.
 
 After further manual use, Nicolás reports generally reasonable functionality,
 accurate target reach and good-looking hand/pinch tracking, with unreliable double

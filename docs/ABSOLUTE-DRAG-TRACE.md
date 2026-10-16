@@ -7,10 +7,11 @@ files, packet scheduling and read-only Linux events; Rust still owns uinput and
 release/watchdog behavior. The installed Beta1 source1cf0aed exposes the required
 command, so its writer can be tested before adopting a newer candidate.
 
-Status: locally prepared and device-free tested, **not receiving-qualified**.
-The human is watching Farscape. Do not deploy or run it there until the desktop
-is available and the finite input experiment has been coordinated. No physical
-input devices were opened during development; no Pi operations occurred.
+Status: the human freed the receiving desktop and resumed the one-hand goal on
+2026-10-16. Five scripted desktop cases below have now executed on the installed
+Beta1 writer. PCManFM window qualification, issue#8 reproduction and human gesture
+acceptance remain pending. No camera acquisition or controller-setting change
+was part of these tests.
 
 ## Preparation and execution
 
@@ -103,3 +104,47 @@ normal/Stop release, independent300ms watchdog release, and EOF cleanup. EOF is
 explicitly not a real SIGKILL qualification. CI is configured to repeat these checks on default
 x86 and native ARM64 builds. No result here diagnoses issue#8 or closes human
 acceptance.
+
+## First receiving desktop comparison —2026-10-16
+
+The unchanged installed1cf0aed writer (SHA256
+`f4ad91eaf5f8b1e5f44c0e87d68e57ec6ea71666d23094c4025e068234a40eb9`)
+ran one fresh owned desktop fixture per case after the human freed the Pi. Each
+trace retained synchronized down/up,47 observed kernel events, no SYN_DROPPED or
+partial/unsynchronized records, original directory identity at the target, reaped
+writer and removed virtual device. No physical event stream was opened. The
+optional ACL was needed and verified only on each newly created virtual node.
+
+| Case | Writer exit | Kernel button edges | Original empty folder moved |
+| --- | --- | --- | --- |
+| Explicit release,1s neutral before Stop |0 | Down, up | Yes |
+| Stop while held |0 | Down, up | Yes |
+| Producer silence with stdin open |0 | Down, up | Yes |
+| Producer EOF |0 | Down, up | Yes |
+| SIGKILL of only the owned writer |-9 | Down, up | Yes |
+
+For the watchdog case, observer-read button-up occurred300.933ms after the last
+sent fresh frame. Both are receiving-host monotonic measurements; reader delay is
+included, and this is one observation rather than a guaranteed latency bound.
+The SIGKILL case also produced observable up on this receiving system; this does
+not mean the killed writer executed cleanup or guarantee another kernel's result.
+
+After each trace, a separate finite no-click absolute writer moved between two
+hover points while remaining alive for cursor-inclusive screenshots. The inspected
+right-hand screenshot showed the cursor without a floating folder. This is a
+separate CompAII visual observation, not an authoritative compositor grab query or
+human acceptance; the raw trace correctly retains `desktop_grab_released:null`.
+All fixture directories were removed only after their original identities, empty
+contents and observed completed move were verified; raw plans/events/results and
+screenshots remain private in the receiving runbook's evidence root.
+
+The first hover-only screenshot attempt failed because the installed grim reports
+`jpeg support disabled`; the subsequent PNG probe completed and removed its owned
+writer. No application/compositor/service restart or setting change was used to
+obtain the successful results. The old workbench and camera remain stopped.
+
+These five single-case results **do not reproduce or diagnose issue#8**. They show
+that the installed writer and current desktop can complete this controlled
+sequence, including the tested terminations. Next qualify the PCManFM window
+separately and compare a closer-to-usage sequence before proposing a fix; no
+unobserved cause or general fault tolerance follows from these runs.

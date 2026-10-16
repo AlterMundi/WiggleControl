@@ -128,6 +128,8 @@ the new virtual mouse's kernel stream. Fixture identity and event framing/protoc
 tests pass without devices. This is a prepared diagnostic, not an executed Pi
 test or issue#8 diagnosis; actual filesystem drop and remaining desktop grab
 must be inspected separately.
+Trace-sourcefc7bb9d CI38865365610 passes all jobs including ARM64; this verifies
+the prepared source checks, not a real kernel trace or application recovery.
 
 The next source-only candidate adds optional bounded drag continuity, with
 independent writer liveness and geometric same-owner return. It is disabled by
@@ -140,3 +142,16 @@ bounds prediction by time, distance and velocity consistency. Replay measures
 smoother output cadence with remaining jitter/lag/overshoot tradeoffs. It is also
 disabled by omission and not installed; pinch stability, issue#8 and human/application
 acceptance remain open. No receiving screen or heavy work is used during Farscape.
+
+## Camera-free receiving return —2026-10-16
+
+After Nicolás freed the Pi and resumed the one-hand goal, the unchanged installed
+1cf0aed writer passed one owned desktop fixture for each of normal release,
+held Stop, watchdog, producer EOF and writer SIGKILL: synchronized kernel down/up,
+original folder moved, child reaped and device removed. A separate cursor-alive
+no-click probe showed no floating folder in the inspected image after each case.
+[ABSOLUTE-DRAG-TRACE.md](ABSOLUTE-DRAG-TRACE.md#first-receiving-desktop-comparison-2026-10-16)
+owns exact scope and limits. Issue#8 is still unreproduced, not fixed or closed;
+PCManFM window and physical one-hand acceptance remain pending. No camera,
+application restart or candidate/runtime/settings switch occurred. Only the owned
+empty fixture folders were removed after verification; original evidence remains.

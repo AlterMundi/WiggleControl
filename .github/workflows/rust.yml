@@ -18,6 +18,7 @@ jobs:
       - run: python3 tools/synthetic/test_wilor_probe.py
       - run: python3 tools/synthetic/test_mesh_metric.py
       - run: python3 tools/synthetic/test_tasks_metric.py
+      - run: node tests/provider_presence.mjs
       - run: python3 tools/synthetic/test_browser_provider.py
       - run: python3 tools/synthetic/test_score_provider_fixture.py
       - run: python3 tools/test_score_recorded_replay.py

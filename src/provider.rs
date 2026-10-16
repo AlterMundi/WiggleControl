@@ -21,6 +21,9 @@ pub struct Landmarks {
     /// Optional source-pixel image Z, scaled by image width, never metric world Z.
     #[serde(default)]
     pub image_depths: Option<[f64; 21]>,
+    /// Same-frame measured presence, only from the explicitly selected adapter.
+    #[serde(default)]
+    pub presence_confidence: Option<f64>,
     pub world_landmarks: [[f64; 3]; 21],
     /// Right-class score in provider coordinates; not presence or participant identity.
     pub right_probability: f64,
@@ -47,6 +50,7 @@ pub struct Tracker {
     stale_us: u64,
     pair_separation: f64,
     presence_floor: f64,
+    presence_scores: bool,
 }
 impl Tracker {
     pub fn new(
@@ -71,7 +75,12 @@ impl Tracker {
             stale_us,
             pair_separation,
             presence_floor,
+            presence_scores: false,
         })
+    }
+    pub fn with_presence_scores(mut self) -> Self {
+        self.presence_scores = true;
+        self
     }
     pub fn clear(&mut self) {
         self.hands.clear();
@@ -130,7 +139,11 @@ impl Tracker {
         }
         let mut next = Vec::new();
         for raw in &frame.hands {
-            if !raw.right_probability.is_finite()
+            if raw.presence_confidence.is_some_and(|score| {
+                !self.presence_scores
+                    || !score.is_finite()
+                    || !(self.presence_floor..=1.0).contains(&score)
+            }) || !raw.right_probability.is_finite()
                 || !(0.0..=1.0).contains(&raw.right_probability)
                 || raw.landmarks.iter().any(|p| {
                     !p[0].is_finite()
@@ -156,7 +169,7 @@ impl Tracker {
                 landmarks: raw.landmarks.map(|p| XY { x: p[0], y: p[1] }),
                 image_depths: raw.image_depths,
                 world_landmarks: raw.world_landmarks,
-                confidence: self.presence_floor,
+                confidence: raw.presence_confidence.unwrap_or(self.presence_floor),
                 handedness: raw.right_probability,
                 tracked: false,
                 secondary: None,
@@ -285,16 +298,18 @@ pub(crate) fn configured(
     {
         return Err("provider replay requires single estimate and explicit matching presence floor/gesture gate".into());
     }
-    let tracker = Tracker::new(
+    let mut tracker = Tracker::new(
         config.gestures().stale_us,
         config.pair_separation_widths,
         presence_floor,
     )?;
+    if config.provider_presence_scores {
+        tracker = tracker.with_presence_scores();
+    }
     let controller: Controller = crate::session::controller_config(&config, settings)?;
-    if controller
-        .visual_policy()
-        .is_some_and(|policy| presence_floor < policy.min_confidence)
-    {
+    if controller.visual_policy().is_some_and(|policy| {
+        !config.provider_presence_scores && presence_floor < policy.min_confidence
+    }) {
         return Err(
             "provider presence floor must meet the visual macro confidence threshold".into(),
         );
@@ -314,7 +329,7 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
     for command in crate::intent::reader::<Command>() {
         let mut value = serde_json::json!({"schema":"wigglecontrol.provider-output/v1",
             "camera_opened":false,"system_input":false,"local_semantics_only":true,
-            "confidence_kind":"configured_presence_threshold_lower_bound","presence_floor":presence_floor});
+            "confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"} else {"configured_presence_threshold_lower_bound"},"presence_floor":presence_floor});
         let state = match command {
             Err(error) => {
                 value["controller"] = serde_json::to_value(controller.stop())?;
@@ -365,7 +380,9 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
                 value["perception"] = serde_json::json!(found
                     .hands
                     .iter()
-                    .map(|h| serde_json::json!({
+                    .zip(frame.hands.iter())
+                    .map(|(h, raw)| serde_json::json!({
+                    "presence_confidence":raw.presence_confidence,
                     "id":h.id,"tracked":h.tracked,"handedness":h.handedness,
                     "confidence":h.confidence,"landmarks":h.landmarks.map(|p|[p.x,p.y]),
                     "world_landmarks":h.world_landmarks,"image_depths":h.image_depths}))
@@ -446,6 +463,7 @@ mod tests {
         Landmarks {
             landmarks: points,
             image_depths: None,
+            presence_confidence: None,
             world_landmarks: world,
             right_probability: 0.9,
         }
@@ -487,6 +505,46 @@ mod tests {
     }
 
     #[test]
+    fn measured_presence_requires_selection_stays_with_its_hand_and_missing_never_upgrades() {
+        let mut a = hand(0.0, 0.09);
+        a.presence_confidence = Some(0.93);
+        let mut disabled = tracker();
+        assert_eq!(
+            disabled
+                .observe(&frame(1, vec![a.clone()]))
+                .unwrap()
+                .ambiguity_reason,
+            Some("provider_landmarks")
+        );
+        let mut b = hand(240.0, 0.09);
+        b.presence_confidence = Some(0.77);
+        let mut t = tracker().with_presence_scores();
+        let first = t.observe(&frame(1, vec![a.clone(), b.clone()])).unwrap();
+        let reordered = t.observe(&frame(2, vec![b, a.clone()])).unwrap();
+        assert_eq!(
+            reordered
+                .hands
+                .iter()
+                .map(|h| (h.id, h.confidence))
+                .collect::<Vec<_>>(),
+            [(first.hands[1].id, 0.77), (first.hands[0].id, 0.93)]
+        );
+        a.presence_confidence = None;
+        let missing = t.observe(&frame(3, vec![a.clone()])).unwrap();
+        assert_eq!(missing.hands[0].id, first.hands[0].id);
+        assert_eq!(missing.hands[0].confidence, 0.5);
+        for (sequence, invalid) in [(4, f64::NAN), (5, 0.49), (6, 1.01)] {
+            a.presence_confidence = Some(invalid);
+            assert_eq!(
+                t.observe(&frame(sequence, vec![a.clone()]))
+                    .unwrap()
+                    .ambiguity_reason,
+                Some("provider_landmarks")
+            );
+        }
+    }
+
+    #[test]
     fn visual_profile_requires_matching_real_sdk_floor_without_loading_models() {
         let root = std::env::temp_dir().join(format!(
             "wiggle-provider-visual-policy-{}",
@@ -515,6 +573,14 @@ mod tests {
             let result = configured(&session, &settings, None);
             if floor < 0.8 {
                 assert!(result.err().unwrap().to_string().contains("must meet"));
+                let mut measured: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(&session).unwrap()).unwrap();
+                measured["provider_presence_scores"] = true.into();
+                std::fs::write(&session, measured.to_string()).unwrap();
+                let (_, controller, tracker) = configured(&session, &settings, None).unwrap();
+                assert!(tracker.presence_scores);
+                assert_eq!(tracker.presence_floor, 0.5);
+                assert_eq!(controller.visual_policy().unwrap().min_confidence, 0.8);
             } else {
                 let (_, controller, tracker) = result.unwrap();
                 assert!(controller.visual_policy().is_some());

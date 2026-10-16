@@ -2,6 +2,13 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+New [actual presence bridge](research/provider-presence-scores-2026-10.md) exports
+measured scores without raising0.5 tracking to0.8.100 actual GPU executions give
+50 exact baseline/observer output pairs,64 attributable hands and four real SDK
+dedup cases. Conditional Rust contact/action/owner outputs remain unchanged.
+Opt-in worker/provider integration is source-tested; full receiving transport
+and successful recognized macros remain to qualify. No new physical acquisition.
+
 New [provider macro integration](research/provider-visual-macros-2026-10.md)
 retains optional image Z, configures the actual SDK presence floor and reuses the
 native classifier/arbiter without changing disabled defaults. Four retained

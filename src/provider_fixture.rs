@@ -66,6 +66,7 @@ struct Bridge {
     warmup: Vec<u8>,
     max_hands: usize,
     presence_floor: f64,
+    presence_scores: bool,
     run_id: String,
     state: Mutex<State>,
     changed: Condvar,
@@ -106,6 +107,7 @@ impl Bridge {
             warmup: Vec::new(),
             max_hands,
             presence_floor: 0.5,
+            presence_scores: false,
             run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
@@ -199,6 +201,12 @@ impl Extension for Bridge {
                 body: include_bytes!("../tools/synthetic/browser_hand_sequence.mjs").to_vec(),
                 headers: String::new(),
             }),
+            ("GET", "/provider/presence-tools.mjs") => Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "text/javascript",
+                body: include_bytes!("../tools/synthetic/provider_presence.mjs").to_vec(),
+                headers: String::new(),
+            }),
             ("GET", "/task_hand_worker.js") => Ok(ExtensionResponse {
                 status: "200 OK",
                 mime: "text/javascript",
@@ -210,7 +218,7 @@ impl Extension for Bridge {
                 Ok(reply(
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"package_version":"1.1.1",
+                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.input_started}),
                 ))
@@ -697,6 +705,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         max_hands,
     );
     bridge.presence_floor = presence_floor;
+    bridge.presence_scores = config.provider_presence_scores;
     bridge.camera_source = camera_source;
     bridge.recorded_source = recorded_source;
     bridge.input_requested = inject;
@@ -706,7 +715,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
             "recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
-            "model_sha256":MODEL,"presence_floor":presence_floor,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
+            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
     }
@@ -730,7 +739,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let mut publisher = crate::delivery::Publisher::default();
     journal.emit(
         json!({"event":"listening","port":preview.port,"schema":if camera_source {"wigglecontrol.provider-camera/v1"}else if recorded_source {"wigglecontrol.provider-recording/v1"}else{"wigglecontrol.provider-fixture/v1"},
-        "camera_opened":false,"system_input":false,"input_requested":inject,"source_kind":if camera_source {"kernel_monotonic_camera"}else if recorded_source {"recorded_frame_republication"}else{"synthetic_encoded_frame_publish"}}),
+        "camera_opened":false,"system_input":false,"input_requested":inject,"presence_scores":config.provider_presence_scores,"presence_floor":presence_floor,"source_kind":if camera_source {"kernel_monotonic_camera"}else if recorded_source {"recorded_frame_republication"}else{"synthetic_encoded_frame_publish"}}),
     )?;
     let mut feedback = Feedback {
         jpeg: initial_jpeg,
@@ -765,7 +774,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         monotonic_us()?,
                         &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
                             "model_sha256":MODEL,"package_version":"1.1.1","max_hands":max_hands,
-                            "presence_floor":presence_floor,"visual_macros":visual_classifier.is_some(),"confidence_kind":"configured_threshold_lower_bound",
+                            "presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":visual_classifier.is_some(),"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_threshold_lower_bound"},
                             "width":640,"height":480,"camera_fps":30,"freshness_ms":config.freshness_ms,
                             "input_requested":inject,"human_labels":"separate; predictions are not ground truth"}),
                     )?;
@@ -955,7 +964,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 feedback.meaning_us = monotonic_us()?;
                 feedback.pinch_ratio = hands.first().map(crate::Hand::pinch_ratio);
                 feedback.eligible = hands.iter().any(|h| h.engaged && h.pinch_eligible);
-                feedback.raw=found.hands.iter().map(|h|json!({"id":h.id,"confidence":h.confidence,
+                feedback.raw=found.hands.iter().zip(packet.hands.iter()).map(|(h,raw)|json!({"presence_confidence":raw.presence_confidence,"id":h.id,"confidence":h.confidence,
                     "handedness":h.handedness,"landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks,"image_depths":h.image_depths})).collect();
                 let receipt = json!({"sequence":lease.sequence,"source_us":packet.source_us,"now_us":now,
                     "age_ms":(feedback.meaning_us-packet.source_us)as f64/1000.0,"contacts":state.contacts,"mode":state.mode});
@@ -1169,7 +1178,7 @@ fn metadata(
         "width":640,"height":480,"source_us":source,"sequence":sequence,"age_ms":age,"frame_age_ms":age,
         "fresh":source>0&&age<(config.freshness_ms as f64),"freshness_ms":config.freshness_ms,"remaining_ms":remaining,
         "test_phase":if started {"testing"}else{"preparing"},"decode_ms":0,"inference_ms":0,
-        "provider_transport":true,"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
+        "provider_transport":true,"presence_scores":config.provider_presence_scores,"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_presence_threshold_lower_bound"},"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
         "landmarks":first.map(|h|&h["landmarks"]),"confidence":first.map(|h|&h["confidence"]),
         "perception":perception,"controller":state,"visual_macros":feedback.visual_macros,"visual_pose":feedback.visual_pose,"classifier_ms":feedback.classifier_ms,"cursor":state.pointer_cursor,
         "eligible":eligible,"pinch_ratio":feedback.pinch_ratio,"pinch_metric":config.pinch_metric_name(),"presses":0,"pinch_state":if state.contacts.is_empty(){"touch"}else{"pressed"},

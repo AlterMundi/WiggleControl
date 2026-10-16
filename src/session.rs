@@ -84,6 +84,9 @@ pub struct SessionConfig {
     pub secondary_model: Option<SecondaryLandmarkModel>,
     #[serde(default)]
     pub gesture_min_confidence: Option<f64>,
+    /// Opt-in raw-provider quality export; native inference already has presence scores.
+    #[serde(default)]
+    pub provider_presence_scores: bool,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8

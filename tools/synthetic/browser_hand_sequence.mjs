@@ -1,8 +1,9 @@
 // Camera-free optional provider comparison; all assets stay on loopback.
 // A browser backend is not stable hand identity or delivered system input.
-export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2, presenceFloor=.5) {
+export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2, presenceFloor=.5, presenceScores=false) {
   if(!Number.isInteger(maxHands)||maxHands<1||maxHands>2)throw Error('Expected one or two provider hands');
   if(!Number.isFinite(presenceFloor)||presenceFloor<.01||presenceFloor>1)throw Error('Invalid provider presence floor');
+  if(typeof presenceScores!=='boolean')throw Error('Invalid presence export selection');
   if (location.origin !== new URL(baseUrl).origin) throw Error('Worker mode requires same-origin HTTP hosting');
   const worker = new Worker(new URL('task_hand_worker.js',baseUrl));
   let id = 0;
@@ -25,7 +26,7 @@ export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2, pr
     pending.set(request,{resolve,reject,timeout});
     worker.postMessage({id:request,kind,...fields},transfer);
   });
-  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate,maxHands,presenceFloor});}
+  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate,maxHands,presenceFloor,presenceScores});}
   catch(error) {worker.terminate();throw error;}
   return {
     async infer(image,source_us) {

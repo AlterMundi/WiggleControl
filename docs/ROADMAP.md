@@ -12,9 +12,16 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+[Actual presence export](research/provider-presence-scores-2026-10.md) now retains
+measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,
+100 executions/50 matched pairs retain exact public detector outputs, including
+actual two-hand, rejected-ROI and deduplication cases. Source opt-in connects it
+to Rust/classifier without changing0.8 macro gates; conditional contact outputs
+remain exact. Full real-clock transport/recognized timed macro acceptance is next.
+
 The [raw-provider macro connection](research/provider-visual-macros-2026-10.md)
 now retains optional image depth and reuses the existing classifier/arbiter.
-Actual SDK presence configuration must meet the unchanged macro confidence gate;
+Without measured presence, SDK configuration must meet the macro confidence gate;
 conditional retained-tensor parity passes. Actual receiving classifier cost is
 0.423ms median, but raising the SDK floor loses useful near holds even with the
 classifier disabled; that profile is rejected. Successful continuous image-based

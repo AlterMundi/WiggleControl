@@ -51,6 +51,8 @@ def commands(case, images, delay_us):
         hands = [dict(landmarks=h['landmarks'], world_landmarks=h['world_landmarks'],
                       right_probability=right_probability(h['handedness'])) for h in row['hands']]
         for hand, raw in zip(hands, row['hands']):
+            if raw.get('presence_confidence') is not None:
+                hand['presence_confidence'] = raw['presence_confidence']
             if raw.get('image_depths') is not None:
                 hand['image_depths'] = raw['image_depths']
         result.append(dict(type='frame', observation=dict(sequence=index+1,

@@ -25,6 +25,8 @@ class ProviderWire(unittest.TestCase):
             self.assertEqual(frame['now_us'], 130001)
             self.assertEqual(set(frame['hands'][0]),
                              {'landmarks','world_landmarks','right_probability'})
+            row['hands'][0]['presence_confidence'] = .93
+            self.assertEqual(commands(case, Path(root), 0)[1]['observation']['hands'][0]['presence_confidence'], .93)
             depths = [-i*2.0 for i in range(21)]
             row['hands'][0]['image_depths'] = depths
             complete = commands(case, Path(root), 0)[1]['observation']['hands'][0]

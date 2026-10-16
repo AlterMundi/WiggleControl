@@ -13,7 +13,7 @@ const run = async()=>{
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if(hash!==config.model_sha256)throw Error('Provider model digest differs');
   text('capture-status',config.camera_source?'Preparing GPU worker · camera not acquired':config.recorded_source?'Preparing recorded playback · sensors off':'Preparing GPU worker · synthetic frames only');
-  model=await workerSource(base,bytes,config.delegate,config.max_hands,config.presence_floor);
+  model=await workerSource(base,bytes,config.delegate,config.max_hands,config.presence_floor,config.presence_scores);
   // Compile/warm the graph on the displayed public reference before real-clock
   // acquisition begins. Warmup points never enter Rust meaning.
   const warmResponse=await fetch('/provider/warmup',{cache:'no-store'});
@@ -50,12 +50,13 @@ const run = async()=>{
       const c=h.handedness[0];
       if(!['Left','Right'].includes(c.categoryName))throw Error('Unknown handedness category');
       return {landmarks:h.landmarks,image_depths:h.image_depths,world_landmarks:h.world_landmarks,
+        ...(config.presence_scores?{presence_confidence:h.presence_confidence}:{}),
         right_probability:c.categoryName==='Right'?c.score:1-c.score};
     });
     const returned=await post('/provider/result',{sequence:ticket.sequence,hands});
     window.wiggleProviderTrace.push({sequence:ticket.sequence,fetch_ms:fetched-began,
       decode_ms:decoded-fetched,worker_roundtrip_ms:completed-decoded,
-      worker_inference_ms:inferred.inference_ms,post_ms:performance.now()-completed,
+      worker_inference_ms:inferred.inference_ms,presence_reason:inferred.presence_reason,post_ms:performance.now()-completed,
       status:returned.status});
     if(returned.status===410){dropped++;continue;}
     if(!returned.ok)throw Error('Meaning receipt rejected: '+await returned.text());

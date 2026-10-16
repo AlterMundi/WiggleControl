@@ -13,7 +13,8 @@ wigglecontrol provider-fixture SEQUENCE.json SESSION.json SETTINGS.json ASSET_RO
 Build with `native-vision`; native ONNX inference is not initialized by this
 command when visual macros are disabled. Existing session/controller settings
 must match, select a single estimate and an explicit gesture confidence/SDK
-presence floor (the retained comparison profiles use0.5). Optional visual macros
+presence floor (the retained comparison profiles use0.5). Optional measured
+presence is described below. Optional visual macros
 are described below. Retained
 3D/2D pinch interpretation, workspace, manual modes, open rearm and Stop remain
 the existing controller's responsibility. No gesture threshold/freshness is
@@ -102,8 +103,11 @@ Provider commands now reuse the native `visual_macros` settings and the same
 classifier, ownership, positive-neutral, pinch-priority, hold and cooldown rules.
 `gesture_min_confidence` explicitly selects the worker's actual
 `minHandPresenceConfidence`; it must match controller settings and meet the
-visual policy's confidence threshold (at least0.8). A0.5 profile with0.8 visual
-policy fails before acquiring anything. Raising the SDK floor may reduce tracking
+visual policy's confidence threshold (at least0.8), unless explicitly selecting
+`provider_presence_scores:true`. In that mode, validated same-frame measurements
+can meet the visual gate while the tracking floor stays0.5. Without that mode,
+a0.5 profile with0.8 visual policy fails before acquiring anything. Raising the
+SDK floor may reduce tracking
 coverage; no default or everyday profile is silently raised.
 
 Configuration preflight does not load ORT or the classifier. Actual enabled
@@ -116,6 +120,29 @@ Only existing local actions are implemented; an external media/launcher intent
 is not evidence of application delivery. The conditional four-tensor parity
 check is documented in [the macro integration report](research/provider-visual-macros-2026-10.md);
 image-sequence, receiving and human acceptance remain distinct.
+
+## Optional measured presence
+
+`provider_presence_scores:true` selects the hash-pinned experimental observer in
+[provider_presence.mjs](../tools/synthetic/provider_presence.mjs). Disabled profiles
+do not install it. The worker checks the exact SDK bundle, discovers the three
+matching internal score/presence/pre-deduplication landmark streams and exports
+them through the SDK's original graph setup. It reuses inference and SDK parsing;
+it neither patches the SDK file nor runs another detector. This internal bridge
+is qualified only for the pinned bundle and fixed1/2-hand graph lifetime.
+
+Scores are filtered by actual presence flags, then associated to final SDK hands
+by exact same-frame serialized landmark correspondence through deduplication.
+Ambiguous/missing/malformed/stale quality becomes unavailable; it never supplies
+another hand's score. Optional raw `presence_confidence` is accepted only with
+this profile and must be finite and within `[configured_floor,1]`. Absent quality
+keeps the explicit floor, which at0.5 cannot satisfy the unchanged0.8 macro gate.
+Pinch/input confidence and classification confidence retain their existing rules.
+
+Preflight still performs no graph/model acquisition; it does not qualify this
+internal bridge. An unsupported bundle/graph fails actual preparation before
+worker-ready/source capture. Frame journals retain measured-score versus floor
+provenance. See [the evidence and remaining gates](research/provider-presence-scores-2026-10.md).
 
 ## Explicit finite camera source
 

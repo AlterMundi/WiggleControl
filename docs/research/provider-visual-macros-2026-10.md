@@ -79,13 +79,67 @@ independence. Python wire tests retain legacy packets and preserve complete dept
 for two hands within the existing bounded reader. No receiving deployment,
 camera acquisition, OS input or fresh human acceptance occurred in these checks.
 
+## Actual receiving comparison and rejected profile
+
+Source[95633d7](https://github.com/AlterMundi/WiggleControl/commit/95633d7eafe2ad98477337464d7cdd4690c154f4)
+passes[CI38842529801](https://github.com/AlterMundi/WiggleControl/actions/runs/38842529801)
+for replay, native vision and ARM64. Its separately staged manual ARM64 binary
+SHA256 is`cb4192c4c3782c23aaffe647fdd21bd4ffecec80a9d913b132d7a61aad86ce02`.
+The existing receiving ORT1.22.0 and exact previously staged classifier are reused.
+The prepared physical trial's original candidate/session/settings hashes remain
+unchanged. No everyday runtime, power, calibration, camera or input is changed.
+
+Three sequential runs process the same189 publications from a6.267s repeated
+synthetic JPEG sequence on Pi5 at1.5GHz, with the requested fan-off setting.
+Each uses one-hand GPU inference and the existing45/65mm contact interpretation;
+only the stated presence floor and visual-classifier enablement differ. Each
+source publication has a fresh host timestamp. The independent source geometry
+and byte hashes are retained. Repeated images are not independent human trials.
+
+| SDK presence floor / classifier | Accepted observations; no hand | Hz | Publication→meaning median /p95 | Matching near-hold wall time |
+| --- | --- | --- | --- | --- |
+|0.5 /disabled |97;0 |15.27 |70.875 /96.149ms |1035.213 of1499.029ms |
+|0.8 /enabled |83;18 |13.06 |86.279 /123.626ms |0 of1501.255ms |
+|0.8 /disabled control |84;18 |13.26 |84.783 /123.812ms |0 of1500.009ms |
+
+The same high-floor failure remains when classification is disabled. This
+supports rejecting the raised SDK floor as a general controller profile on this
+control; classification alone is not the explanation for its lost useful hold.
+The short sequential runs do not isolate a universal latency penalty or provide
+a randomized sustained performance comparison. All cases retain zero open-hold
+contact time. Source coalescing and actual meaning delay are included in wall-time
+scoring, not only accepted-frame counts.
+
+The enabled run actually classifies65 detected hands:52 Open_Palm and13 None.
+Winning scores span0.5413–0.7333; none reaches0.8. There is no positive neutral
+rearm or macro action. Existing thresholds are not lowered to make this synthetic
+control pass. Classifier cost among actual predictions is0.423ms median,
+0.662ms maximum, excluding hand detection/model load. Thus its measured local
+cost is small, while recognition/quality evidence is still insufficient.
+
+All three native units end successfully, neutral, with worker-close and actual
+terminal-view acknowledgments. The terminal pages fit1920×1080 without whole-page
+scrolling, owned workers are gone and the original workbench is restored. The
+initial launcher had a Python string-escaping syntax error before remote mutation;
+its output is retained. The corrected launcher validates generated Python before
+execution; the first observer is reused by navigating the same owned target once
+the actual server is ready. No capture/input or model restart is hidden as a retry.
+
+The manual slot is usable for explicit offline qualification, not accepted daily
+control. Keep it isolated from the pending physical-trial candidate; retire only
+that experiment slot/configs after supersession, preserving receipts and the
+shared classifier/runtime used elsewhere. Exact paths and commands remain in
+the receiving private resource record. No startup service is installed.
+
 ## Next evidence required
 
-Run actual SDK image inference at the selected presence threshold, rather than
-relabelling old lower-floor points. Measure neutral/action recognition and useful
-pinch coverage on the same continuous source, including uncertain/unknown poses,
-input priority, loss and hand ownership. Compare classifier cost on the receiving
-Pi. A successful timed local action must follow actual recognized neutral and
-hold, never a synthetic named-pose event. Keep the prepared camera-only trial and
+The high-floor shortcut is rejected on this control. Investigate an adapter
+that can retain actual per-hand presence/quality evidence without dropping useful
+contact tracking, or another explicitly qualified perception route. That is a
+next investigation, not an implemented capability. Do not fabricate confidence,
+remove existing evidence gates or silently lower the classifier threshold.
+Qualify neutral/action recognition on continuous source images, including unknown
+poses, input priority, loss and ownership. A successful timed local action must
+follow actual recognized neutral and hold, never a synthetic named-pose event. Keep the prepared camera-only trial and
 its pinned candidate/configuration intact until fresh human readiness. Practical
 application delivery and seated comfort remain requirements of the full goal.

@@ -6,7 +6,10 @@ New [provider macro integration](research/provider-visual-macros-2026-10.md)
 retains optional image Z, configures the actual SDK presence floor and reuses the
 native classifier/arbiter without changing disabled defaults. Four retained
 tensors match category/score within1.79e-7; missing depth gives no pose. This is
-conditional parity, not new detection or a successful timed macro. The prepared
+conditional parity. Subsequent actual Pi inference measures0.423ms classifier
+median but rejects the0.8 SDK floor: useful near-hold walltime drops tozero even
+with classification disabled, versus1035ms at0.5. All three units/model/view ends
+pass. No timed macro or physical acceptance is claimed. The prepared
 physical trial remains pinned and awaits fresh human readiness.
 
 Latest dense recorded review covers75 originalframes, with55 apparent-contact,

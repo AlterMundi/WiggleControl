@@ -1,6 +1,7 @@
 //! Replayable gesture meaning, independent of camera and operating-system grants.
 use serde::{Deserialize, Serialize};
 
+pub mod cursor;
 pub mod filter;
 pub mod macros;
 

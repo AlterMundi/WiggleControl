@@ -147,11 +147,99 @@ necessary; source-level synthetic continuity alone is insufficient. The useful
 next comparison is timestamp-aware cursor cadence and click/hold interpretation,
 including isolated noisy measurements and rapid genuine opening.
 
+## Independent absolute cursor reconstruction
+
+The next source-only increment adds optional `cursor_output` settings. Matching
+worker sessions use `pointer_cursor_output`; mismatches and unsupported native
+workflows are rejected before acquisition. The outer option defaults to absent,
+so the installed/default profile is unchanged. Controller observation filtering,
+pinch decisions and event timing remain separate from this output stage.
+
+The publisher reconstructs absolute positions on its own nominal16.667ms schedule,
+using existing independent controller ticks. New observations update a screen-space
+target and smoothed finite-difference velocity. A short-horizon estimate feeds an
+output low-pass filter and normalized speed bound. Source stamps stay unchanged;
+the writer's separate `cursor` packet accepts only its last fresh absolute source,
+an armed pointer and bounded coordinates. It creates no presses or observations.
+Derived motion also reserves one20ms writer-poll interval before the tighter
+controller/writer source fence; near that boundary it freezes and permits only
+existing hold liveness. A regression covers publication crossing the source fence
+after a still-fresh controller tick, without pretending the image became fresh.
+
+During explicit drag uncertainty, motion/prediction freeze and existing `hold`
+liveness continues. Recovery resets velocity and reconciles from the frozen output
+with the configured speed bound. Stop, source expiry, mode changes and ownership
+changes reset reconstruction. A held-owner handoff releases at the old visible
+position before initializing another cursor. Worker feedback separates the original
+`observed_screen_target` from `screen_target` and reports observed/predicted/estimated
+positions, original source, estimate time, effective prediction horizon and frozen
+state. These are estimator/publisher receipts, not proof of OS delivery.
+
+An initial seven-profile, twelve-case comparison at16.667ms replay ticks found a
+tradeoff: time-only80/100ms prediction reduced linear target RMS51.87px to26.98/
+20.66px, but overshot a stop by43.84/55.59px. The unselected prototype and exact
+input/output/digests are retained privately. It is not adopted as a daily profile.
+
+The revised estimator also bounds predicted lead by distance and requires two
+successive consistent velocity intervals. Direction disagreement or marked speed
+changes withdraw prediction; interpolation continues. Experimental reference
+defaults are interval16667us, output smoothing30000us, prediction80000us,
+maximum predicted distance0.01 normalized screen units, consistency checking on,
+velocity smoothing80000us and maximum speed2 normalized units/s. The first target
+initializes directly because there is no previous owned cursor estimate.
+
+### Five-millisecond scheduling comparison
+
+Seven further profiles each execute the same twelve actual Rust pipeline inputs
+with5ms logical ticks,68ms observations and65ms source→delivery delay. This exposes
+the existing loop's scheduling granularity instead of assuming exact60Hz output.
+Input bytes match across all seven profiles; all84 cases end neutral and retain
+the same button counts and closed-intent releases. Measurement binary SHA256:
+`e4f4db2f0b8b0966f50f6d26383d904611c9d678ba3394ef6d3156935c1a1aaa`.
+It predates added predicted-target diagnostics, receiving config discovery and the
+transport-time reserve. A final native-feature binary
+`77031e2835a2435c01e53416236746dba0358ccfb3e048bd044895e097d2e006`
+repeats baseline/reference cases: all within-table metrics below remain identical;
+the no-source-gap case changes RMS62.15905→62.15996px and maxstep48.692→48.721px.
+
+| Profile | Stationary RMS (px) | Linear RMS (px) | Reversal RMS (px) | Stop overshoot (px) |816ms return maxstep (px) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+|Baseline, observation-driven |5.20|54.49|73.80|0.01|421.82|
+|80ms time-only prediction |5.34|29.67|51.97|43.90|76.79|
+|Guarded80ms, lead0.01, output30ms |2.76|50.08|79.03|9.95|76.79|
+|Guarded80ms, lead0.005, output30ms |2.76|59.45|85.63|0.34|76.82|
+|Guarded80ms, lead0.01, output15ms |3.89|42.46|68.99|14.25|76.82|
+|Guarded80ms, lead0.02, output15ms |3.89|24.74|56.91|33.44|76.82|
+|Existing One Euro + guarded80ms/output30ms |0.77|78.87|109.77|0|76.82|
+
+Other rows use the unchanged30ms observation exponential filter. The guarded
+reference changes linear movement spacing from68ms median/p95 to15/20ms, and
+reduces stationary maxstep11.48→4.42px. The parameter alternatives show why one
+scalar score is insufficient: tighter lead reduces overshoot but increases lag;
+stronger smoothing helps rest and hurts motion. The One Euro combination reduces
+synthetic pinch-correlated press separation25.34→7.30px, but worsens moving-target
+error substantially. It is not adopted for that isolated benefit.
+
+An abrupt synthetic step remains speed-limited: maxstep1147→77px, but target RMS
+249→385px. This deliberately discontinuous input tests reconciliation, not a
+physically achievable hand trajectory. Large recovery still takes time; this is
+not a solved UX. The displayed RMS values depend on the identical within-table
+logical observation schedule; the earlier16.667ms table is not a different physical
+performance measurement. These experiments use supplied replay clocks, not a new
+wall-clock Pi run or demonstrated display fluency. Seven integration tests cover
+source provenance, speed bounds, direction gating, uncertain freeze/recovery,
+expiry, Stop and owner handoff. Config checks and native regressions pass locally.
+
+No candidate is installed or physically accepted. The receiving screen remains
+reserved for Farscape. The next iteration must address pinch-induced cursor drift,
+release evidence stability and real application double-click/drag requirements,
+then compare the integrated candidate using actual receiving timing and human use.
+
 ## Next comparison
 
-Keep the new bounded continuity protocol while developing a separate cursor output
-cadence and evaluating short-horizon extrapolation alongside the measured filter
-tradeoff. Distinguish noisy opening from absent evidence and fast deliberate
+Keep the new bounded continuity and cursor reconstruction protocols while tuning
+the measured tradeoff and separating pinch motion from intended cursor motion.
+Distinguish noisy opening from absent evidence and fast deliberate
 release before changing confirmation. The replay seam can evaluate these decisions
 without consuming the receiving screen. Real libinput/compositor/application and
 human comfort remain separate acceptance steps. The separation of observation

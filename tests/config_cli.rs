@@ -149,5 +149,33 @@ fn controller_preflight_rejects_divergent_settings_without_acquiring_any_receivi
     let result = check();
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("must match the session"));
+
+    let mut source = serde_json::json!({"camera":"/fictional/unavailable-camera",
+        "models":"/fictional/unavailable-models","runtime":"/fictional/unavailable-runtime",
+        "fps":10,"gain":2000,"provider_absolute_pointer":true,"pointer_cursor_output":{}});
+    fs::write(&session, source.to_string()).unwrap();
+    fs::write(&modes, "{}").unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("cursor output settings must match"));
+    fs::write(&modes, r#"{"cursor_output":{}}"#).unwrap();
+    let selected = check();
+    assert!(
+        selected.status.success(),
+        "{}",
+        String::from_utf8_lossy(&selected.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&selected.stdout).unwrap();
+    assert_eq!(report["camera_opened"], false);
+    assert_eq!(report["system_input"], false);
+    let unsupported = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .args(["camera-check", "1"])
+        .arg(&session)
+        .output()
+        .unwrap();
+    assert!(!unsupported.status.success());
+    assert!(String::from_utf8_lossy(&unsupported.stderr)
+        .contains("explicit camera-worker provider workflow"));
+    source["pointer_cursor_output"]["prediction_us"] = 100_001.into();
+    fs::write(&session, source.to_string()).unwrap();
+    assert!(String::from_utf8_lossy(&check().stderr).contains("prediction0..100ms"));
     fs::remove_dir_all(root).unwrap();
 }

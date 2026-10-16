@@ -40,13 +40,48 @@ pub enum Packet {
         until_us: u64,
         mode: Mode,
     },
+    /// Derived motion anchored to the last delivered absolute observation.
+    Cursor {
+        sequence: u64,
+        issued_us: u64,
+        source_us: u64,
+        mode: Mode,
+        absolute: crate::Point,
+    },
     Stop,
 }
 #[derive(Default)]
 pub struct Publisher {
     sequence: u64,
+    cursor: Option<crate::cursor::Cursor>,
+    cursor_owner: Option<u64>,
+    cursor_held: bool,
+    cursor_freshness_us: u64,
 }
 impl Publisher {
+    pub fn with_cursor_output(
+        config: Option<crate::cursor::Config>,
+        freshness_us: u64,
+    ) -> io::Result<Self> {
+        if config.is_some() && !(50_000..=1_000_000).contains(&freshness_us) {
+            return Err(invalid(
+                "cursor output requires the writer source-freshness budget",
+            ));
+        }
+        Ok(Self {
+            cursor: config
+                .map(crate::cursor::Cursor::new)
+                .transpose()
+                .map_err(io::Error::other)?,
+            cursor_freshness_us: freshness_us,
+            ..Self::default()
+        })
+    }
+    pub fn cursor_feedback(&self) -> Option<crate::cursor::Sample> {
+        self.cursor
+            .as_ref()
+            .and_then(crate::cursor::Cursor::feedback)
+    }
     pub fn packet(
         &mut self,
         output: &Output,
@@ -105,6 +140,70 @@ impl Publisher {
             ));
         }
         let mut packet = self.packet(output, now, source)?;
+        if let Some(cursor) = &mut self.cursor {
+            let was_held = self.cursor_held;
+            self.cursor_held = output.running && output.button_down;
+            if output.transition || !output.running || output.mode != Mode::Pointer {
+                cursor.reset();
+                self.cursor_owner = None;
+            } else if output.drag_hold.is_some_and(|h| h.in_grace) {
+                cursor.freeze(now).map_err(io::Error::other)?;
+            } else if source.is_none()
+                && cursor.feedback().is_some_and(|sample| {
+                    now.saturating_sub(sample.source_us)
+                        >= self.cursor_freshness_us.saturating_sub(20_000)
+                })
+            {
+                // Reserve one writer poll interval for derived-motion transport.
+                // Existing hold liveness may continue, but it must not move stale data.
+                cursor.freeze(now).map_err(io::Error::other)?;
+            } else if let Some(Packet::Frame {
+                absolute, mouse, ..
+            }) = &mut packet
+            {
+                mouse.retain(|e| !matches!(e, Event::Move { .. }));
+                if let Some(point) = output.pointer_cursor {
+                    if self.cursor_owner != output.primary_hand {
+                        cursor.reset();
+                        if self.cursor_owner.is_some() && was_held {
+                            self.cursor_owner = output.primary_hand;
+                            if output.button_down {
+                                return Err(invalid("cursor owner changed during held output"));
+                            }
+                            // Deliver release at the old visible point before moving a new owner.
+                            return Ok(packet);
+                        }
+                        self.cursor_owner = output.primary_hand;
+                    }
+                    cursor
+                        .observe(source.unwrap(), now, workspace.map(point))
+                        .map_err(io::Error::other)?;
+                    *absolute = cursor
+                        .sample(now, true)
+                        .map_err(io::Error::other)?
+                        .map(|s| s.estimated);
+                } else {
+                    cursor.reset();
+                    self.cursor_owner = None;
+                }
+                return Ok(packet);
+            } else if let Some(sample) = cursor.sample(now, false).map_err(io::Error::other)? {
+                if packet.is_none() {
+                    self.sequence = self
+                        .sequence
+                        .checked_add(1)
+                        .ok_or_else(|| io::Error::other("delivery sequence exhausted"))?;
+                }
+                return Ok(Some(Packet::Cursor {
+                    sequence: self.sequence,
+                    issued_us: now,
+                    source_us: sample.source_us,
+                    mode: Mode::Pointer,
+                    absolute: sample.estimated,
+                }));
+            }
+            return Ok(packet);
+        }
         if let Some(Packet::Frame {
             mouse, absolute, ..
         }) = &mut packet
@@ -133,6 +232,7 @@ pub struct State {
     now: Option<u64>,
     received: Option<u64>,
     hold_until: Option<u64>,
+    absolute_source: bool,
 }
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
@@ -141,6 +241,7 @@ impl State {
     pub fn release(&mut self) -> Batch {
         self.ready = false;
         self.hold_until = None;
+        self.absolute_source = false;
         Batch {
             mouse: self.mouse.release(),
             touch: self.touch.release(),
@@ -204,6 +305,11 @@ impl State {
                 sequence,
                 issued_us,
                 ..
+            }
+            | Packet::Cursor {
+                sequence,
+                issued_us,
+                ..
             } => (*sequence, *issued_us),
             Packet::Stop => return Ok(self.release()),
         };
@@ -216,6 +322,34 @@ impl State {
         self.sequence = Some(sequence);
         self.received = Some(now);
         match packet {
+            Packet::Cursor {
+                source_us,
+                mode,
+                absolute,
+                ..
+            } => {
+                if !self.ready
+                    || !self.absolute_source
+                    || mode != Mode::Pointer
+                    || self.mode != Some(mode)
+                    || self.source != Some(source_us)
+                    || source_us > issued
+                    || now - source_us >= watchdog_us
+                    || !absolute.valid()
+                {
+                    return Err(invalid("derived cursor requires the last fresh absolute source and an armed pointer"));
+                }
+                Ok(Batch {
+                    mouse: self.mouse.apply(
+                        MouseIntent::Absolute {
+                            x: absolute.x,
+                            y: absolute.y,
+                        },
+                        gain,
+                    )?,
+                    touch: Vec::new(),
+                })
+            }
             Packet::Hold {
                 source_us,
                 until_us,
@@ -291,6 +425,7 @@ impl State {
                     return Err(invalid("competing or incompatible mode output"));
                 }
                 self.source = Some(source_us);
+                self.absolute_source = absolute.is_some();
                 self.hold_until = None;
                 let mut batch = Batch::default();
                 if let Some(p) = absolute {
@@ -378,7 +513,8 @@ fn stream_mode(
                 Ok(Ok(packet)) => {
                     if let Packet::Transition { mode, .. }
                     | Packet::Frame { mode, .. }
-                    | Packet::Hold { mode, .. } = &packet
+                    | Packet::Hold { mode, .. }
+                    | Packet::Cursor { mode, .. } = &packet
                     {
                         if absolute && !matches!(mode, Mode::Pointer | Mode::Scroll) {
                             return Err(invalid("unsupported absolute mouse mode"));
@@ -503,8 +639,13 @@ fn pipeline_replay(
     }
     let settings = Settings::load(settings)?;
     let workspace = settings.workspace;
+    let cursor_output = settings.cursor_output;
+    let freshness_us = settings.gestures.stale_us.min(watchdog_ms * 1000);
+    if cursor_output.is_some() && !absolute {
+        return Err(invalid("cursor output replay requires --absolute"));
+    }
     let mut controller = Controller::new(settings).map_err(io::Error::other)?;
-    let mut publisher = Publisher::default();
+    let mut publisher = Publisher::with_cursor_output(cursor_output, freshness_us)?;
     let mut state = State::default();
     let mut now = 0;
     let mut out = io::stdout().lock();

@@ -82,6 +82,7 @@ struct Bridge {
     presence_floor: f64,
     presence_scores: bool,
     absolute_pointer: bool,
+    cursor_output: Option<crate::cursor::Config>,
     manual_start: bool,
     run_id: String,
     state: Mutex<State>,
@@ -125,6 +126,7 @@ impl Bridge {
             presence_floor: 0.5,
             presence_scores: false,
             absolute_pointer: false,
+            cursor_output: None,
             manual_start: false,
             run_id,
             state: Mutex::new(State::default()),
@@ -238,7 +240,7 @@ impl Extension for Bridge {
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
-                "input_requested":self.input_requested,"system_input":state.system_input()}),
+                "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -749,6 +751,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     bridge.presence_floor = presence_floor;
     bridge.presence_scores = config.provider_presence_scores;
     bridge.absolute_pointer = config.provider_absolute_pointer;
+    bridge.cursor_output = config.pointer_cursor_output;
     bridge.manual_start = until_stop;
     bridge.camera_source = camera_source;
     bridge.recorded_source = recorded_source;
@@ -780,7 +783,10 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let camera_mailbox = Arc::new(Mutex::new(crate::session::Mailbox::default()));
     let mut writer: Option<std::process::Child> = None;
     let mut writer_output = None;
-    let mut publisher = crate::delivery::Publisher::default();
+    let mut publisher = crate::delivery::Publisher::with_cursor_output(
+        config.pointer_cursor_output,
+        config.gestures().stale_us,
+    )?;
     journal.emit(
         json!({"event":"listening","port":preview.port,"schema":if camera_source {"wigglecontrol.provider-camera/v1"}else if recorded_source {"wigglecontrol.provider-recording/v1"}else{"wigglecontrol.provider-fixture/v1"},
         "camera_opened":false,"system_input":false,"input_requested":inject,"presence_scores":config.provider_presence_scores,"presence_floor":presence_floor,"source_kind":if camera_source {"kernel_monotonic_camera"}else if recorded_source {"recorded_frame_republication"}else{"synthetic_encoded_frame_publish"}}),
@@ -1096,6 +1102,11 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 data["input_available"] = (inject && writer.is_some()).into();
                 data["input_enabled"] = (inject && writer.is_some() && output.running).into();
                 data["recording"] = journal.recording.is_some().into();
+                if let Some(cursor) = publisher.cursor_feedback() {
+                    data["observed_screen_target"] = data["screen_target"].clone();
+                    data["screen_target"] = serde_json::to_value(cursor.estimated)?;
+                    data["cursor_output"] = serde_json::to_value(cursor)?;
+                }
                 preview.publish(feedback.jpeg.clone(), data)?;
                 last_publish = Instant::now();
             }

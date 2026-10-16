@@ -33,6 +33,7 @@ pub struct Settings {
     pub precision_gain: f64,
     pub gestures: Config,
     pub workspace: touch_gestures::Workspace,
+    pub cursor_output: Option<crate::cursor::Config>,
     pub macros: Option<macros::Config>,
     pub visual_macros: Option<macros::VisualPolicy>,
 }
@@ -53,6 +54,7 @@ impl Default for Settings {
             precision_gain: 0.25,
             gestures: Config::default(),
             workspace: Default::default(),
+            cursor_output: None,
             macros: None,
             visual_macros: None,
         }
@@ -115,6 +117,9 @@ pub struct Controller {
 }
 impl Controller {
     pub fn new(settings: Settings) -> Result<Self, &'static str> {
+        if let Some(config) = settings.cursor_output {
+            config.validate()?;
+        }
         if settings.version != 1
             || !settings.precision_gain.is_finite()
             || !(0.05..=1.0).contains(&settings.precision_gain)

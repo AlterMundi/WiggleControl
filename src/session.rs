@@ -93,6 +93,8 @@ pub struct SessionConfig {
     /// Experimental one-hand drag continuity; independent of source freshness.
     #[serde(default)]
     pub pointer_drag_grace_ms: u64,
+    #[serde(default)]
+    pub pointer_cursor_output: Option<crate::cursor::Config>,
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -258,6 +260,12 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        if let Some(cursor) = config.pointer_cursor_output {
+            cursor.validate()?;
+            if !config.provider_absolute_pointer {
+                return Err("cursor output requires the explicit absolute provider".into());
+            }
+        }
         if config.pointer_drag_grace_ms > 0 && !config.provider_absolute_pointer {
             return Err("pointer drag grace requires the explicit absolute provider".into());
         }
@@ -635,6 +643,11 @@ pub fn controller_config(
     path: &Path,
 ) -> Result<crate::controller::Controller, Box<dyn Error>> {
     let settings = crate::controller::Settings::load(path)?;
+    if serde_json::to_value(settings.cursor_output)?
+        != serde_json::to_value(config.pointer_cursor_output)?
+    {
+        return Err("controller cursor output settings must match the session".into());
+    }
     if config.prayer_enabled {
         return Err("prayer requires its separate calibrated workflow".into());
     }
@@ -765,6 +778,11 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     }
     let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
+    if config.pointer_cursor_output.is_some() {
+        return Err(
+            "cursor output is supported by the explicit camera-worker provider workflow".into(),
+        );
+    }
     if controller_path.is_some() && (touch || profile_path.is_some() || guided) {
         return Err("controller and legacy calibration/touch workflows are separate".into());
     }

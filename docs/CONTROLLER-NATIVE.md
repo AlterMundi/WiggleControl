@@ -183,6 +183,28 @@ It does not extend that deadline. Independent producer watchdog, Stop, mode/owne
 changes and confirmed opening release; touch loss behavior stays unchanged. See
 the [comparison and limits](research/one-hand-interaction-2026-10.md).
 
+Optional `cursor_output` reconstructs absolute positions independently of observed
+frames. Worker sessions must set identical `pointer_cursor_output`; it is supported
+by the provider workflow and device-free `pipeline-replay --absolute`. Omission
+preserves prior output. Its `cursor` packets retain the last delivered absolute
+source and cannot refresh it, invent buttons or outlive source freshness. Prediction
+is time/distance bounded and withdraws on inconsistent velocity; drag uncertainty
+freezes motion. Feedback reports observed/predicted/estimated targets separately.
+The comparison records scheduling, jitter/lag/overshoot tradeoffs and pending
+receiving/application acceptance; no reference settings are an accepted profile.
+
+For example, `cursor_output:{}` selects the experimental defaults; mirror the same
+object as session `pointer_cursor_output`. `/provider/config` reports that selected
+object before manual Start. Use explicit parameters for comparisons:
+
+```sh
+python3 tools/one_hand_baseline.py --binary target/debug/wigglecontrol \
+  --drag-grace-ms 1000 --tick-ms 5 --cursor-output --output-dir NEW_DIRECTORY
+```
+
+The tool's `--cursor-max-lead 1 --cursor-no-direction-check` recreates time-only
+prediction for comparison; it is not a recommended receiving profile.
+
 Tests cover button/two-slot release, transition-before-repress, watchdog latching,
 source/sequence/mode integrity, malformed/EOF cleanup, pending HTTP controls and
 pre-acquisition config agreement. The native UI was exercised on Cuevanico at

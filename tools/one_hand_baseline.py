@@ -13,7 +13,7 @@ import statistics
 import subprocess
 
 
-CASES = ('stationary', 'linear', 'reversal', 'double_pinch', 'double_pinch_drift',
+CASES = ('stationary', 'linear', 'reversal', 'move_stop', 'step', 'double_pinch', 'double_pinch_drift',
          'drag_gap_272ms', 'drag_gap_816ms', 'drag_gap_1496ms',
          'drag_gap_no_samples', 'drag_open_noise')
 LATENCY_US = 65_000
@@ -27,6 +27,10 @@ def position(case, t):
         return min(0.7, 0.3 + 0.16 * seconds)
     if case == 'reversal':
         return 0.3 + 0.25 * min(seconds, max(0, 2 - seconds))
+    if case == 'move_stop':
+        return 0.3 + 0.24 * min(seconds, 1)
+    if case == 'step':
+        return 0.3 if seconds < 1 else 0.7
     return 0.5
 
 
@@ -38,7 +42,7 @@ def closed(case, t):
     return False
 
 
-def fixture(case):
+def fixture(case, tick_us=16_667):
     # A source clock starts before delivery. Tick cadence is independent of source.
     commands = [(0, {'type': 'start'})]
     for i in range(37):
@@ -66,7 +70,7 @@ def fixture(case):
             'version': 1, 'source_us': source, 'ambiguous': False, 'hands': hands}}))
     end = 1 + 36 * STEP_US + LATENCY_US
     commands.extend((t, {'type': 'tick', 'now_us': t})
-                    for t in range(16_667, end + 1, 16_667))
+                    for t in range(tick_us, end + 1, tick_us))
     return sorted(commands, key=lambda entry: entry[0])
 
 
@@ -78,7 +82,7 @@ def score(case, commands, rows):
         raise ValueError('Expected device-free absolute pipeline receipts')
     xy = [None, None]
     previous = None
-    errors, jumps, move_times, buttons = [], [], [], []
+    errors, jumps, move_times, buttons, output_positions = [], [], [], [], []
     for (now, _), row in zip(commands, rows):
         for event in row['mouse']:
             if event['kind'] == 3 and event['code'] in (0, 1):
@@ -96,6 +100,7 @@ def score(case, commands, rows):
                                     (point[1] - previous[1]) * SCREEN[1]))
             move_times.append(now)
         previous = point
+        output_positions.append((now, point[0]))
         if now >= 250_000:
             target = (position(case, now) - 0.2) / 0.6
             errors.append((now, (point[0] - target) * SCREEN[0]))
@@ -103,15 +108,25 @@ def score(case, commands, rows):
     rms = math.sqrt(sum(a[1] ** 2 * (b[0] - a[0])
                         for a, b in zip(errors, errors[1:])) / duration)
     presses = [b for b in buttons if b['down']]
+    intervals = sorted((b-a)/1000 for a,b in zip(move_times,move_times[1:]))
+    truth = [(position(case, t) - 0.2) / 0.6 for t, _ in commands]
+    low, high = min(truth), max(truth)
     return {
         'case': case, 'source_interval_ms': STEP_US / 1000,
         'synthetic_delivery_delay_ms': LATENCY_US / 1000,
         'time_weighted_target_rms_px': rms,
         'max_cursor_step_px': max(jumps, default=0),
+        'path_envelope_excursion_px': max(
+            (max(low - p, p - high, 0) * SCREEN[0] for _, p in output_positions), default=0),
+        'stop_overshoot_px': max((max(p - (position(case, 1_000_000)-0.2)/0.6, 0)*SCREEN[0]
+                                 for t, p in output_positions if t >= 1_000_000), default=0)
+        if case == 'move_stop' else None,
         'movement_updates': len(move_times),
         'median_movement_interval_ms': statistics.median(
             (b - a) / 1000 for a, b in zip(move_times, move_times[1:]))
         if len(move_times) > 1 else None,
+        'p95_movement_interval_ms': intervals[min(len(intervals)-1,round(len(intervals)*0.95))]
+        if intervals else None,
         'presses': sum(b['down'] for b in buttons),
         'press_intervals_ms': [(b['at_us'] - a['at_us']) / 1000
                                for a, b in zip(presses, presses[1:])],
@@ -131,7 +146,18 @@ def main():
     parser.add_argument('--output-dir', required=True, type=Path)
     parser.add_argument('--drag-grace-ms', type=int, default=0)
     parser.add_argument('--filter', choices=('exponential', 'one-euro'), default='exponential')
+    parser.add_argument('--tick-ms',type=float,default=16.667)
+    parser.add_argument('--cursor-output', action='store_true')
+    parser.add_argument('--cursor-prediction-ms', type=float, default=80)
+    parser.add_argument('--cursor-smoothing-ms', type=float, default=30)
+    parser.add_argument('--cursor-velocity-smoothing-ms', type=float, default=80)
+    parser.add_argument('--cursor-max-speed', type=float, default=2)
+    parser.add_argument('--cursor-max-lead', type=float, default=0.01)
+    parser.add_argument('--cursor-no-direction-check', action='store_true')
     args = parser.parse_args()
+    tick_us=round(args.tick_ms*1000)
+    if not 1_000 <= tick_us <= 100_000:
+        parser.error('--tick-ms must be1..100')
     binary = args.binary.resolve(strict=True)
     binary_digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     root = args.output_dir
@@ -145,10 +171,19 @@ def main():
     if args.filter == 'one-euro':
         config['gestures']['adaptive_smoothing'] = {
             'min_cutoff_hz': 1.0, 'beta': 10.0, 'derivative_cutoff_hz': 1.0, 'speed_floor': 0.0}
+    if args.cursor_output:
+        config['cursor_output'] = {
+            'interval_us': 16_667, 'smoothing_us': args.cursor_smoothing_ms*1000,
+            'prediction_us': round(args.cursor_prediction_ms*1000),
+            'velocity_smoothing_us': args.cursor_velocity_smoothing_ms*1000,
+            'max_speed_per_s': args.cursor_max_speed,
+            'max_prediction_distance': args.cursor_max_lead,
+            'consistent_prediction': not args.cursor_no_direction_check,
+        }
     settings.write_text(json.dumps(config) + '\n')
     results = []
     for case in CASES:
-        commands = fixture(case)
+        commands = fixture(case,tick_us)
         raw = ''.join(json.dumps(c) + '\n' for _, c in commands)
         (root / f'{case}-commands.jsonl').write_text(raw)
         run = subprocess.run([str(binary), 'pipeline-replay', str(settings.resolve()),
@@ -166,6 +201,7 @@ def main():
         'tool_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'screen': SCREEN, 'cases': results,
         'settings': config,
+        'tick_us': tick_us,
         'limits': 'No camera, compositor, application or human acceptance; selected synthetic cases only.',
     }
     (root / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')

@@ -114,3 +114,9 @@ independent writer liveness and geometric same-owner return. It is disabled by
 default and is not installed. Synthetic dropouts improve, but older retained
 predictions show no held-time change, and catch-up motion/noisy opening remain
 unfinished. See the same comparison report; do not treat this as Beta acceptance.
+
+A further source-only option reconstructs cursor motion at independent ticks and
+bounds prediction by time, distance and velocity consistency. Replay measures
+smoother output cadence with remaining jitter/lag/overshoot tradeoffs. It is also
+disabled by omission and not installed; pinch stability, issue#8 and human/application
+acceptance remain open. No receiving screen or heavy work is used during Farscape.

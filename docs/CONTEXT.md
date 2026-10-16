@@ -2,15 +2,22 @@
 
 ## One-hand interaction priority —2026-10-16
 
-Current receiving result: five fresh scripted desktop drags on the unchanged
-installed1cf0aed writer completed with synchronized kernel down/up, original
-folder moves and device removal. No floating folder appeared in inspected
-cursor-alive hover probes afterward. This includes release, held Stop, watchdog,
-producer EOF and writer SIGKILL, one case each. Issue#8 remains unreproduced and
-open; PCManFM window and human gesture acceptance remain pending. See
-[the receiving trace](ABSOLUTE-DRAG-TRACE.md#first-receiving-desktop-comparison-2026-10-16).
-No camera, app restart, runtime/profile switch or human-file change occurred.
-Earlier source-only/Farscape records below retain their dated preparation limits.
+Current receiving result: all five scripted drag terminations completed once on
+the desktop and once in a PCManFM window using unchanged installed1cf0aed. Each
+retained kernel down/up, original folder moved and device removed; inspected
+cursor-alive hover images showed no floating folder. Issue#8 is still unreproduced
+and open. Actual exact-position mouse click pairs opened a scratch folder at300ms
+and selected without opening at500ms, with four kernel edges each. This is
+application evidence, not pinch recognition or human comfort acceptance. See
+[the trace report](ABSOLUTE-DRAG-TRACE.md). Owned views/empty fixtures were retired;
+no app restart, camera or production runtime/profile switch occurred.
+
+A separate a1cbb99 ARM64 candidate is staged on the Pi, with byte-preserved reference
+configs and an opt-in smooth/one-second drag-grace profile. Both pass the supported
+camera-worker preflight without acquisition or input. It has no activated service
+or selected user launcher yet; installed Beta1 is unchanged. Next prepare reversible
+A/B use with actual input observation, then obtain fresh human readiness for the
+physical test. The old workbench remains closed.
 
 The human resumed the existing one-hand goal and explicitly freed the Pi on
 2026-10-16; its objective/accounting were preserved. Camera-free desktop tests

@@ -152,6 +152,37 @@ original folder moved, child reaped and device removed. A separate cursor-alive
 no-click probe showed no floating folder in the inspected image after each case.
 [ABSOLUTE-DRAG-TRACE.md](ABSOLUTE-DRAG-TRACE.md#first-receiving-desktop-comparison-2026-10-16)
 owns exact scope and limits. Issue#8 is still unreproduced, not fixed or closed;
-PCManFM window and physical one-hand acceptance remain pending. No camera,
+The later window comparison below extends this checkpoint; physical one-hand
+acceptance remains pending. No camera,
 application restart or candidate/runtime/settings switch occurred. Only the owned
 empty fixture folders were removed after verification; original evidence remains.
+
+## Window/click comparison and staged candidate —2026-10-16
+
+The same five controlled terminations subsequently passed once each on a PCManFM
+window, with original empty-folder moves, kernel down/up and no floating folder in
+inspected post-run hover images. Issue#8 remains unreproduced, not diagnosed or
+fixed. Two traced exact-position mouse pairs confirmed application behavior:
+300ms opened the owned folder,500ms only selected it. GTK3 reports400ms/25px for
+double clicks and8px drag threshold; spatial tolerance was not functionally tested.
+[The trace report](ABSOLUTE-DRAG-TRACE.md) retains exact scope and limits. The two
+owned views and remaining empty fixture folders were closed/retired afterwards.
+
+A1cbb99's CI38950807712 passes all jobs. Its ARM64 candidate manifest and executable
+agree on SHA256 `1787298ce84fc2237f62fd074f90189d7e893bc57a8f059422d3f9db15da9a7c`.
+The candidate is staged separately, without selecting it for WG1 or starting a
+service. Both receiving `provider-camera-until-stop-preflight` runs pass with
+camera/input/acquisition false, one hand, original0.5 presence floor and recording
+configured. The reference session/mode bytes match installed Beta1; the smooth
+profile changes only the matched optional one-second drag grace and cursor output:
+16.667ms interval,30ms smoothing,80ms bounded prediction,0.01 maximum normalized
+lead, and200ms closing/150ms pressed stabilization within0.008 radius. Forty-ms
+press confirmation and immediate measured opening remain the defaults; the
+rejected weak-opening filter is absent. Calibration, models, camera request,
+recording root and disabled macros are preserved.
+
+This is staged/preflight-tested, **not a deployed or accepted camera controller**.
+The manifest's receiving-qualified flag remains false. Actual SDK/provider timing,
+input observation, reversible A/B launcher/standby preparation and fresh-ready
+physical trials are next. Installed1cf0aed remains the selected beta. There is no
+new background model, camera, input writer or discarded experiment service.

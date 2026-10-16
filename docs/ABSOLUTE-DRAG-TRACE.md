@@ -9,8 +9,8 @@ command, so its writer can be tested before adopting a newer candidate.
 
 Status: the human freed the receiving desktop and resumed the one-hand goal on
 2026-10-16. Five scripted desktop cases below have now executed on the installed
-Beta1 writer. PCManFM window qualification, issue#8 reproduction and human gesture
-acceptance remain pending. No camera acquisition or controller-setting change
+Beta1 writer. The same five cases also ran in a PCManFM window; issue#8
+reproduction and human gesture acceptance remain pending. No camera acquisition or controller-setting change
 was part of these tests.
 
 ## Preparation and execution
@@ -145,6 +145,46 @@ obtain the successful results. The old workbench and camera remain stopped.
 
 These five single-case results **do not reproduce or diagnose issue#8**. They show
 that the installed writer and current desktop can complete this controlled
-sequence, including the tested terminations. Next qualify the PCManFM window
-separately and compare a closer-to-usage sequence before proposing a fix; no
-unobserved cause or general fault tolerance follows from these runs.
+sequence, including the tested terminations. The separate window comparison below
+extends this checkpoint; no unobserved cause or general fault tolerance follows
+from these runs.
+
+## First receiving window comparison —2026-10-16
+
+The same installed1cf0aed executable repeated all five cases in the measured front
+PCManFM window, with two owned views of the same private fixture surface open.
+Each fresh empty source directory moved by original identity into its target.
+All five retained47 synchronized kernel records with one down/up, no loss or
+incomplete record, reaped writer and removed device. The inspected cursor-alive
+hover image showed no floating folder after each case. Watchdog observer-up was
+301.012ms after the last sent frame, including observer delay. SIGKILL returned-9
+with observable kernel up here; the other cases exited0. No app restart or camera
+was used. The ten window-fixture directories were retired only after the scoped
+move/identity/visual checks; raw events and screenshots remain private.
+
+These are five single cases on a second application surface, not reproduction
+or a fix of issue#8. The original failure remains open. A subsequent comparison
+must retain the kernel stream during closer-to-usage Beta interaction rather than
+assuming this controlled packet plan covers the unknown original sequence.
+
+### Application double-click check
+
+A fresh receiving GTK3 settings instance reported400ms double-click time,
+25px double-click distance and8px drag threshold. PCManFM's process maps GTK3.
+Two exact-position click pairs then used the same traced installed writer over an
+owned empty folder in the window:
+
+| Requested press interval | Observed kernel press interval | Button edges | PCManFM result |
+| --- | --- | --- | --- |
+|500ms |499.968ms | Down/up/down/up | Folder selected, stayed in parent |
+|300ms |299.986ms | Down/up/down/up | Entered that exact source folder |
+
+Native toplevel titles and retained screenshots independently establish those
+application results. This brackets actual temporal behavior around the reported
+400ms setting; it does not measure its exact boundary or spatial tolerance.
+No hand source or pinch recognition participated. The result rules out a universal
+inability of the installed mouse writer to express an application double-click;
+it does not diagnose the human's failed double pinch. Both owned test views were
+closed with individually guarded finite native clicks, and remaining empty click
+fixtures were identity-checked before removal. The original desktop process stayed
+in place. No human folder, desktop setting or physical input configuration changed.

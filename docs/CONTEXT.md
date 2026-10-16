@@ -10,7 +10,14 @@ contacts9/9 and0/9 on identical predictions/clocks. These are appearance checks,
 not measured physical contact or human intent. An explicit dimensionless ratio
 option now connects that existing hypothesis through shared session/engine modes;
 it is not a default/live-profile change. Adverse-view synthetic misses remain.
-Actual receiving execution of the new option and continuous annotation remain next.
+Actual50f4041/CI38835471950 receiving replay now passes:905published/796accepted,
+13.247Hz/99.373ms median/141.165ms p95,9/9 apparent-contact and0/9 open contacts,
+original provenance/final neutral/both end receipts. Extra reviewed source frames
+show rapid real closures, so brief output counts alone are not false positives.
+A real400.04ms recorded gap also passes:444published/403accepted, contactheld
+beforegap, tickrelease301.300ms sourceage, closedreturn newID/openrearm without
+repress, finalneutral/bothreceipts. This interrupts drag; continuity is not solved.
+Continuous/other-view annotation remains next.
 
 New source2026-10-16: provider-recording reuses a bounded read-only reader shared
 with review-recording. It preserves original rotated MJPEG bytes, indices/kernel

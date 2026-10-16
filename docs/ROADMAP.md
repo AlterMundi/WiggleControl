@@ -50,7 +50,8 @@ now isolates missed onset with a stable hand identity. The prior projected
 palm-length cue matches9/9 apparent-contact and9/9 open samples, versus3/9 and
 8/9 for estimated3D; these are nonblinded assistant appearance labels, not physical
 intent accuracy. An explicit optional dimensionless metric is implemented across
-modes without changing defaults. Next qualify actual receiving replay and
+modes without changing defaults. Actual receiving replay now gives13.247Hz/99.373ms median,9/9 sampled apparent
+contacts and0/9 open contacts, with both terminal receipts. Next qualify
 continuous/other-view behavior; earlier adverse-yaw failures prevent unconditional
 adoption. Keep raw3D and projected evidence separate.
 

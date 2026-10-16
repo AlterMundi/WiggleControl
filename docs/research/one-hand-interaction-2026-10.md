@@ -434,3 +434,78 @@ unchanged earlier selected sources and version-aware current/published map bytes
 pass. The global graph includes the new source without establishing every
 relationship or another being's reading/adoption. The prior coherent generation25
 checkpoint is retained. No receiving controller/profile deployment follows.
+
+## Retained Beta1 session comparison —2026-10-16
+
+The three original Beta1 journals are now locally available with verified original
+bytes:13731 accepted frames across source spans119.218s,968.439s and140.728s.
+These are the actual earlier Beta sessions, distinct from the older recorded-worker
+windows above. Private originals, selection and replay receipts remain outside Git.
+No new camera, image inference or input ran.
+
+### Original semantic evidence
+
+Count `intent_transition` edges once; frame and transition records can describe
+the same decision. All195 presses have matching semantic releases:109 opening,
+77 `stale_input` and9 `tracking_lost`. The long session alone has155 releases:
+79 opening,70 stale and6 tracking loss. These are controller decisions, not
+independent kernel delivery or labels of intended continued dragging. They do
+not diagnose the separate sticky-folder issue#8.
+
+Of192 unlabelled consecutive press pairs, six have intervals at most400ms.
+Their nominal mapped press separations are17.34,66.24,240.15,8.43,9.33 and5.36px.
+Four fit a25px Euclidean diagnostic; this is **not** a double-click success rate.
+The denominator includes unrelated clicks/drags;400ms/25px are later observed
+GTK settings, not settings recorded during those sessions. Coordinates assume
+the preserved workspace and1920x1080, not measured delivered pointer positions.
+One hold in the17.34px pair moves37.66px nominally; close press positions alone
+do not establish a stationary click. The remaining three nearby pairs have
+within-hold excursions below6px. Recognition and human intent remain unknown.
+
+Old recorded track IDs cannot independently evaluate new association retention:
+the old policy discarded many owners during gaps. Re-run the supported provider
+and gesture path on retained predictions where that evidence is complete.
+
+### Matched provider/gesture replay
+
+Rejected predictions did not retain complete raw landmark payloads, preventing
+a claimed full-session provider reconstruction. Before running either variant,
+select the longest contiguous unambiguous segment without a control boundary
+per journal. Preserve raw landmark/world/depth/presence/handedness values,
+sequence numbers and original source/evaluation intervals. Shift both clocks
+by a fixed epoch; add independent16.667ms logical ticks and explicit Start/Stop/EOF.
+Use the supported `provider-replay` CLI. Segment startup requires recorded opening;
+original intervening tick timing and preceding history are not reconstructed.
+
+The reference matches the recorded button state at **all4248 selected frame
+timestamps** (1438/1868/942), with zero mismatches. This validates that baseline
+state comparison, not original between-frame release latency. The candidate
+changes only matching session/controller drag grace0→1000ms, selecting the
+provider's existing absence retention. Cursor reconstruction, stabilization and
+device output are outside this replay.
+
+| Selected segment | Presses, both | Reference held(s) | Grace held(s) | Reference stale/lost releases | Grace stale/lost releases |
+| --- | --- | --- | --- | --- | --- |
+| First journal,115.745s logical run |32 |13.248 |15.585 |6 |0 |
+| Second journal,147.362s logical run |43 |24.728 |30.756 |9 |0 |
+| Third journal,83.667s logical run |3 |2.156 |3.291 |2 |0 |
+
+All78 press timestamps are identical across variants, with matching release
+counts and neutral Stop/EOF. Held time totals40.132522→49.632234s. Pairing releases
+by their unchanged press timestamp shows12 stale releases replaced by later
+observed opening;5 tracking-loss releases become one bounded expiry, one owner
+change and three disengagement releases. All61 originally observed-open releases
+remain observed-open. Provider track counts change35→27,86→10 and38→6.
+
+These are counterfactual semantic results, not independently labelled desired
+recovery, identity accuracy or comfort. Do not generalize them to all77 original
+stale releases. Original imagery plus human/application evidence must decide
+whether retaining these holds is desirable.
+
+Measurement uses sourcea451434 (documentation after d8f9bb9; same implementation),
+native executable SHA256
+`aa697ea7e1dea49541062e05617b701b9db1b3dd29df946e1a3eeec52df26d25`.
+The prepared45s physical comparison still requires fresh readiness; no receiving
+profile changed. This continuation is suitable for the next coherent collective
+synthesis with physical feedback. The immutable generation26 contribution above
+has not been silently rewritten or reindexed.

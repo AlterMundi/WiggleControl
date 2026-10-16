@@ -57,6 +57,16 @@ fresh readiness for a45s seated-use comparison, preserving private video and
 semantic/kernel evidence. Standby and synthetic gains do not establish actual
 camera throughput, motion cadence, natural double-pinch or human comfort.
 
+Retained actual Beta journals now strengthen the offline comparison:4248 selected
+frame button states exactly match the reference. Existing1000ms continuity
+preserves78 press timestamps and replaces12 stale cancellations with later observed
+opening;5 tracking-loss cases end by bounded expiry/owner change/disengagement.
+[The interaction report](research/one-hand-interaction-2026-10.md#retained-beta1-session-comparison-2026-10-16)
+keeps the counterfactual/intent limits. Old track IDs alone cannot test new
+association retention, and rejected raw predictions prevent full-session replay.
+Physical comparison still awaits the existing fresh-ready request; no trial
+profile change or new receiving build is needed.
+
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,
 100 executions/50 matched pairs retain exact public detector outputs, including

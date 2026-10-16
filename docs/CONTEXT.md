@@ -23,6 +23,17 @@ owned-folder move. See [ONE-HAND-TRIAL.md](ONE-HAND-TRIAL.md) and the latest
 WG1 still selects installed1cf0aed; physical candidate acceptance and issue#8 remain
 pending. Obtain fresh human readiness before Start. The old workbench remains closed.
 
+Local analysis now uses the three actual earlier Beta journals. Of195 semantic
+releases,77 are stale-input and9 tracking loss; these are not intent/kernel labels.
+On4248 selected unambiguous/control-free frames the reference exactly reproduces
+recorded button state. Matching1000ms grace preserves all78 press timestamps,
+replaces12 stale releases with later observed opening and ends5 tracking-loss
+cases by bounded expiry/owner change/disengagement. Held time40.133→49.632s is
+a counterfactual result, not desired-recovery accuracy. The
+[new report section](research/one-hand-interaction-2026-10.md#retained-beta1-session-comparison-2026-10-16)
+owns selection, click-pair diagnostics and incomplete rejected-prediction limits.
+The pending human-ready question remains unchanged; camera stays off.
+
 The human resumed the existing one-hand goal and explicitly freed the Pi on
 2026-10-16; its objective/accounting were preserved. Camera-free desktop tests
 are now authorized. New camera/gesture trials still require fresh human readiness. The new

@@ -87,6 +87,21 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  state.pinch_metric='projected_wrist_middle_mcp';
  await vm.runInContext('poll()',context);
  assert.match(element('capture-status').textContent,/Projected pinch/);
+ const savedController=state.controller;
+ state.controller=null;state.pinch_ratio=.30;state.close_ratio=.38;state.blocked_reason='open_before_press';
+ await vm.runInContext('poll()',context);
+ assert.equal(element('ratio-label').textContent,'Pinch / palm length');
+ assert.equal(element('ratio').textContent,'0.30');
+ assert.match(element('guide').textContent,/0.40 palm length/);
+ state.blocked_reason=null;
+ await vm.runInContext('poll()',context);
+ assert.match(element('guide').textContent,/Close ≤ 0.38.*0.40 palm length/);
+ state.pinch_metric='projected_palm_width';
+ await vm.runInContext('poll()',context);
+ assert.equal(element('ratio-label').textContent,'Pinch / palm width');
+ assert.match(element('guide').textContent,/palm width/);
+ state.controller=savedController;state.close_ratio=.25;state.pinch_metric='projected_wrist_middle_mcp';
+
  state.recorded_source=false;state.ui_fixture=false;state.camera_source=true;
  state.active=false;
  state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];

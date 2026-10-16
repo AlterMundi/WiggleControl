@@ -54,6 +54,15 @@ more held time without intent labels to establish benefit. It stays absent by
 default; source/touch/Stop/watchdog and pre-acquisition regressions pass. All work
 remains local; the receiving runtime/calibration and issue#8 are unchanged.
 
+Issue#8 now has a locally prepared [absolute drag trace](ABSOLUTE-DRAG-TRACE.md).
+It uses the existing finite writer, uniquely new named virtual-node observation,
+owned empty folder identities and separate packet/kernel/filesystem receipts.
+Five plans cover ordinary release, held Stop, watchdog, producer EOF and writer
+death. Six device-free tests include actual Rust packet consumption, no-input
+planning, observation-permission failure and incomplete-event evidence. No live
+device or Pi test occurred; desktop-grab recovery stays unknown even if the folder
+move succeeds. Use it only after actual receiving availability, preserving Farscape.
+
 After further manual use, Nicolás reports generally reasonable functionality,
 accurate target reach and good-looking hand/pinch tracking, with unreliable double
 pinch double-click, premature drag release and visibly stepped cursor movement.

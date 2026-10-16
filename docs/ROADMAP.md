@@ -32,6 +32,11 @@ The latest opening-evidence comparison also rejects universal release debounce:
 its isolated-noise benefit has a measured deliberate-release/double-pinch cost.
 Intent-labelled retained evidence and actual application trials remain necessary
 before selecting that optional policy; immediate opening remains the default.
+The next receiving step is prepared in the
+[camera-free absolute drag trace](ABSOLUTE-DRAG-TRACE.md): compare explicit
+release/Stop, producer silence/EOF and writer death using only owned empty folders
+and the named virtual mouse. Local fixture/parser/protocol checks pass; actual
+kernel/application evidence and residual desktop-grab observation remain pending.
 
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,

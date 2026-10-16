@@ -106,12 +106,13 @@ the drag. Restarting only PCManFM's desktop process removed the floating icon;
 subsequent pointer movement and a screenshot verified recovery. The original
 folder remained on the desktop. No compositor/session restart was needed.
 
-Both beta units are stopped pending delivery diagnosis. The beta is not accepted
+Both beta units were stopped at the last receiving inspection, pending delivery
+diagnosis; no live inspection occurred during Farscape. The beta is not accepted
 for everyday use. Next: reproduce with empty owned test folders and trace this
 writer's kernel button events alongside actual application drop results, without
 camera acquisition. Stop must be qualified at the application level as well as
-the controller/device levels. The terminal journal's camera_opened/system_input
-fields currently retain historical acquisition flags; use actual unit/device
+the controller/device levels. The installed release's camera_opened/system_input
+terminal fields retain historical acquisition flags; use actual unit/device
 observations for teardown, and correct the receipt fields before acceptance.
 
 Follow-up source corrects these terminal fields and adds a device-free absolute
@@ -119,6 +120,14 @@ pipeline replay; see the [interaction baseline](research/one-hand-interaction-20
 This correction is not yet deployed and does not diagnose the sticky drag.
 The replacement one-hand goal is active. The human has reserved the receiving
 screen for Farscape; receiving injection and heavy experiments wait until it is free.
+
+The [camera-free drag trace](ABSOLUTE-DRAG-TRACE.md) is now prepared locally. It
+reuses the installed finite writer and compares ordinary release, Stop while
+held, producer silence/EOF and writer death using owned empty folders and only
+the new virtual mouse's kernel stream. Fixture identity and event framing/protocol
+tests pass without devices. This is a prepared diagnostic, not an executed Pi
+test or issue#8 diagnosis; actual filesystem drop and remaining desktop grab
+must be inspected separately.
 
 The next source-only candidate adds optional bounded drag continuity, with
 independent writer liveness and geometric same-owner return. It is disabled by

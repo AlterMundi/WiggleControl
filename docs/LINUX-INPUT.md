@@ -53,3 +53,12 @@ ID_INPUT_MOUSE=1. libinput separately reported the pointer capability and accele
 The virtual device was absent after expiry. No movement/button/
 wheel events, camera or microphone were activated. Application delivery, actual
 watchdog release and SIGKILL removal are separate remaining tests.
+
+## Absolute drag follow-up —2026-10-16
+
+Later relative-pointer/browser acceptance is retained in [QUALIFICATION.md](QUALIFICATION.md).
+It does not diagnose the new absolute-mouse desktop drag failure in issue#8.
+The [camera-free absolute drag trace](ABSOLUTE-DRAG-TRACE.md) prepares a controlled
+comparison using the existing writer, the new virtual device's actual kernel
+stream and owned empty folder identities. Its device-free checks pass; real
+receiving/application recovery remains pending while the human watches Farscape.

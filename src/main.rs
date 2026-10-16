@@ -29,9 +29,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
             );
         }
-        Some("provider-camera" | "provider-camera-preflight")
-            if args.len() == 8 || args.len() == 9 =>
-        {
+        Some(
+            "provider-camera"
+            | "provider-camera-preflight"
+            | "provider-camera-manual"
+            | "provider-camera-manual-preflight",
+        ) if args.len() == 8 || args.len() == 9 => {
             if args.len() == 9 && args[8] != "--inject" {
                 return Err("unknown camera worker option".into());
             }
@@ -48,7 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     port: args[6].parse()?,
                     max_hands: args[7].parse()?,
                     inject: args.len() == 9,
-                    preflight: args[0] == "provider-camera-preflight",
+                    preflight: args[0].ends_with("-preflight"),
+                    manual_start: args[0].starts_with("provider-camera-manual"),
                 },
             );
         }
@@ -69,6 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     max_hands: args[6].parse()?,
                     inject: args.len() == 8,
                     preflight: args[0].ends_with("-preflight"),
+                    manual_start: true,
                 },
             );
         }
@@ -533,6 +538,8 @@ fn print_help() {
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol provider-camera-manual[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (finite trial after explicit Start; idle opens no camera/device)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (manual camera worker; preflight opens no camera/device)");
     #[cfg(feature = "native-vision")]

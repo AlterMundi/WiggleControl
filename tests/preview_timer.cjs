@@ -6,7 +6,9 @@ const element = id => {
   return elements.get(id);
 };
 let now = 1000, tick, clears = 0;
-const canvas = {width:640, height:480, classList:{add:()=>{}}, getContext:()=>({clearRect:()=>clears++})};
+const arcs=[],texts=[];
+const graphics={clearRect:()=>clears++,fillRect(){},strokeRect(){},beginPath(){},stroke(){},fill(){},arc(...v){arcs.push(v)},fillText(value){texts.push(value)}};
+const canvas = {width:640, height:480, classList:{add:()=>{}}, getContext:()=>graphics};
 const context = vm.createContext({document:{querySelector:()=>canvas,getElementById:element},
   Option:function(text,value){this.text=text;this.value=value}, performance:{now:()=>now}, setInterval:fn=>tick=fn, setTimeout:()=>{},
   AbortSignal:{timeout:()=>null}, fetch:async()=>({status:204})});
@@ -22,6 +24,18 @@ vm.runInContext(`showController({controller:{mode:'two_contacts',running:true,bu
 assert.match(element('guide').textContent,/Open your hands before pinching again/);
 vm.runInContext(`showController({controller:{mode:'two_contacts',running:true,button_down:false,contacts:[],awaiting_open_hands:[],primary_hand:null,claimed_hand:null},perception:[{id:3},{id:4}],input_available:false},true)`,context);
 assert.match(element('guide').textContent,/Pinch each visible hand/);
+vm.runInContext(`showController({controller:{mode:'pointer',running:true,button_down:true,contacts:[],pointer_ready:false,drag_hold:{in_grace:true}},perception:[]},true)`, context);
+assert.equal(element('held-input').textContent,'Drag retained');
+assert.match(element('guide').textContent,/Cursor frozen/);
+vm.runInContext(`showController({controller:{mode:'pointer',running:true,button_down:true,contacts:[],pointer_ready:false,drag_hold:{in_grace:true}},perception:[]},false)`, context);
+assert.equal(element('held-input').textContent,'View delayed');
+vm.runInContext(`drawTargetEstimate({cursor_output:{observed:{x:.2,y:.3},estimated:{x:.7,y:.8}}},true)`, context);
+assert.equal(arcs.length,2);
+assert.ok(Math.abs(arcs[0][0]-(640-184+.2*172))<1e-9);
+assert.ok(Math.abs(arcs[1][0]-(640-184+.7*172))<1e-9);
+assert.equal(texts[0],'Screen target');
+vm.runInContext(`drawTargetEstimate({cursor_output:{observed:{x:NaN,y:.3},estimated:{x:.7,y:.8}}},false)`, context);
+assert.equal(arcs.length,2,'invalid data must not draw another screen target');
 vm.runInContext('deadline=2500; stopped=false;', context);
 element('test-indicator').className='testing'; element('presses').textContent='4';
 tick(); assert.equal(element('countdown').textContent,'00:02');

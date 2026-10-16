@@ -105,6 +105,17 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  state.recorded_source=false;state.ui_fixture=false;state.camera_source=true;
  await vm.runInContext('poll()',context);
  assert.match(element('capture-status').textContent,/Camera active.*Projected pinch/);
+ state.awaiting_start=true;state.trial_seconds=45;state.until_stop=false;state.test_phase='preparing';state.camera_opened=false;
+ await vm.runInContext('poll()',context);
+ assert.match(element('guide').textContent,/for 45 seconds/);
+ assert.equal(element('test-label').textContent,'READY');
+ assert.equal(vm.runInContext('deadline',context),null);
+ state.awaiting_start=false;state.camera_opened=true;state.test_phase='testing';state.remaining_ms=45000;
+ const manualRequestTime=now;
+ await vm.runInContext('poll()',context);
+ assert.equal(element('test-label').textContent,'TESTING');
+ assert.equal(element('test-indicator').className,'testing');
+ assert.equal(vm.runInContext('deadline',context),manualRequestTime+45000,'decode must not extend finite manual trial');
  state.active=false;
  state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];
  const terminalReceipts=[];

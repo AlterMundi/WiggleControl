@@ -30,6 +30,7 @@ jobs:
       - run: python3 tools/synthetic/test_mesh_projection.py
       - run: cargo fmt --check
       - run: cargo test --locked
+      - run: python3 tools/test_one_hand_trial.py
       - run: python3 tools/test_trace_absolute_drag.py --binary target/debug/wigglecontrol
       - run: cargo clippy --locked --all-targets -- -D warnings
 
@@ -55,6 +56,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85.1
       - run: sudo apt-get update && sudo apt-get install -y libclang-dev
       - run: cargo test --locked --features native-vision
+      - run: python3 tools/test_one_hand_trial.py
       - run: python3 tools/test_trace_absolute_drag.py --binary target/debug/wigglecontrol
       - run: cargo build --locked --release --features native-vision --bin wigglecontrol
       - name: Retain source-bound candidate without models or receiving configuration

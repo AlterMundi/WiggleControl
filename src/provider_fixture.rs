@@ -84,6 +84,7 @@ struct Bridge {
     absolute_pointer: bool,
     cursor_output: Option<crate::cursor::Config>,
     manual_start: bool,
+    trial_seconds: Option<u64>,
     run_id: String,
     state: Mutex<State>,
     changed: Condvar,
@@ -128,6 +129,7 @@ impl Bridge {
             absolute_pointer: false,
             cursor_output: None,
             manual_start: false,
+            trial_seconds: None,
             run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
@@ -238,7 +240,7 @@ impl Extension for Bridge {
                 Ok(reply(
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"package_version":"1.1.1",
+                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output}),
                 ))
@@ -566,7 +568,8 @@ pub fn run(
 }
 
 /// Starts acquisition only after this manually launched session's worker is ready.
-/// The caller must obtain the human's fresh ready acknowledgment before launching.
+/// Automatic trials require fresh human readiness before launch. Manual trials
+/// remain idle until Start; obtain fresh human readiness before that action.
 pub struct CameraOptions<'a> {
     pub session: &'a Path,
     pub settings: &'a Path,
@@ -577,6 +580,7 @@ pub struct CameraOptions<'a> {
     pub max_hands: usize,
     pub inject: bool,
     pub preflight: bool,
+    pub manual_start: bool,
 }
 
 pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
@@ -593,6 +597,7 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
         source: Source::Camera {
             seconds: options.seconds,
             inject: options.inject,
+            manual_start: options.manual_start || options.seconds == 0,
         },
         preflight: options.preflight,
     })
@@ -669,6 +674,7 @@ enum Source {
     Camera {
         seconds: u64,
         inject: bool,
+        manual_start: bool,
     },
     Recorded {
         reader: crate::recording::Reader,
@@ -724,6 +730,13 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         .then_some(config.touch_workspace);
     let camera_source = matches!(&source, Source::Camera { .. });
     let recorded_source = matches!(&source, Source::Recorded { .. });
+    let manual_start = matches!(
+        &source,
+        Source::Camera {
+            manual_start: true,
+            ..
+        }
+    );
     let recording_epoch = match &source {
         Source::Recorded { reader, .. } => Some(reader.rows()[0].source_us),
         _ => None,
@@ -752,7 +765,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     bridge.presence_scores = config.provider_presence_scores;
     bridge.absolute_pointer = config.provider_absolute_pointer;
     bridge.cursor_output = config.pointer_cursor_output;
-    bridge.manual_start = until_stop;
+    bridge.manual_start = manual_start;
+    bridge.trial_seconds = (camera_source && !until_stop).then_some(duration / 1_000_000);
     bridge.camera_source = camera_source;
     bridge.recorded_source = recorded_source;
     bridge.input_requested = inject;
@@ -761,7 +775,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         println!(
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
-            "until_stop":until_stop,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
+            "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
             "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
@@ -954,7 +968,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 }
                 mailbox.opened
             };
-            let preparation_expired = if until_stop {
+            let preparation_expired = if manual_start {
                 bridge
                     .state
                     .lock()
@@ -1091,8 +1105,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 let mut data =
                     metadata(&config, &output, &feedback, now, remain, started.is_some());
                 data["awaiting_start"] =
-                    (until_stop && bridge.state.lock().unwrap().preparing.is_none()).into();
+                    (manual_start && bridge.state.lock().unwrap().preparing.is_none()).into();
                 data["until_stop"] = (until_stop && started.is_some()).into();
+                data["trial_seconds"] = bridge.trial_seconds.into();
                 data["ui_fixture"] = (!camera_source).into();
                 data["synthetic_frame"] = (feedback.source_us == 0).into();
                 data["camera_source"] = camera_source.into();
@@ -1188,6 +1203,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     }
     let mut terminal = metadata(&config, &final_state, &feedback, monotonic_us()?, 0, true);
     terminal["active"] = false.into();
+    terminal["trial_seconds"] = bridge.trial_seconds.into();
     terminal["ui_fixture"] = (!camera_source).into();
     terminal["synthetic_frame"] = (feedback.source_us == 0).into();
     terminal["camera_source"] = camera_source.into();
@@ -1317,6 +1333,12 @@ mod tests {
     fn manual_standby_requires_start_before_ready_and_preserves_run_identity() {
         let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "beta".into(), 1);
         bridge.manual_start = true;
+        bridge.trial_seconds = Some(45);
+        let config: Value =
+            serde_json::from_slice(&bridge.respond("GET", "/provider/config", b"").unwrap().body)
+                .unwrap();
+        assert_eq!(config["manual_start"], true);
+        assert_eq!(config["trial_seconds"], 45);
         let body = br#"{"run_id":"beta"}"#;
         assert_eq!(
             bridge
@@ -1498,6 +1520,7 @@ mod tests {
             source: Source::Camera {
                 seconds: 1,
                 inject: true,
+                manual_start: false,
             },
             preflight: true,
         });

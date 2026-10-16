@@ -65,6 +65,7 @@ struct Bridge {
     input_requested: bool,
     warmup: Vec<u8>,
     max_hands: usize,
+    presence_floor: f64,
     run_id: String,
     state: Mutex<State>,
     changed: Condvar,
@@ -104,6 +105,7 @@ impl Bridge {
             input_requested: false,
             warmup: Vec::new(),
             max_hands,
+            presence_floor: 0.5,
             run_id,
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
@@ -208,7 +210,7 @@ impl Extension for Bridge {
                 Ok(reply(
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
-                "run_id":self.run_id,"max_hands":self.max_hands,"package_version":"1.1.1",
+                "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.input_started}),
                 ))
@@ -667,7 +669,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     if !(1..=2).contains(&max_hands) {
         return Err("provider max hands must be1 or2".into());
     }
-    let (config, mut controller, mut tracker) = provider::configured(session, settings, 0.5)?;
+    let (config, mut controller, mut tracker) = provider::configured(session, settings, None)?;
+    let presence_floor = config.gestures().min_confidence;
     let camera_source = matches!(&source, Source::Camera { .. });
     let recorded_source = matches!(&source, Source::Recorded { .. });
     let recording_epoch = match &source {
@@ -693,6 +696,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         format!("{}-{}", std::process::id(), monotonic_us()?),
         max_hands,
     );
+    bridge.presence_floor = presence_floor;
     bridge.camera_source = camera_source;
     bridge.recorded_source = recorded_source;
     bridge.input_requested = inject;
@@ -702,10 +706,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
             "recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
-            "model_sha256":MODEL,"input_requested":inject,"acquisition_started":false})
+            "model_sha256":MODEL,"presence_floor":presence_floor,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
     }
+    let mut visual_classifier =
+        crate::pose_classifier::VisualClassifier::with_runtime(&controller, &config.runtime)?;
     let bridge = Arc::new(bridge);
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
@@ -735,6 +741,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         recorded_time_ms: None,
         pinch_ratio: None,
         eligible: false,
+        visual_macros: visual_classifier.is_some(),
+        visual_pose: None,
+        classifier_ms: 0.0,
     };
     let mut previous_active = (Vec::new(), false);
     let prepared = Instant::now();
@@ -756,7 +765,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         monotonic_us()?,
                         &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
                             "model_sha256":MODEL,"package_version":"1.1.1","max_hands":max_hands,
-                            "presence_floor":0.5,"confidence_kind":"configured_threshold_lower_bound",
+                            "presence_floor":presence_floor,"visual_macros":visual_classifier.is_some(),"confidence_kind":"configured_threshold_lower_bound",
                             "width":640,"height":480,"camera_fps":30,"freshness_ms":config.freshness_ms,
                             "input_requested":inject,"human_labels":"separate; predictions are not ground truth"}),
                     )?;
@@ -920,16 +929,23 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     .iter()
                     .filter_map(|h| config.observation(Some(h), 640, 480, packet.source_us).hand)
                     .collect();
-                let state = controller.observe(
-                    now,
-                    touch_gestures::Frame {
-                        version: 1,
-                        source_us: packet.source_us,
-                        ambiguous: found.ambiguous,
-                        hands: hands.clone(),
-                    },
-                    None,
-                );
+                let observation = touch_gestures::Frame {
+                    version: 1,
+                    source_us: packet.source_us,
+                    ambiguous: found.ambiguous,
+                    hands: hands.clone(),
+                };
+                let classifier_started = Instant::now();
+                let (pose, visual_pose) = if let Some(classifier) = &mut visual_classifier {
+                    classifier.classify(&controller, &observation, &found.hands, 640, 480)?
+                } else {
+                    (None, None)
+                };
+                feedback.classifier_ms = classifier_started.elapsed().as_secs_f64() * 1000.0;
+                feedback.visual_pose = visual_pose;
+                // Classification is part of meaning latency and cannot extend freshness.
+                now = monotonic_us()?;
+                let state = controller.observe(now, observation, pose);
                 feedback.recorded_time_ms = lease.recorded.as_ref().and_then(|r| {
                     recording_epoch.map(|first| (r.source_us - first) as f64 / 1000.0)
                 });
@@ -940,7 +956,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 feedback.pinch_ratio = hands.first().map(crate::Hand::pinch_ratio);
                 feedback.eligible = hands.iter().any(|h| h.engaged && h.pinch_eligible);
                 feedback.raw=found.hands.iter().map(|h|json!({"id":h.id,"confidence":h.confidence,
-                    "handedness":h.handedness,"landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks})).collect();
+                    "handedness":h.handedness,"landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks,"image_depths":h.image_depths})).collect();
                 let receipt = json!({"sequence":lease.sequence,"source_us":packet.source_us,"now_us":now,
                     "age_ms":(feedback.meaning_us-packet.source_us)as f64/1000.0,"contacts":state.contacts,"mode":state.mode});
                 bridge.finish(lease.sequence, receipt);
@@ -948,7 +964,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     json!({"event":"frame","sequence":lease.sequence,"capture_sequence":lease.frame.sequence,
                     "source_us":packet.source_us,"issued_us":lease.issued_us,"received_us":submission.received_us,"now_us":now,"meaning_us":feedback.meaning_us,
                     "ambiguous":found.ambiguous,"ambiguity_reason":found.ambiguity_reason,"hands":hands,
-                    "perception":feedback.raw,"controller":state,"camera_opened":camera_opened,"system_input":inject,"recorded_frame":lease.recorded}),
+                    "perception":feedback.raw,"visual_pose":feedback.visual_pose,"classifier_ms":feedback.classifier_ms,"visual_macros":feedback.visual_macros,"controller":state,"camera_opened":camera_opened,"system_input":inject,"recorded_frame":lease.recorded}),
                 )?;
                 state
             } else {
@@ -1123,6 +1139,9 @@ struct Feedback {
     recorded_time_ms: Option<f64>,
     pinch_ratio: Option<f64>,
     eligible: bool,
+    visual_macros: bool,
+    visual_pose: Option<crate::pose_classifier::VisualState>,
+    classifier_ms: f64,
 }
 
 fn metadata(
@@ -1152,7 +1171,7 @@ fn metadata(
         "test_phase":if started {"testing"}else{"preparing"},"decode_ms":0,"inference_ms":0,
         "provider_transport":true,"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
         "landmarks":first.map(|h|&h["landmarks"]),"confidence":first.map(|h|&h["confidence"]),
-        "perception":perception,"controller":state,"visual_macros":false,"cursor":state.pointer_cursor,
+        "perception":perception,"controller":state,"visual_macros":feedback.visual_macros,"visual_pose":feedback.visual_pose,"classifier_ms":feedback.classifier_ms,"cursor":state.pointer_cursor,
         "eligible":eligible,"pinch_ratio":feedback.pinch_ratio,"pinch_metric":config.pinch_metric_name(),"presses":0,"pinch_state":if state.contacts.is_empty(){"touch"}else{"pressed"},
         "confirmation_elapsed_ms":state.confirmation_elapsed_us/1000,"confirmation_required_ms":config.gestures().confirm_us/1000,
         "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason})
@@ -1204,8 +1223,10 @@ mod tests {
         let mut b = Bridge::new(BTreeMap::new(), 300_000, "camera".into(), 1);
         b.camera_source = true;
         b.input_requested = true;
+        b.presence_floor = 0.8;
         let response = b.respond("GET", "/provider/config", &[]).unwrap();
         let config: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(config["presence_floor"], 0.8);
         assert_eq!(config["camera_source"], true);
         assert_eq!(config["input_requested"], true);
         assert_eq!(config["camera_opened"], false);

@@ -50,6 +50,9 @@ def commands(case, images, delay_us):
             raise ValueError('Image escapes scene root or digest differs')
         hands = [dict(landmarks=h['landmarks'], world_landmarks=h['world_landmarks'],
                       right_probability=right_probability(h['handedness'])) for h in row['hands']]
+        for hand, raw in zip(hands, row['hands']):
+            if raw.get('image_depths') is not None:
+                hand['image_depths'] = raw['image_depths']
         result.append(dict(type='frame', observation=dict(sequence=index+1,
             source_us=row['source_us'], now_us=row['source_us']+delay_us,
             width=width, height=height, hands=hands)))

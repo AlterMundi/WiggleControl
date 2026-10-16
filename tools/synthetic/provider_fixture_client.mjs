@@ -13,7 +13,7 @@ const run = async()=>{
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if(hash!==config.model_sha256)throw Error('Provider model digest differs');
   text('capture-status',config.camera_source?'Preparing GPU worker · camera not acquired':config.recorded_source?'Preparing recorded playback · sensors off':'Preparing GPU worker · synthetic frames only');
-  model=await workerSource(base,bytes,config.delegate,config.max_hands);
+  model=await workerSource(base,bytes,config.delegate,config.max_hands,config.presence_floor);
   // Compile/warm the graph on the displayed public reference before real-clock
   // acquisition begins. Warmup points never enter Rust meaning.
   const warmResponse=await fetch('/provider/warmup',{cache:'no-store'});
@@ -49,7 +49,7 @@ const run = async()=>{
       if(h.handedness.length!==1)throw Error('Unsupported handedness categories');
       const c=h.handedness[0];
       if(!['Left','Right'].includes(c.categoryName))throw Error('Unknown handedness category');
-      return {landmarks:h.landmarks,world_landmarks:h.world_landmarks,
+      return {landmarks:h.landmarks,image_depths:h.image_depths,world_landmarks:h.world_landmarks,
         right_probability:c.categoryName==='Right'?c.score:1-c.score};
     });
     const returned=await post('/provider/result',{sequence:ticket.sequence,hands});

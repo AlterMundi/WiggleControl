@@ -56,6 +56,19 @@ pub struct VisualClassifier {
     policy: crate::macros::VisualPolicy,
 }
 impl VisualClassifier {
+    /// Provider paths have no native detector to initialize ORT. Disabled profiles
+    /// must remain model/runtime-free, including when their paths do not exist.
+    pub fn with_runtime(
+        controller: &crate::controller::Controller,
+        runtime: &str,
+    ) -> Result<Option<Self>, Box<dyn Error>> {
+        if controller.visual_policy().is_none() {
+            return Ok(None);
+        }
+        ort::init_from(runtime).commit()?;
+        Self::configured(controller)
+    }
+
     pub fn configured(
         controller: &crate::controller::Controller,
     ) -> Result<Option<Self>, Box<dyn Error>> {
@@ -83,6 +96,9 @@ impl VisualClassifier {
         else {
             return Ok((None, None));
         };
+        if hand.image_depths.is_none() {
+            return Ok((None, None));
+        }
         let prediction = self.classifier.predict_hand(hand, width, height)?;
         let evidence = self.policy.evidence(
             hand.id,
@@ -189,11 +205,15 @@ impl Classifier {
         width: u32,
         height: u32,
     ) -> Result<Prediction, Box<dyn Error>> {
+        let depths = hand
+            .image_depths
+            .as_ref()
+            .ok_or("visual classification requires image depth")?;
         let points = std::array::from_fn(|i| {
             [
                 (hand.landmarks[i].x / f64::from(width)) as f32,
                 (hand.landmarks[i].y / f64::from(height)) as f32,
-                (hand.image_depths[i] / f64::from(width)) as f32,
+                (depths[i] / f64::from(width)) as f32,
             ]
         });
         self.predict(&points, width, height)
@@ -262,6 +282,13 @@ pub fn check_image(image: &Path, config: &Path, model: &Path) -> Result<(), Box<
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn disabled_visual_profile_does_not_load_an_invalid_runtime() {
+        let controller = crate::controller::Controller::new(Default::default()).unwrap();
+        assert!(VisualClassifier::with_runtime(&controller, "/not-loaded")
+            .unwrap()
+            .is_none());
+    }
     #[test]
     fn image_aspect_and_depth_are_normalized_in_the_provider_coordinate_system() {
         let mut points = [[0.5, 0.5, 0.0]; 21];

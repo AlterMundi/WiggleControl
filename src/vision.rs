@@ -158,8 +158,8 @@ pub struct DetectedHand {
     pub id: u64,
     pub landmarks: [XY; 21],
     /// Relative image depth in source pixels (same scale as X), before mirroring.
-    /// This is a model image coordinate, not metric world depth.
-    pub image_depths: [f64; 21],
+    /// This is a model image coordinate, not metric world depth. None means unavailable.
+    pub image_depths: Option<[f64; 21]>,
     pub world_landmarks: [[f64; 3]; 21],
     pub confidence: f64,
     pub handedness: f64,
@@ -516,9 +516,9 @@ impl Perception {
         Ok(Some(DetectedHand {
             id,
             landmarks: points,
-            image_depths: std::array::from_fn(|i| {
+            image_depths: Some(std::array::from_fn(|i| {
                 f64::from(landmarks[i * 3 + 2]) * roi.side / 224.0
-            }),
+            })),
             world_landmarks: std::array::from_fn(|i| {
                 std::array::from_fn(|j| f64::from(world[i * 3 + j]))
             }),
@@ -1087,7 +1087,7 @@ mod tests {
         let mut a = DetectedHand {
             id: 1,
             landmarks: [XY { x: 100.0, y: 100.0 }; 21],
-            image_depths: [0.0; 21],
+            image_depths: Some([0.0; 21]),
             world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,
@@ -1121,7 +1121,7 @@ mod tests {
         let mut hand = DetectedHand {
             id: 1,
             landmarks: [XY { x: 100.0, y: 180.0 }; 21],
-            image_depths: [0.0; 21],
+            image_depths: Some([0.0; 21]),
             world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,
@@ -1210,7 +1210,7 @@ mod tests {
         let mut hand = DetectedHand {
             id: 1,
             landmarks: [XY { x: 200.0, y: 300.0 }; 21],
-            image_depths: [0.0; 21],
+            image_depths: Some([0.0; 21]),
             world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,

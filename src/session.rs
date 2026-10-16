@@ -1483,7 +1483,7 @@ mod tests {
         let mut hand = DetectedHand {
             id,
             landmarks: [XY { x: 200.0, y: 300.0 }; 21],
-            image_depths: [0.0; 21],
+            image_depths: Some([0.0; 21]),
             world_landmarks: [[0.0; 3]; 21],
             confidence: 0.99,
             handedness: 0.9,

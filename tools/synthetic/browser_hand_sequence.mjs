@@ -1,7 +1,8 @@
 // Camera-free optional provider comparison; all assets stay on loopback.
 // A browser backend is not stable hand identity or delivered system input.
-export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2) {
+export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2, presenceFloor=.5) {
   if(!Number.isInteger(maxHands)||maxHands<1||maxHands>2)throw Error('Expected one or two provider hands');
+  if(!Number.isFinite(presenceFloor)||presenceFloor<.01||presenceFloor>1)throw Error('Invalid provider presence floor');
   if (location.origin !== new URL(baseUrl).origin) throw Error('Worker mode requires same-origin HTTP hosting');
   const worker = new Worker(new URL('task_hand_worker.js',baseUrl));
   let id = 0;
@@ -24,7 +25,7 @@ export async function workerSource(baseUrl, modelBytes, delegate, maxHands=2) {
     pending.set(request,{resolve,reject,timeout});
     worker.postMessage({id:request,kind,...fields},transfer);
   });
-  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate,maxHands});}
+  try {await call('init',{baseUrl,modelBytes:modelBytes.slice(0),delegate,maxHands,presenceFloor});}
   catch(error) {worker.terminate();throw error;}
   return {
     async infer(image,source_us) {
@@ -97,6 +98,7 @@ export async function runBrowserHandSequence(baseUrl, manifest) {
               const world = output.worldLandmarks[i].map(p => [p.x,p.y,p.z]);
               return {array_index:i, stable_id_available:false,
                 landmarks:points.map(p=>[p.x*image.width,p.y*image.height]),
+                image_depths:points.map(p=>p.z*image.width),
                 world_landmarks:world, handedness:output.handedness[i],
                 world_pinch_distance_m:Math.hypot(...world[4].map((v,j)=>v-world[8][j]))};
             });

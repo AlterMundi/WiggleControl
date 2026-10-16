@@ -7,16 +7,17 @@ self.onmessage = async event => {
   const {id, kind} = event.data;
   try {
     if (kind === 'init') {
-      const {baseUrl, modelBytes, delegate, maxHands=2} = event.data;
+      const {baseUrl, modelBytes, delegate, maxHands=2, presenceFloor=.5} = event.data;
       if (model || !accepting || !/^http:\/\/127\.0\.0\.1:\d+\/$/.test(baseUrl)
           || !['CPU','GPU'].includes(delegate) || !Number.isInteger(maxHands)
-          || maxHands<1 || maxHands>2) throw Error('Invalid worker initialization');
+          || maxHands<1 || maxHands>2 || !Number.isFinite(presenceFloor)
+          || presenceFloor<.01 || presenceFloor>1) throw Error('Invalid worker initialization');
       const {FilesetResolver, HandLandmarker} = await import(baseUrl+'package/vision_bundle.mjs');
       const files = await FilesetResolver.forVisionTasks(baseUrl+'package/wasm');
       model = await HandLandmarker.createFromOptions(files, {
         baseOptions:{modelAssetBuffer:new Uint8Array(modelBytes), delegate},
         canvas:new OffscreenCanvas(1,1), runningMode:'VIDEO', numHands:maxHands,
-        minHandDetectionConfidence:.5, minHandPresenceConfidence:.5, minTrackingConfidence:.5
+        minHandDetectionConfidence:.5, minHandPresenceConfidence:presenceFloor, minTrackingConfidence:.5
       });
       self.postMessage({id, ok:true});
     } else if (kind === 'frame') {
@@ -33,6 +34,7 @@ self.onmessage = async event => {
           const world = output.worldLandmarks[i].map(p=>[p.x,p.y,p.z]);
           return {array_index:i, stable_id_available:false,
             landmarks:points.map(p=>[p.x*image.width,p.y*image.height]),
+            image_depths:points.map(p=>p.z*image.width),
             world_landmarks:world, handedness:output.handedness[i],
             world_pinch_distance_m:Math.hypot(...world[4].map((v,j)=>v-world[8][j]))};
         });

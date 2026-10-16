@@ -11,8 +11,10 @@ wigglecontrol provider-fixture SEQUENCE.json SESSION.json SETTINGS.json ASSET_RO
 ```
 
 Build with `native-vision`; native ONNX inference is not initialized by this
-command. Existing session/controller settings must match, select a single
-estimate and explicit gesture confidence0.5, and omit visual macros. Retained
+command when visual macros are disabled. Existing session/controller settings
+must match, select a single estimate and an explicit gesture confidence/SDK
+presence floor (the retained comparison profiles use0.5). Optional visual macros
+are described below. Retained
 3D/2D pinch interpretation, workspace, manual modes, open rearm and Stop remain
 the existing controller's responsibility. No gesture threshold/freshness is
 silently changed by transport.
@@ -67,7 +69,8 @@ the listener. Existing preview routes remain available without this extension.
 
 JSONL output separates source publication, accepted frames, intent transitions,
 expired leases, manual controls and final release, with host-monotonic timestamps.
-Presence0.5 stays explicitly a configured SDK threshold floor. The preview shows
+Presence stays explicitly a configured SDK threshold floor, never a measured
+per-hand score or the handedness probability. The preview shows
 encoded-frame→meaning duration separately from the aging last image; it does not
 label that number as model-only inference. A worker-close acknowledgment is
 recorded separately from finite server/process termination.
@@ -77,14 +80,42 @@ association, wrong/repeated/expired results, actual receipt acknowledgment,
 body/header/origin bounds, partial-body expiry and existing preview behavior.
 Actual same-host ARM64 timing, skipped-frame quality, delayed-result release and
 1080p fixture execution are recorded in [the receiving report](research/realtime-worker-2026-10.md).
-Broader negatives/crossings, image-depth/macros, participants and physical/application
-acceptance remain open.
+Broader negatives/crossings, recognized macro sequences, participants and
+physical/application acceptance remain open.
 
 Initial ARM64 execution atd1d4265 reaches its finite worker-preparation timeout
 without starting inference. Inspection of the served page finds the existing
 HTML omits its optional `</body>` tag, so the client insertion never occurred.
 The fixture now inserts before the actual `</html>` tag, with a served-view/client
 route regression. This startup failure is not a measured GPU/transport result.
+
+## Optional visual macros
+
+The raw adapter accepts optional `image_depths:[Z;21]` in source-image pixels:
+the worker converts normalized image Z using image width. World XYZ remains
+metric and separate. Old XY/world-only packets still support existing tracking
+and input meaning; absent image depth produces no visual pose evidence. Invalid,
+nonfinite or unbounded depth rejects the observation and retires its track.
+The native detector retains exactly its previous numeric depth values.
+
+Provider commands now reuse the native `visual_macros` settings and the same
+classifier, ownership, positive-neutral, pinch-priority, hold and cooldown rules.
+`gesture_min_confidence` explicitly selects the worker's actual
+`minHandPresenceConfidence`; it must match controller settings and meet the
+visual policy's confidence threshold (at least0.8). A0.5 profile with0.8 visual
+policy fails before acquiring anything. Raising the SDK floor may reduce tracking
+coverage; no default or everyday profile is silently raised.
+
+Configuration preflight does not load ORT or the classifier. Actual enabled
+execution loads the selected small classifier through the existing ORT library,
+without another hand detector; disabled execution remains model/runtime-free.
+Raw pose/category/score, usable evidence and `classifier_ms` are reported in
+frame journals and feedback. Classification time is included before the actual
+controller evaluation timestamp, so inference cannot extend source freshness.
+Only existing local actions are implemented; an external media/launcher intent
+is not evidence of application delivery. The conditional four-tensor parity
+check is documented in [the macro integration report](research/provider-visual-macros-2026-10.md);
+image-sequence, receiving and human acceptance remain distinct.
 
 ## Explicit finite camera source
 

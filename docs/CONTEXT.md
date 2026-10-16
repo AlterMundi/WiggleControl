@@ -2,6 +2,13 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+New [provider macro integration](research/provider-visual-macros-2026-10.md)
+retains optional image Z, configures the actual SDK presence floor and reuses the
+native classifier/arbiter without changing disabled defaults. Four retained
+tensors match category/score within1.79e-7; missing depth gives no pose. This is
+conditional parity, not new detection or a successful timed macro. The prepared
+physical trial remains pinned and awaits fresh human readiness.
+
 Latest dense recorded review covers75 originalframes, with55 apparent-contact,
 15open and5uncertain assistant labels (nonblinded; not physical/intent truth).
 Across about3.6s reviewed closure, actualprojected replay holds3.412s uninterrupted

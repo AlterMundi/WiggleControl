@@ -12,6 +12,13 @@ The separated-fingertip macro/contact counterexample is owned by
 [#7](https://github.com/AlterMundi/WiggleControl/issues/7); paired overlap remains
 in [#6](https://github.com/AlterMundi/WiggleControl/issues/6).
 
+The [raw-provider macro connection](research/provider-visual-macros-2026-10.md)
+now retains optional image depth and reuses the existing classifier/arbiter.
+Actual SDK presence configuration must meet the unchanged macro confidence gate;
+conditional retained-tensor parity passes, but successful continuous image-based
+macro recognition, receiving cost and physical acceptance remain to be measured.
+No everyday profile or prepared physical trial is replaced by this source work.
+
 Current [real-clock transport](PROVIDER-TRANSPORT.md) implements a finite encoded-
 frame→GPU-worker→Rust fixture with host-owned run/frame leases, latest-slot
 coalescing, independent meaning ticks and timestamped release/expiry receipts.

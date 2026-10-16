@@ -18,6 +18,9 @@ use std::{
 pub struct Landmarks {
     /// Source image pixels, before the existing mirrored workspace conversion.
     pub landmarks: [[f64; 2]; 21],
+    /// Optional source-pixel image Z, scaled by image width, never metric world Z.
+    #[serde(default)]
+    pub image_depths: Option<[f64; 21]>,
     pub world_landmarks: [[f64; 3]; 21],
     /// Right-class score in provider coordinates; not presence or participant identity.
     pub right_probability: f64,
@@ -135,6 +138,11 @@ impl Tracker {
                         || !(-(frame.width as f64)..=2.0 * frame.width as f64).contains(&p[0])
                         || !(-(frame.height as f64)..=2.0 * frame.height as f64).contains(&p[1])
                 })
+                || raw.image_depths.as_ref().is_some_and(|depths| {
+                    depths
+                        .iter()
+                        .any(|z| !z.is_finite() || z.abs() > 2.0 * f64::from(frame.width))
+                })
                 || raw
                     .world_landmarks
                     .iter()
@@ -146,8 +154,7 @@ impl Tracker {
             let hand = DetectedHand {
                 id: 0,
                 landmarks: raw.landmarks.map(|p| XY { x: p[0], y: p[1] }),
-                // Image Z is unavailable in this adapter. Visual classification is disabled.
-                image_depths: [0.0; 21],
+                image_depths: raw.image_depths,
                 world_landmarks: raw.world_landmarks,
                 confidence: self.presence_floor,
                 handedness: raw.right_probability,
@@ -266,9 +273,12 @@ enum Command {
 pub(crate) fn configured(
     session: &Path,
     settings: &Path,
-    presence_floor: f64,
+    presence_floor: Option<f64>,
 ) -> Result<(SessionConfig, Controller, Tracker), Box<dyn Error>> {
     let config = SessionConfig::load(session)?;
+    let presence_floor = presence_floor
+        .or(config.gesture_min_confidence)
+        .ok_or("provider requires an explicit gesture_min_confidence / SDK presence floor")?;
     if config.dual_crop
         || config.secondary_model.is_some()
         || (config.gestures().min_confidence - presence_floor).abs() > f64::EPSILON
@@ -281,13 +291,21 @@ pub(crate) fn configured(
         presence_floor,
     )?;
     let controller: Controller = crate::session::controller_config(&config, settings)?;
-    if controller.visual_policy().is_some() {
-        return Err("provider image depth/visual macro integration is unavailable".into());
+    if controller
+        .visual_policy()
+        .is_some_and(|policy| presence_floor < policy.min_confidence)
+    {
+        return Err(
+            "provider presence floor must meet the visual macro confidence threshold".into(),
+        );
     }
     Ok((config, controller, tracker))
 }
 pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<(), Box<dyn Error>> {
-    let (config, mut controller, mut tracker) = configured(session, settings, presence_floor)?;
+    let (config, mut controller, mut tracker) =
+        configured(session, settings, Some(presence_floor))?;
+    let mut visual_classifier =
+        crate::pose_classifier::VisualClassifier::with_runtime(&controller, &config.runtime)?;
     let mut out = io::stdout().lock();
     let publish = |out: &mut std::io::StdoutLock<'_>, value: serde_json::Value| -> io::Result<()> {
         writeln!(out, "{value}")?;
@@ -350,19 +368,39 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
                     .map(|h| serde_json::json!({
                     "id":h.id,"tracked":h.tracked,"handedness":h.handedness,
                     "confidence":h.confidence,"landmarks":h.landmarks.map(|p|[p.x,p.y]),
-                    "world_landmarks":h.world_landmarks}))
+                    "world_landmarks":h.world_landmarks,"image_depths":h.image_depths}))
                     .collect::<Vec<_>>());
                 value["hands"] = serde_json::to_value(&hands)?;
-                controller.observe(
-                    frame.now_us,
-                    touch_gestures::Frame {
-                        version: 1,
-                        source_us: frame.source_us,
-                        ambiguous: found.ambiguous,
-                        hands,
-                    },
-                    None,
-                )
+                let observation = touch_gestures::Frame {
+                    version: 1,
+                    source_us: frame.source_us,
+                    ambiguous: found.ambiguous,
+                    hands,
+                };
+                let classifier_started = std::time::Instant::now();
+                let (pose, visual_state) = if let Some(classifier) = &mut visual_classifier {
+                    match classifier.classify(
+                        &controller,
+                        &observation,
+                        &found.hands,
+                        frame.width,
+                        frame.height,
+                    ) {
+                        Ok(result) => result,
+                        Err(error) => {
+                            value["controller"] = serde_json::to_value(controller.stop())?;
+                            publish(&mut out, value)?;
+                            return Err(error);
+                        }
+                    }
+                } else {
+                    (None, None)
+                };
+                value["visual_pose"] = serde_json::to_value(visual_state)?;
+                value["visual_macros"] = visual_classifier.is_some().into();
+                value["classifier_ms"] =
+                    (classifier_started.elapsed().as_secs_f64() * 1000.0).into();
+                controller.observe(frame.now_us, observation, pose)
             }
         };
         value["controller"] = serde_json::to_value(state)?;
@@ -407,6 +445,7 @@ mod tests {
         world[4][0] = gap;
         Landmarks {
             landmarks: points,
+            image_depths: None,
             world_landmarks: world,
             right_probability: 0.9,
         }
@@ -424,6 +463,72 @@ mod tests {
     fn tracker() -> Tracker {
         Tracker::new(300_000, 1.2, 0.5).unwrap()
     }
+    #[test]
+    fn optional_depth_is_not_fabricated_and_invalid_depth_retires_the_owner() {
+        let mut t = tracker();
+        let legacy = t.observe(&frame(1, vec![hand(0.0, 0.09)])).unwrap();
+        assert!(legacy.hands[0].image_depths.is_none());
+        let mut raw = hand(0.0, 0.09);
+        raw.image_depths = Some(std::array::from_fn(|i| -(i as f64) * 2.0));
+        let complete = t.observe(&frame(2, vec![raw.clone()])).unwrap();
+        assert_eq!(complete.hands[0].id, legacy.hands[0].id);
+        assert_eq!(complete.hands[0].image_depths, raw.image_depths);
+        for (sequence, invalid) in [(3, f64::NAN), (4, f64::INFINITY), (5, 1280.01)] {
+            raw.image_depths.as_mut().unwrap()[8] = invalid;
+            assert_eq!(
+                t.observe(&frame(sequence, vec![raw.clone()]))
+                    .unwrap()
+                    .ambiguity_reason,
+                Some("provider_landmarks")
+            );
+        }
+        let returned = t.observe(&frame(6, vec![hand(0.0, 0.09)])).unwrap();
+        assert_ne!(returned.hands[0].id, legacy.hands[0].id);
+    }
+
+    #[test]
+    fn visual_profile_requires_matching_real_sdk_floor_without_loading_models() {
+        let root = std::env::temp_dir().join(format!(
+            "wiggle-provider-visual-policy-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let session = root.join("session.json");
+        let settings = root.join("settings.json");
+        for floor in [0.5, 0.8] {
+            std::fs::write(
+                &session,
+                serde_json::json!({
+                    "camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded",
+                    "fps":10,"gain":2000,"gesture_min_confidence":floor
+                })
+                .to_string(),
+            )
+            .unwrap();
+            let config = SessionConfig::load(&session).unwrap();
+            std::fs::write(&settings, serde_json::json!({
+                "gestures":config.gestures(),
+                "macros":{"hold_us":400000,"neutral_us":200000,"cooldown_us":500000,
+                    "stale_us":300000,"bindings":[{"pose":"victory","action":"toggle_precision"}]},
+                "visual_macros":{"model":"/not-loaded","neutral_pose":"open_palm","min_confidence":0.8}
+            }).to_string()).unwrap();
+            let result = configured(&session, &settings, None);
+            if floor < 0.8 {
+                assert!(result.err().unwrap().to_string().contains("must meet"));
+            } else {
+                let (_, controller, tracker) = result.unwrap();
+                assert!(controller.visual_policy().is_some());
+                assert_eq!(tracker.presence_floor, 0.8);
+                assert!(configured(&session, &settings, Some(0.5))
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("matching presence floor"));
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn reordered_same_handedness_hands_keep_spatial_owners_not_array_indices() {
         let mut t = tracker();

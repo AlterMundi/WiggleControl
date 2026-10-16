@@ -25,6 +25,14 @@ class ProviderWire(unittest.TestCase):
             self.assertEqual(frame['now_us'], 130001)
             self.assertEqual(set(frame['hands'][0]),
                              {'landmarks','world_landmarks','right_probability'})
+            depths = [-i*2.0 for i in range(21)]
+            row['hands'][0]['image_depths'] = depths
+            complete = commands(case, Path(root), 0)[1]['observation']['hands'][0]
+            self.assertEqual(complete['image_depths'], depths)
+            self.assertEqual(complete['world_landmarks'], [[0,0,0]]*21)
+            # Bound includes the complete XYZ pair, not just legacy XY packets.
+            row['hands'] *= 2
+            self.assertEqual(len(commands(case, Path(root), 0)[1]['observation']['hands']), 2)
             row['image_sha256'] = '0'*64
             with self.assertRaisesRegex(ValueError,'digest'):
                 commands(case, Path(root), 0)

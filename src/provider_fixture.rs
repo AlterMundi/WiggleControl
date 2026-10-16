@@ -41,6 +41,8 @@ struct State {
     ready: bool,
     cancelled: bool,
     closed: bool,
+    finishing: bool,
+    terminal_visible: bool,
     camera_opened: bool,
     input_started: bool,
     eof: bool,
@@ -206,7 +208,9 @@ impl Extension for Bridge {
                 body: self.warmup.clone(),
                 headers: "X-Wiggle-Synthetic: 1\r\n".into(),
             }),
-            ("POST", "/provider/ready") | ("POST", "/provider/stop") => {
+            ("POST", "/provider/ready")
+            | ("POST", "/provider/stop")
+            | ("POST", "/provider/terminal-visible") => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
                 struct Run {
@@ -226,6 +230,15 @@ impl Extension for Bridge {
                 }
                 if path == "/provider/ready" {
                     self.state.lock().unwrap().ready = true;
+                } else if path == "/provider/terminal-visible" {
+                    let mut state = self.state.lock().unwrap();
+                    if !state.finishing {
+                        return Ok(reply(
+                            "409 Conflict",
+                            json!({"error":"terminal feedback not published"}),
+                        ));
+                    }
+                    state.terminal_visible = true;
                 } else {
                     self.state.lock().unwrap().cancelled = true;
                 }
@@ -943,13 +956,20 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     terminal["input_available"] = false.into();
     terminal["recording"] = false.into();
     terminal["session_error"] = outcome.as_ref().err().map(ToString::to_string).into();
+    terminal["provider_run_id"] = bridge.run_id.clone().into();
     // Keep the listener available for the browser's real EOF/worker-close receipt.
     let terminal_publish = preview.publish(feedback.jpeg.clone(), terminal);
+    bridge.state.lock().unwrap().finishing = terminal_publish.is_ok();
+    let outcome = outcome.and(terminal_publish.map_err(Into::into));
     let until = Instant::now() + Duration::from_millis(2000);
-    while !stop.load(Ordering::Relaxed)
-        && !bridge.state.lock().unwrap().closed
-        && Instant::now() < until
-    {
+    while !stop.load(Ordering::Relaxed) && Instant::now() < until {
+        let ready = {
+            let state = bridge.state.lock().unwrap();
+            state.closed && state.terminal_visible
+        };
+        if ready {
+            break;
+        }
         thread::sleep(Duration::from_millis(5));
     }
     stop.store(true, Ordering::Relaxed);
@@ -960,12 +980,11 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let camera = camera_mailbox.lock().unwrap();
     journal.emit(
         json!({"event":"stop","controller":final_state,"captured":s.captured,
-        "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,
+        "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,"terminal_visible":s.terminal_visible,
         "error":outcome.as_ref().err().map(ToString::to_string),"camera_opened":s.camera_opened,
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
         "source_kind":camera.source_kind,"system_input":s.input_started}),
     )?;
-    terminal_publish?;
     outcome
 }
 
@@ -1042,6 +1061,33 @@ mod tests {
             serde_json::from_slice::<Value>(&response.body).unwrap()["error"],
             "camera unavailable"
         );
+    }
+
+    #[test]
+    fn terminal_view_receipt_is_scoped_to_the_current_published_end_state() {
+        let b = bridge();
+        let current = br#"{"run_id":"test-1"}"#;
+        assert_eq!(
+            b.respond("POST", "/provider/terminal-visible", current)
+                .unwrap()
+                .status,
+            "409 Conflict"
+        );
+        b.state.lock().unwrap().finishing = true;
+        assert_eq!(
+            b.respond("POST", "/provider/terminal-visible", br#"{"run_id":"old"}"#)
+                .unwrap()
+                .status,
+            "409 Conflict"
+        );
+        assert!(!b.state.lock().unwrap().terminal_visible);
+        assert_eq!(
+            b.respond("POST", "/provider/terminal-visible", current)
+                .unwrap()
+                .status,
+            "200 OK"
+        );
+        assert!(b.state.lock().unwrap().terminal_visible);
     }
 
     #[test]

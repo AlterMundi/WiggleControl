@@ -132,6 +132,15 @@ observations/control journal, original session/controller settings and a manifes
 with backend/model/threshold attribution. Human annotations remain separate.
 Visual macros/image-depth remain unavailable on this provider; the shared
 configuration rejects a visual classifier rather than manufacturing image Z.
+A receiving missing-camera test exposed a terminal-display race: immediate worker
+close could end the listener before the page read the final error. Delaying only
+the close acknowledgment reproduced correct retained feedback. The page now
+acknowledges the terminal run ID after two animation frames; the listener waits
+for both that view receipt and worker-close acknowledgment, bounded by2seconds.
+This wait occurs after camera/input teardown. Missing/stale view receipts remain
+explicit in the final journal; they never authorize another capture or imply
+human perception.
+
 Source tests and a preflight are preparation evidence only. A real camera trial,
 input delivery, application behavior and comfort must be measured before selecting
 this backend as the receiving default.

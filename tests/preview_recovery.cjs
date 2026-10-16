@@ -79,9 +79,11 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  assert.match(element('banner').textContent,/SYNTHETIC WARMUP/);
  assert.doesNotMatch(element('capture-status').textContent,/Sensors off/);
  state.active=false;
- state.session_error='Camera unavailable';state.controller.running=false;state.controller.contacts=[];
- context.fetch=async()=>({status:200,ok:true,headers:{get:()=>JSON.stringify(state)},blob:async()=>({})});
+ state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];
+ const terminalReceipts=[];
+ context.fetch=async(path,options)=>{if(path==='/provider/terminal-visible')terminalReceipts.push(JSON.parse(options.body));return{status:200,ok:true,headers:{get:()=>JSON.stringify(state)},blob:async()=>({})}};
  await vm.runInContext('poll()',context);
+ assert.equal(terminalReceipts.length,1);assert.equal(terminalReceipts[0].run_id,'terminal-test');
  assert.equal(vm.runInContext('stopped',context),true);
  assert.equal(element('test-label').textContent,'SESSION ERROR');
  assert.match(element('status').textContent,/Camera unavailable/);

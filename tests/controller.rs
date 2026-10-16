@@ -21,6 +21,7 @@ fn hand(id: u64, closed: bool, x: f64, y: f64) -> Hand {
         },
         palm_width: 0.2,
         pinch_distance_m: None,
+        pinch_distance_ratio: None,
         secondary_pinch: None,
     }
 }
@@ -30,6 +31,31 @@ fn frame(t: u64, hands: Vec<Hand>) -> Frame {
         source_us: t,
         ambiguous: false,
         hands,
+    }
+}
+
+#[test]
+fn projected_ratio_rearms_and_releases_in_pointer_and_both_contact_modes() {
+    for mode in [Mode::Pointer, Mode::OneContact, Mode::TwoContacts] {
+        let mut c = controller(mode);
+        let hands = |ratio| {
+            let mut a = hand(1, false, 0.3, 0.5);
+            a.pinch_distance_ratio = Some(ratio);
+            let mut b = hand(2, false, 0.7, 0.5);
+            b.pinch_distance_ratio = Some(ratio);
+            vec![a, b]
+        };
+        c.observe(1, frame(1, hands(0.6)), None);
+        c.observe(20_001, frame(20_001, hands(0.1)), None);
+        let held = c.observe(60_001, frame(60_001, hands(0.1)), None);
+        match mode {
+            Mode::Pointer => assert!(held.button_down),
+            Mode::OneContact => assert_eq!(held.contacts.len(), 1),
+            Mode::TwoContacts => assert_eq!(held.contacts.len(), 2),
+            _ => unreachable!(),
+        }
+        let opened = c.observe(70_001, frame(70_001, hands(0.6)), None);
+        assert!(!opened.button_down && opened.contacts.is_empty());
     }
 }
 fn controller(mode: Mode) -> Controller {

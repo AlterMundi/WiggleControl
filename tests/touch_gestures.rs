@@ -19,6 +19,7 @@ fn hand(id: u64, x: f64, closed: bool) -> Hand {
         },
         palm_width: 0.2,
         pinch_distance_m: None,
+        pinch_distance_ratio: None,
         secondary_pinch: None,
     }
 }

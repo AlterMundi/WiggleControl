@@ -2,6 +2,16 @@
 
 ## Active controller-evolution goal —2026-10-15
 
+Latest [retained-pinch comparison](research/recorded-pinch-metrics-2026-10.md)
+finds a stable25s hand track despite missed apparent pinches. A sparse, nonblinded
+assistant visual audit has9 apparent-contact/9 accepted open samples: actual3D
+output contacts3/9 and1/9 respectively; prior projected palm-length0.38/0.40
+contacts9/9 and0/9 on identical predictions/clocks. These are appearance checks,
+not measured physical contact or human intent. An explicit dimensionless ratio
+option now connects that existing hypothesis through shared session/engine modes;
+it is not a default/live-profile change. Adverse-view synthetic misses remain.
+Actual receiving execution of the new option and continuous annotation remain next.
+
 New source2026-10-16: provider-recording reuses a bounded read-only reader shared
 with review-recording. It preserves original rotated MJPEG bytes, indices/kernel
 timestamps and cadence, while separately timestamping new real-clock publication.

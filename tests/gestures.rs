@@ -18,6 +18,7 @@ fn frame(t: u64, id: u64, ratio: f64, x: f64) -> Observation {
             },
             palm_width: 0.2,
             pinch_distance_m: None,
+            pinch_distance_ratio: None,
             secondary_pinch: None,
         }),
     }
@@ -26,6 +27,45 @@ fn engine() -> Engine {
     let mut e = Engine::new(Config::default()).unwrap();
     e.start();
     e
+}
+
+#[test]
+fn explicit_ratio_owns_confirmation_release_and_invalid_metric_cancellation() {
+    let ratio = |t, value| {
+        let mut f = frame(t, 1, 0.9, 0.5); // Legacy pixel-width cue stays open.
+        f.hand.as_mut().unwrap().pinch_distance_ratio = Some(value);
+        f
+    };
+    let mut e = engine();
+    e.observe(1, ratio(1, 0.6));
+    assert!(e
+        .observe(20_001, ratio(20_001, 0.1))
+        .iter()
+        .all(|event| !matches!(event, Event::Button { down: true })));
+    assert!(e
+        .observe(60_001, ratio(60_001, 0.1))
+        .contains(&Event::Button { down: true }));
+    assert!(e
+        .observe(70_001, ratio(70_001, 0.6))
+        .contains(&Event::Button { down: false }));
+    e.observe(80_001, ratio(80_001, 0.1));
+    assert!(e
+        .observe(120_001, ratio(120_001, 0.1))
+        .contains(&Event::Button { down: true }));
+    let mut conflicting = ratio(130_001, 0.1);
+    conflicting.hand.as_mut().unwrap().pinch_distance_m = Some(0.01);
+    assert!(e
+        .observe(130_001, conflicting)
+        .contains(&Event::Button { down: false }));
+    assert_eq!(e.pinch_block_reason(), Some("invalid_hand"));
+    // Closed input after invalidity cannot invent a new press.
+    e.observe(140_001, ratio(140_001, 0.1));
+    assert_eq!(e.pinch_state(), "open_first");
+    for (i, invalid) in [f64::NAN, f64::INFINITY, -0.1].into_iter().enumerate() {
+        let t = 150_001 + i as u64;
+        e.observe(t, ratio(t, invalid));
+        assert_eq!(e.pinch_block_reason(), Some("invalid_hand"));
+    }
 }
 fn press(e: &mut Engine) {
     e.observe(1, frame(1, 1, 0.6, 0.5));

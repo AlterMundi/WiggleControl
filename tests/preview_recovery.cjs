@@ -84,6 +84,9 @@ vm.runInContext(fs.readFileSync('tools/preview.html','utf8').split('<script>')[1
  assert.match(element('banner').textContent,/RECORDED CAMERA FRAME/);
  assert.equal(element('test-label').textContent,'RECORDED REPLAY');
  assert.equal(element('timing-label').textContent,'Replay publish → meaning');
+ state.pinch_metric='projected_wrist_middle_mcp';
+ await vm.runInContext('poll()',context);
+ assert.match(element('capture-status').textContent,/Projected pinch/);
  state.recorded_source=false;state.ui_fixture=false;state.camera_source=true;
  state.active=false;
  state.session_error='Camera unavailable';state.provider_run_id='terminal-test';state.controller.running=false;state.controller.contacts=[];

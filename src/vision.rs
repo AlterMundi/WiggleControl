@@ -854,6 +854,7 @@ impl DetectedHand {
                 index_tip: normalized(points[8]),
                 palm_width: points[5].distance(points[17]) / metric,
                 pinch_distance_m: None,
+                pinch_distance_ratio: None,
                 secondary_pinch: None,
             }),
         }

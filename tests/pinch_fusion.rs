@@ -26,6 +26,7 @@ fn hand(t: u64, id: u64, primary: f64, secondary: Option<(u64, f64)>) -> Hand {
         index_tip: Point { x: 0.42, y: 0.5 },
         palm_width: 0.2,
         pinch_distance_m: Some(primary),
+        pinch_distance_ratio: None,
         secondary_pinch: secondary.map(|(source_id, distance_m)| PinchEvidence {
             source_id,
             source_us: t,

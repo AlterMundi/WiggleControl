@@ -132,6 +132,10 @@ pub struct Hand {
     pub palm_width: f64,
     #[serde(default)]
     pub pinch_distance_m: Option<f64>,
+    /// Explicit dimensionless pinch metric; mutually exclusive with meters.
+    /// Omitted observations retain the legacy tip-gap / palm-width metric.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinch_distance_ratio: Option<f64>,
     /// One matched same-hand/frame hypothesis; never an additional contact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secondary_pinch: Option<PinchEvidence>,
@@ -157,7 +161,15 @@ impl Hand {
             .is_some_and(|d| !d.is_finite() || !(0.0..=1.0).contains(&d))
         {
             Some("pinch_distance_m")
+        } else if self
+            .pinch_distance_ratio
+            .is_some_and(|r| !r.is_finite() || r < 0.0)
+        {
+            Some("pinch_distance_ratio")
+        } else if self.pinch_distance_m.is_some() && self.pinch_distance_ratio.is_some() {
+            Some("pinch_metric_conflict")
         } else if self.pinch_distance_m.is_none()
+            && self.pinch_distance_ratio.is_none()
             && (!self.palm_width.is_finite() || !(0.01..=1.0).contains(&self.palm_width))
         {
             Some("palm_width")
@@ -177,12 +189,18 @@ impl Hand {
                 .as_ref()
                 .is_none_or(|p| p.source_us == source_us)
     }
-    fn primary_open(&self, config: &Config) -> bool {
+    pub(crate) fn pinch_ratio(&self) -> f64 {
+        self.pinch_distance_ratio
+            .unwrap_or_else(|| self.thumb_tip.distance(self.index_tip) / self.palm_width)
+    }
+    fn primary_metric(&self, config: &Config) -> (f64, f64, f64) {
         self.pinch_distance_m
-            .map(|d| d >= config.open_m)
-            .unwrap_or_else(|| {
-                self.thumb_tip.distance(self.index_tip) / self.palm_width >= config.open_ratio
-            })
+            .map(|d| (d, config.close_m, config.open_m))
+            .unwrap_or_else(|| (self.pinch_ratio(), config.close_ratio, config.open_ratio))
+    }
+    fn primary_open(&self, config: &Config) -> bool {
+        let (distance, _, open) = self.primary_metric(config);
+        distance >= open
     }
     fn open(&self, config: &Config, all: bool) -> bool {
         if !self.engaged || !self.pinch_eligible || self.confidence < config.min_confidence {
@@ -555,16 +573,7 @@ impl Engine {
             self.secondary_source = None;
             return events;
         }
-        let (distance, close, open) = hand
-            .pinch_distance_m
-            .map(|d| (d, self.config.close_m, self.config.open_m))
-            .unwrap_or_else(|| {
-                (
-                    hand.thumb_tip.distance(hand.index_tip) / hand.palm_width,
-                    self.config.close_ratio,
-                    self.config.open_ratio,
-                )
-            });
+        let (distance, close, open) = hand.primary_metric(&self.config);
         self.pinches[0].observe(
             observation.source_us,
             distance,

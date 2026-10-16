@@ -733,6 +733,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         sequence: 0,
         meaning_us: 0,
         recorded_time_ms: None,
+        pinch_ratio: None,
         eligible: false,
     };
     let mut previous_active = (Vec::new(), false);
@@ -936,6 +937,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 feedback.jpeg = lease.frame.bytes.clone();
                 feedback.sequence = lease.sequence;
                 feedback.meaning_us = monotonic_us()?;
+                feedback.pinch_ratio = hands.first().map(crate::Hand::pinch_ratio);
                 feedback.eligible = hands.iter().any(|h| h.engaged && h.pinch_eligible);
                 feedback.raw=found.hands.iter().map(|h|json!({"id":h.id,"confidence":h.confidence,
                     "handedness":h.handedness,"landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks})).collect();
@@ -1119,6 +1121,7 @@ struct Feedback {
     sequence: u64,
     meaning_us: u64,
     recorded_time_ms: Option<f64>,
+    pinch_ratio: Option<f64>,
     eligible: bool,
 }
 
@@ -1150,7 +1153,7 @@ fn metadata(
         "provider_transport":true,"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
         "landmarks":first.map(|h|&h["landmarks"]),"confidence":first.map(|h|&h["confidence"]),
         "perception":perception,"controller":state,"visual_macros":false,"cursor":state.pointer_cursor,
-        "eligible":eligible,"pinch_ratio":null,"presses":0,"pinch_state":if state.contacts.is_empty(){"touch"}else{"pressed"},
+        "eligible":eligible,"pinch_ratio":feedback.pinch_ratio,"pinch_metric":config.pinch_metric_name(),"presses":0,"pinch_state":if state.contacts.is_empty(){"touch"}else{"pressed"},
         "confirmation_elapsed_ms":state.confirmation_elapsed_us/1000,"confirmation_required_ms":config.gestures().confirm_us/1000,
         "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason})
 }

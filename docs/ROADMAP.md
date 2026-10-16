@@ -45,6 +45,15 @@ tracker identity and onset/release behavior on identical bytes, then replay the
 recorded400ms gap. Preserve original recording and separate intent labels from
 predictions. Full physical/application acceptance remains required.
 
+[Sparse recorded-pinch inspection](research/recorded-pinch-metrics-2026-10.md)
+now isolates missed onset with a stable hand identity. The prior projected
+palm-length cue matches9/9 apparent-contact and9/9 open samples, versus3/9 and
+8/9 for estimated3D; these are nonblinded assistant appearance labels, not physical
+intent accuracy. An explicit optional dimensionless metric is implemented across
+modes without changing defaults. Next qualify actual receiving replay and
+continuous/other-view behavior; earlier adverse-yaw failures prevent unconditional
+adoption. Keep raw3D and projected evidence separate.
+
 Earlier [raw provider/worker connection](research/provider-worker-2026-10.md)
 feeds saved raw Tasks points through Rust's own spatial tracking and existing
 meaning, retaining4/5 adverse near holds and20/20 separated-pair stable counts

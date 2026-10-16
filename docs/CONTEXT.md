@@ -6,9 +6,12 @@ Nicolás selected a practical one-hand desktop beta before further open-ended
 research. [BETA-1.md](BETA-1.md) owns that release: fixed GPU1-hand graph, measured
 projected pinch, accepted workspace→absolute mouse, explicit manual Start and
 until-Stop usage. The wider goal is paused and retains its full scope. Dashboard
-WG1/Stop WG1 entry and manual ARM64 beta are delivered; actual idle view is
-verified with sensors/input off. Human/application acceptance remains pending;
-source/startup proofs are distinct from accepted use. No new physical acquisition during preparation.
+WG1/Stop WG1 entry and manual ARM64 beta are delivered. First human use exposed
+a desktop drag that persisted after source shutdown/device removal. Escape and
+a virtual-pointer click failed; restarting only PCManFM's desktop process cleared
+it, verified after pointer movement. Both beta units are stopped pending a
+camera-free kernel/application delivery reproduction. Application acceptance
+failed; the cause remains unknown. See BETA-1.md for evidence and next work.
 
 ## Active controller-evolution goal —2026-10-15
 

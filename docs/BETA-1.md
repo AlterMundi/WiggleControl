@@ -79,12 +79,26 @@ separate control. Neither beta unit is enabled at boot and Restart is disabled.
 The earlier experiment workbench was closed at Nicolás's request and is not
 restored automatically.
 
-Actual standby is observed at1440×990 inside the1920×1080 desktop, with no page
-scroll, visible Start/Stop and the compact native panel. An earlier1080×820 view
-had a footer/control overlap; enlarging the receiving feedback window resolves
-it. The server remains idle beyond the old30s preparation bound: zero GPU workers,
+The receiving app now starts maximized, with a1920×1018 client inside the
+1920×1080 desktop. The1440×990 fallback fit its DOM but retained a window position
+that extended below the display; DOM bounds alone did not prove desktop fit.
+An earlier1080×820 view also had footer/control overlap. The server remained
+idle beyond the old30s preparation bound: zero GPU workers,
 camera/input/recording false and independent observer camera/mic false. Existing
 calibration digest is unchanged. These are startup/layout/source-delivery proofs.
-No new camera or input session has been started by the operator. Physical pointer
-alignment, repeated pinch/drag, background throughput, Stop and comfort acceptance
-remain for Nicolás's first use. Do not infer them from an idle Start button.
+Nicolás subsequently pressed Start and used the camera/input for approximately
+119seconds. A desktop folder drag remained attached after semantic button-up,
+source/browser shutdown and virtual-device removal. The source journal contains
+release events; no contemporaneous kernel/client trace exists, so the point of
+failure is unknown. Escape and a balanced virtual-pointer click did not cancel
+the drag. Restarting only PCManFM's desktop process removed the floating icon;
+subsequent pointer movement and a screenshot verified recovery. The original
+folder remained on the desktop. No compositor/session restart was needed.
+
+Both beta units are stopped pending delivery diagnosis. The beta is not accepted
+for everyday use. Next: reproduce with empty owned test folders and trace this
+writer's kernel button events alongside actual application drop results, without
+camera acquisition. Stop must be qualified at the application level as well as
+the controller/device levels. The terminal journal's camera_opened/system_input
+fields currently retain historical acquisition flags; use actual unit/device
+observations for teardown, and correct the receipt fields before acceptance.

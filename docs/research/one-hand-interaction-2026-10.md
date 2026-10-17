@@ -552,3 +552,36 @@ compositor receipt or complete finite-run acceptance. Source228cc30 adds diagnos
 detail for a fresh manual repetition; this cadence analysis neither identifies nor
 fixes the early rejection. No camera, input, browser or receiving service was
 started for the analysis. The next physical trial still awaits fresh readiness.
+
+### Where the retained source age accumulates
+
+The same248 frame records preserve an ordered chain of host monotonic stamps:
+`source_us <= issued_us <= received_us <= now_us <= meaning_us`. Verify each
+chain before partitioning its duration. The exact sum of all four stage durations
+equals source-to-meaning time for every record; no clock conversion is needed.
+
+| Recorded stage | Median(ms) | p95(ms) | Scope |
+| --- | --- | --- | --- |
+| Source stamp→lease issued |63.322 |95.848 | Camera/driver, recording, mailbox and request wait combined |
+| Lease issued→result received |69.741 |83.086 | Frame transfer, decode, worker work and result return combined |
+| Result received→controller evaluation stamp |2.874 |4.812 | Server pickup plus tracking/mapping before evaluation |
+| Evaluation stamp→meaning stamp |0.048 |0.110 | Controller observation and immediate feedback preparation |
+| Source stamp→meaning stamp, directly measured |136.880 |171.292 | Entire retained chain before journal/device delivery |
+
+Stage medians and percentiles are not additive. Summing durations over all retained
+records instead, the first two stages account for98.0% of this source-to-meaning
+time. That bounds where a latency investigation should begin; it does not prove
+how much either stage can be reduced. The first stage has no dequeue/publication
+stamp to separate device buffering from application wait. The second is **not pure
+inference time**. The existing browser client can separately measure fetch,
+decode, worker roundtrip, worker inference and post duration, but that trace was
+not retained in this trial. Capture it from the owned page on the next authorized
+trial without changing the prepared controller candidate.
+
+Journal serialization/writes, native writer delivery and compositor/display
+processing occur after the meaning stamp and remain outside this partition.
+Controller smoothing can also add response lag without taking much CPU time;
+the0.048ms stage is not total interaction latency or a reason to stop evaluating
+filters. These timestamps do not identify the receiver rejection's cause. Keep
+the precise-fence diagnostic repetition as the next receiving task, and avoid
+changing the staged profile while its fresh-ready request is pending.

@@ -84,6 +84,11 @@ intervals. [The cadence analysis](research/one-hand-interaction-2026-10.md#actua
 keeps this distinct from display cadence and source-to-kernel latency. Perception
 age and eligibility pauses remain separate constraints; full finite runtime,
 natural double-click, actual drops and comfort acceptance remain incomplete.
+The retained timing partition locates98.0% of summed source-to-meaning time before
+server result pickup: source→lease and lease→result. It does not isolate device
+buffering or pure inference. Collect the existing browser timing trace during the
+next already-prepared diagnostic repetition before choosing a latency change.
+No new model/profile/artifact or receiving readiness reset follows this analysis.
 
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,

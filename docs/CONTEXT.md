@@ -22,6 +22,11 @@ This demonstrates frequent device output in that run, not display cadence or low
 perception age (136.792ms median). The longest motion gap overlaps ineligible-hand
 samples. Preserve eligibility freezes; do not call every gap a smoothing failure.
 See [the measured limits](research/one-hand-interaction-2026-10.md#actual-finite-trial-pointer-cadence-2026-10-17).
+The same records partition latency: source→lease median63.322ms,
+lease→result69.741ms, server pickup/tracking/mapping2.874ms and controller/feedback
+0.048ms. These stages exclude journal/device/display delivery; lease roundtrip
+is not pure inference. Retain the owned browser's existing per-stage trace on
+the next authorized trial, keeping the already prepared candidate unchanged.
 
 Current receiving result: all five scripted drag terminations completed once on
 the desktop and once in a PCManFM window using unchanged installed1cf0aed. Each

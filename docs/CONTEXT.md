@@ -2,6 +2,16 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Latest human feedback —2026-10-17: mouse-only mode works better than ever, though
+not completely fluid. Retained final400 observations have93.48ms median source→
+meaning age and67.67ms update intervals. Consecutive capture timestamps show
+about15fps despite30fps requested. Post-trial auto-exposure66.6ms/dynamic rate
+suggests a capture bottleneck to test; no controls were changed. See
+[the measured limits and optimization order](research/one-hand-interaction-2026-10.md#mouse-only-human-feedback-and-remaining-performance-2026-10-17).
+The inspected session is now closed, camera/input off and writer reaped; its
+terminal cancellation cause is not established. Do not restart without human Start.
+
+
 Current receiving mode —2026-10-17: separate mouse controls and a headless GPU
 detector are deployed from native source d092c51. A receiving synthetic test kept
 results flowing after both optional pages closed; the worker requested no feedback

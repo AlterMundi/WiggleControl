@@ -585,3 +585,39 @@ the0.048ms stage is not total interaction latency or a reason to stop evaluating
 filters. These timestamps do not identify the receiver rejection's cause. Keep
 the precise-fence diagnostic repetition as the next receiving task, and avoid
 changing the staged profile while its fresh-ready request is pending.
+
+
+## Mouse-only human feedback and remaining performance —2026-10-17
+
+The human reports the separate-detector mode works better than ever, while still
+not feeling completely fluid. This is positive physical-use feedback, not full
+click/double-click/drag or latency acceptance. No settings/capture were changed
+for this inspection; the inspected session had already ended and released input.
+
+The last400 retained accepted observations give source→meaning median93.48ms,
+p95149.27ms, before journal/device/compositor/display delivery. Meaning updates
+are67.67ms median apart (p9590.63ms). The last399 capture intervals are67.983ms
+median/p9568.026ms, all with consecutive driver sequence numbers: actual captured
+cadence is about15Hz, despite the requested30fps. Source timestamps are marked
+start-of-exposure. Source→lease median41.56ms, lease→return48.07ms and
+return→meaning2.85ms are separate distributions; their medians are not additive.
+The worker roundtrip includes transfer/decode/inference and is not pure inference.
+
+A read-only camera-control inspection after the trial shows automatic aperture-
+priority exposure, exposure666×100µs (66.6ms), maximum gain255, and dynamic frame
+rate enabled. This is consistent with the recorded cadence, not a controlled
+proof of its cause. The [V4L2 camera-control reference](https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/ext-ctrls-camera.html)
+defines those exposure units and permits variable rate under automatic exposure
+when exposure priority is enabled. Do not overwrite camera controls from this
+post-trial snapshot or claim that requesting30fps delivered it.
+
+Next optimizations, in order: qualify30fps capture with shorter exposure and
+adequate illumination; measure frame handoff/decode/worker stages and remove
+avoidable copies/waits; compare compute headroom under the human's chosen
+power/cooling constraints; then retune adaptive cursor filtering against actual
+noise/lag. The existing latest-frame mailbox, GPU worker, one-hand VIDEO tracking
+and independent cursor output already exist. Faster hardware can help compute,
+but cannot remove a camera exposure/sampling limit by itself. A matched retained-
+video benchmark on a faster host can isolate compute headroom without new camera
+capture or changed real-hand gestures. The previous136.9ms trial is not a paired
+A/B comparison, so no causal speedup percentage is claimed.

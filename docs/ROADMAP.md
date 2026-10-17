@@ -6,7 +6,7 @@ replacement [goal specification](ONE-HAND-GOAL.md) preserves the human's physica
 feedback, temporal-continuity proposal and completion criteria. It does not edit
 or resume the harness goal automatically. The full touchscreen scope below remains.
 
-Updated 2026-10-16. This is the current development entry point. The original
+Updated 2026-10-17. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.
@@ -66,6 +66,17 @@ keeps the counterfactual/intent limits. Old track IDs alone cannot test new
 association retention, and rejected raw predictions prevent full-session replay.
 Physical comparison still awaits the existing fresh-ready request; no trial
 profile change or new receiving build is needed.
+
+Later actual progress supersedes that pending request: the human manually ran
+the smooth trial and gave positive overall feedback, but it ended before45s.
+Issue[#9](https://github.com/AlterMundi/WiggleControl/issues/9) owns the receiver
+Frame rejection, separately from unreproduced#8. ARM64 diagnostic228cc30 is now
+selected only by the finite trial specifications, with unchanged profiles and
+baseline WG1. CI, device-free receiving replays, both preflights and actual
+standby/human-Stop teardown pass. Next: a fresh manual45s recorded repetition to
+identify the failed predicate, a causal correction, then complete application
+and human comfort qualification. Preparation does not establish that runtime
+interruption is fixed. See the [current receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
 
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,

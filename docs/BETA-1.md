@@ -262,3 +262,24 @@ fix or a newly accepted beta; WG1 still selects1cf0aed. Capture the actual faili
 predicate on a receiving repetition before recording a causal finding, then fix
 that cause and qualify complete finite/application use. New camera trials retain
 fresh readiness/manual Start and private recording.
+
+Diagnostic source `228cc30d96d4426f564a1107816b342cb98cc48d` passes native tests,
+Clippy and CI38989727471 (replay/native/ARM64). The receiving ARM64 executable
+SHA256 is `bced308a98698f4fd2bb0ad42c32f07d4c3ac248436415b1ebb1765bd08819a9`.
+Its device-free replay passes4410 retained-input commands/4411 receipts and four
+simulated down/up pairs. The delayed-source example reports the intended precise
+diagnostic and releases its simulated pair. Both finite trial specifications now
+select that exact executable; session/settings bytes, private recording and
+previous executable/specifications are preserved. Both manual preflights pass.
+Actual standby confirms camera/input off and an armed independent observer;
+the interface's same-origin `POST /stop` ends provider/observer with exit0,
+both reaped, unit inactive/success and empty cgroup. No camera, virtual mouse or
+browser was started for these checks. Prior rendered-control evidence is reused
+because the frontend is unchanged. This qualifies preparation and Stop, not a
+complete camera trial. The diagnostic candidate is ready for a fresh manual45s
+repetition; WG1 remains the separate baseline.
+
+Operational distinction: `/stop` is the human Stop route. `/provider/stop` reports
+worker cancellation and intentionally yields an error. An initial receiving probe
+omitted Origin (403), then used that worker route (cancellation/exit1); both probes
+were reaped without acquisition. Neither is evidence of a broken human Stop.

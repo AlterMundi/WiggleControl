@@ -10,7 +10,11 @@ owns this interruption; it is separate from sticky-folder#8. Exact failed predic
 and original transport timing remain unknown. Current source adds receiver-age/
 arm-state diagnostics, with unchanged rejection/cleanup behavior. Same-clock
 replay passes; selected artificial transit delays reproduce the error class,
-not the original cause. See [the receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
+not the original cause. ARM64 diagnostic228cc30 now passes device-free receiving
+replay, both profile preflights and actual standby/Stop teardown. Both finite
+trial specifications select it with unchanged profile bytes; WG1 remains1cf0aed.
+Everything is stopped while awaiting fresh readiness for the next45s trial.
+See [the receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
 
 Current receiving result: all five scripted drag terminations completed once on
 the desktop and once in a PCManFM window using unchanged installed1cf0aed. Each

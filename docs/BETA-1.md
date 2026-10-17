@@ -328,3 +328,10 @@ binary, sampling configuration, prior accepted profile and until-Stop controller
 remain unchanged. Previous failed draft/evidence and executable are preserved.
 No camera/input was opened for delivery. A new human run must still demonstrate
 all four verified corners before adopting its result.
+
+The next human retry failed at the lower-right measurement again, with no usable
+samples and an out-of-frame hand, before verification. The source now puts that
+tracking rejection directly into the guided instruction and suppresses HOLD for
+invalid tracking, rather than relying only on the smaller status text. This
+extends the earlier verification-cue correction; it does not bypass either pose
+or any of the four corner checks. Receiving delivery remains a separate record.

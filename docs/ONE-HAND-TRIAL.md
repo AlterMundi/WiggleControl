@@ -163,3 +163,11 @@ positions stayed in the lower-right quadrant and none reached its tolerance.
 It then timed out. This demonstrates the different failure boundary from the
 earlier out-of-frame measurement; it does not establish what the human noticed
 or intended. Keep the four-corner check and its real hold evidence intact.
+
+Tracking rejection is also promoted into the guided instruction itself. A partly
+out-of-frame hand requests inward movement, an absent/unclear hand requests
+repositioning, and delayed tracking is labelled. Those states must not display
+HOLD merely because the timed hold interval has begun. These are presentation
+hints from the existing tracking assessment; they neither generate samples nor
+relax freshness, geometry, count or adoption requirements. A regression clears
+the hint and still refuses advancement when no real samples exist.

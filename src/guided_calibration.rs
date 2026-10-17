@@ -8,6 +8,7 @@ pub struct Guide {
     started: Option<u64>,
     terminal: Option<String>,
     holding_corner: bool,
+    tracking_hint: Option<&'static str>,
 }
 impl Guide {
     pub fn step(&self) -> usize {
@@ -26,6 +27,18 @@ impl Guide {
     }
     pub fn finished(&self) -> bool {
         self.terminal.is_some()
+    }
+    /// Presentation only: sampling and review retain their own validity checks.
+    pub fn tracking_feedback(&mut self, reason: Option<&str>) {
+        self.tracking_hint = match reason {
+            Some("Calibration: hand partly outside camera; move inward") => {
+                Some("Hand outside frame: move inward")
+            }
+            Some("Calibration: no hand detected") => Some("Show your whole hand to the camera"),
+            Some("Calibration: low hand confidence") => Some("Hand unclear: reposition in view"),
+            Some("Calibration: frame delayed") => Some("Tracking delayed: hold position"),
+            _ => None,
+        };
     }
     pub fn update(&mut self, runtime: &mut Runtime, now_us: u64) {
         if self.finished() {
@@ -79,6 +92,7 @@ impl Guide {
             "waiting"
         } else if (self.step < 2 && elapsed.is_some_and(|e| e < 15_000_000))
             || (self.step >= 2 && !self.holding_corner)
+            || self.tracking_hint.is_some()
         {
             "move"
         } else {
@@ -97,6 +111,13 @@ impl Guide {
                 "Reach LOWER RIGHT screen corner",
                 "Reach LOWER LEFT screen corner",
             ][self.step]
+        };
+        let instruction = if !matches!(phase, "retry" | "complete") {
+            self.tracking_hint
+                .map(|hint| format!("{instruction} // {hint}"))
+                .unwrap_or_else(|| instruction.to_string())
+        } else {
+            instruction.to_string()
         };
         json!({"step":self.step,"phase":phase,"remaining_ms":elapsed.map(|e|(20_000_000_u64.saturating_sub(e))/1000),
             "instruction":instruction,"result":self.terminal})
@@ -120,6 +141,15 @@ mod tests {
         g.acknowledge(100_000_000);
         assert!(!g.collecting(114_999_999));
         assert!(g.collecting(115_000_000));
+        g.tracking_feedback(Some("Calibration: hand partly outside camera; move inward"));
+        assert_eq!(g.state(115_000_000)["phase"], "move");
+        assert!(g.state(115_000_000)["instruction"]
+            .as_str()
+            .unwrap()
+            .contains("move inward"));
+        g.tracking_feedback(Some("Calibration: hand visible; hold steady"));
+        assert_eq!(g.state(115_000_000)["phase"], "hold");
+        // A clear instruction alone must not create samples or allow advancement.
         g.update(&mut r, 120_000_000);
         assert_eq!(g.state(120_000_000)["phase"], "retry");
         assert!(!path.exists());

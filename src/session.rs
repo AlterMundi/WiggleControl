@@ -1360,7 +1360,28 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 } else {
                     (None, events)
                 };
+                let feedback_reason = if calibration
+                    .as_ref()
+                    .is_some_and(|c| c.is_sampling_or_reviewing())
+                {
+                    Some(if now.saturating_sub(frame.source_us) >= 150_000 {
+                        "Calibration: frame delayed"
+                    } else if let Some(detected) = &hand {
+                        if detected.confidence < config.gestures().min_confidence {
+                            "Calibration: low hand confidence"
+                        } else if !detected.in_view(image.width(), image.height()) {
+                            "Calibration: hand partly outside camera; move inward"
+                        } else {
+                            "Calibration: hand visible; hold steady"
+                        }
+                    } else {
+                        "Calibration: no hand detected"
+                    })
+                } else {
+                    engine.pinch_block_reason()
+                };
                 if let (Some(guide), Some(calibration)) = (&mut guide, &mut calibration) {
+                    guide.tracking_feedback(feedback_reason);
                     guide.update(calibration, now);
                 }
                 let output_enabled = preview_clock.as_ref().is_none_or(|c| c.started.is_some());
@@ -1378,26 +1399,6 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 };
                 if let Some(preview) = &preview {
                     let ratio = interpreted.as_ref().map(crate::Hand::pinch_ratio);
-                    let feedback_reason = if calibration
-                        .as_ref()
-                        .is_some_and(|c| c.is_sampling_or_reviewing())
-                    {
-                        Some(if now.saturating_sub(frame.source_us) >= 150_000 {
-                            "Calibration: frame delayed"
-                        } else if let Some(detected) = &hand {
-                            if detected.confidence < config.gestures().min_confidence {
-                                "Calibration: low hand confidence"
-                            } else if !detected.in_view(image.width(), image.height()) {
-                                "Calibration: hand partly outside camera; move inward"
-                            } else {
-                                "Calibration: hand visible; hold steady"
-                            }
-                        } else {
-                            "Calibration: no hand detected"
-                        })
-                    } else {
-                        engine.pinch_block_reason()
-                    };
                     let mut data = serde_json::json!({
                         "guided":guide.as_ref().map(|g|g.state(now)),
                         "input_enabled":inject && output_enabled,

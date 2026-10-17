@@ -176,6 +176,85 @@ fn watchdog_latches_and_old_held_frame_cannot_repress_without_transition() {
     ));
 }
 #[test]
+fn rejection_distinguishes_source_expiry_in_transit_from_writer_watchdog_loss() {
+    let mut state = State::default();
+    apply(&mut state, 1, transition(1, 1, Mode::Pointer));
+    apply(
+        &mut state,
+        2,
+        packet(
+            2,
+            2,
+            Mode::Pointer,
+            vec![Event::Button { down: true }],
+            vec![],
+        ),
+    );
+    apply(
+        &mut state,
+        140_000,
+        Packet::Hold {
+            sequence: 3,
+            issued_us: 140_000,
+            source_us: 2,
+            until_us: 1_000_002,
+            mode: Mode::Pointer,
+        },
+    );
+    // This new source is fresh at publication (148999us), but a1002us
+    // transit interval carries it across the150000us receiver fence.
+    let error = state
+        .apply(
+            150_004,
+            Packet::Frame {
+                sequence: 4,
+                issued_us: 149_002,
+                source_us: 3,
+                mode: Mode::Pointer,
+                mouse: vec![],
+                absolute: None,
+                contacts: vec![],
+            },
+            2000.0,
+            150_000,
+        )
+        .err()
+        .unwrap();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    let message = error.to_string();
+    let (_, json) = message.split_once("; ").unwrap();
+    let evidence: serde_json::Value = serde_json::from_str(json).unwrap();
+    assert_eq!(evidence["reasons"], serde_json::json!(["source_expired"]));
+    assert_eq!(evidence["source_age_us"], 150_001);
+    assert_eq!(evidence["issued_age_us"], 1_002);
+    assert_eq!(evidence["receive_gap_us"], 10_004);
+    assert_eq!(evidence["armed_before"], true);
+    assert_eq!(evidence["armed_after"], true);
+    assert!(button(&state.release(), 0));
+    assert!(state.release().mouse.is_empty());
+
+    let mut state = State::default();
+    apply(&mut state, 1, transition(1, 1, Mode::Pointer));
+    let error = state
+        .apply(
+            150_002,
+            packet(2, 150_002, Mode::Pointer, vec![], vec![]),
+            2000.0,
+            150_000,
+        )
+        .err()
+        .unwrap();
+    let message = error.to_string();
+    let evidence: serde_json::Value =
+        serde_json::from_str(message.split_once("; ").unwrap().1).unwrap();
+    assert_eq!(evidence["reasons"], serde_json::json!(["unarmed"]));
+    assert_eq!(evidence["source_age_us"], 0);
+    assert_eq!(evidence["receive_gap_us"], 150_001);
+    assert_eq!(evidence["armed_before"], true);
+    assert_eq!(evidence["armed_after"], false);
+}
+
+#[test]
 fn invalid_source_or_competing_output_is_terminal_and_cleanup_preserves_release() {
     for case in 0..6 {
         let mut s = State::default();

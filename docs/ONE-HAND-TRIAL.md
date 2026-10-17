@@ -105,6 +105,15 @@ claiming coverage of a particular press/release. Event loss, partial records,
 truncation or an unreaped writer must not become proof of a successful release.
 Filesystem/drop or application evidence remains separate from raw button events.
 
+On a receiver Frame rejection, current native stderr includes a JSON
+`wigglecontrol.delivery-rejection/v1` diagnostic after the existing error prefix.
+It distinguishes failed arm/mode/source-age/source-order/count predicates and
+retains receiver time, source/issued age, receive gap, previous source and arm
+state before/after timing checks. Original trial d8f9bb9 has only the broad error;
+do not retroactively attribute a specific predicate to it. This extra diagnostic
+does not relax rejection or cleanup and does not prove the interruption fixed.
+Keep the private stderr with the exact artifact and independent trace.
+
 No new live human recording or input is authorized merely by these prepared
 files. Describe one short owned task, verify receiving preparation and Stop, then
 obtain fresh readiness. Preserve video, kernel/semantic evidence and human intent

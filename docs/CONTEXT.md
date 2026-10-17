@@ -2,6 +2,16 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Current continuation —2026-10-17: the human resumed the same one-hand goal after
+the first finite smooth trial. The portion that ran received positive overall
+feedback, but it ended before45s with a receiver Frame-guard rejection. Camera,
+worker and input closed. Issue[#9](https://github.com/AlterMundi/WiggleControl/issues/9)
+owns this interruption; it is separate from sticky-folder#8. Exact failed predicate
+and original transport timing remain unknown. Current source adds receiver-age/
+arm-state diagnostics, with unchanged rejection/cleanup behavior. Same-clock
+replay passes; selected artificial transit delays reproduce the error class,
+not the original cause. See [the receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
+
 Current receiving result: all five scripted drag terminations completed once on
 the desktop and once in a PCManFM window using unchanged installed1cf0aed. Each
 retained kernel down/up, original folder moved and device removed; inspected
@@ -32,7 +42,8 @@ cases by bounded expiry/owner change/disengagement. Held time40.133→49.632s is
 a counterfactual result, not desired-recovery accuracy. The
 [new report section](research/one-hand-interaction-2026-10.md#retained-beta1-session-comparison-2026-10-16)
 owns selection, click-pair diagnostics and incomplete rejected-prediction limits.
-The pending human-ready question remains unchanged; camera stays off.
+The subsequent finite trial below extends this checkpoint; camera stays off
+until a fresh, prepared human-directed trial.
 
 The human resumed the existing one-hand goal and explicitly freed the Pi on
 2026-10-16; its objective/accounting were preserved. Camera-free desktop tests

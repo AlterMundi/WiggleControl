@@ -288,6 +288,8 @@ impl State {
         if self.now.is_some_and(|t| now < t) {
             return Err(invalid("delivery clock regressed"));
         }
+        let previously_received = self.received;
+        let previously_armed = self.ready;
         self.now = Some(now);
         if self
             .received
@@ -393,16 +395,42 @@ impl State {
                 contacts,
                 ..
             } => {
-                if !self.ready
-                    || self.mode != Some(mode)
-                    || source_us > issued
-                    || now - source_us >= watchdog_us
-                    || self.source.is_some_and(|t| source_us <= t)
-                    || mouse.len() > 8
-                    || contacts.len() > 2
-                {
-                    return Err(invalid(
-                        "delivery requires fresh source and an explicit armed mode",
+                let rejected = [
+                    ("unarmed", !self.ready),
+                    ("mode_mismatch", self.mode != Some(mode)),
+                    ("future_source", source_us > issued),
+                    (
+                        "source_expired",
+                        now.saturating_sub(source_us) >= watchdog_us,
+                    ),
+                    ("source_order", self.source.is_some_and(|t| source_us <= t)),
+                    ("mouse_limit", mouse.len() > 8),
+                    ("contact_limit", contacts.len() > 2),
+                ];
+                if rejected.iter().any(|(_, failed)| *failed) {
+                    // Retain the exact failed fences and both ages. A frame may
+                    // be fresh when published but expire before its receiver runs.
+                    // This is exceptional-path diagnostics, not a clock/arm reset.
+                    let reasons: Vec<_> = rejected
+                        .iter()
+                        .filter_map(|(reason, failed)| failed.then_some(*reason))
+                        .collect();
+                    let evidence = serde_json::json!({
+                        "schema":"wigglecontrol.delivery-rejection/v1",
+                        "reasons":reasons,"now_us":now,"issued_us":issued,
+                        "source_us":source_us,"source_age_us":now.saturating_sub(source_us),
+                        "issued_age_us":now-issued,"watchdog_us":watchdog_us,
+                        "previous_source_us":self.source,
+                        "receive_gap_us":previously_received.map(|t| now.saturating_sub(t)),
+                        "armed_before":previously_armed,"armed_after":self.ready,
+                        "mode":mode,"previous_mode":self.mode,"hold_until_us":self.hold_until,
+                        "sequence":sequence,"mouse_count":mouse.len(),"contact_count":contacts.len()
+                    });
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "delivery requires fresh source and an explicit armed mode; {evidence}"
+                        ),
                     ));
                 }
                 let allowed = match mode {

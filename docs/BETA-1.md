@@ -1,8 +1,9 @@
 # Beta 1 — one-hand desktop control
 
 Nicolás selected a usable one-hand beta before resuming open multipoint research
-on2026-10-16. The wider controller goal retains its full scope and is paused
-while this release is prepared. This beta is an explicit manual desktop tool.
+on2026-10-16. The active priority is now to improve this one-hand controller;
+the wider touchscreen roadmap remains preserved for later. This beta is an
+explicit manual desktop tool.
 
 ## Selected behavior
 
@@ -220,3 +221,44 @@ Physical45s comparison remains pending fresh human readiness and manual Start.
 Keep camera video, semantic journal, raw kernel edges, application result and
 human observations separate; do not promote this candidate to the everyday beta
 or mark its manifest receiving-qualified from standby/source checks alone.
+
+## First finite smooth trial and receiver diagnostics —2026-10-17
+
+The human manually started the prepared45s smooth trial on2026-10-16 and reported
+that the portion that ran worked very well. This is positive overall feedback,
+not separate acceptance of every gesture or completion of the full goal. The
+trial ended early with `delivery requires fresh source and an explicit armed mode`
+from the Frame validator, followed by provider cancellation. Issue
+[#9](https://github.com/AlterMundi/WiggleControl/issues/9) owns the interruption;
+the precise failed condition and original wire timing were not recorded.
+
+The independent observer retained3257 kernel records and four down/up pairs,
+no SYN loss/partial/unsynchronized records and device removal. Its last movement
+preceded the last release by about303.5ms. Initial state/startup before attachment
+remain unknown; no compositor-grab claim follows. Terminal source receipts confirm
+camera/input off, worker closed and writer reaped; provider exit1/observer exit0.
+The source unit was failed with an empty cgroup and the own browser was stopped.
+The retained recording has305 frames over20.064818s,32016800 original bytes,
+continuous in-range index entries and full640x480 JPEG decode.298 payloads retain
+up to31 bytes after JPEG EOI from their raw capture buffers. Do not trim those
+bytes or call that padding corruption. Decoding does not establish intent labels.
+
+A device-free full pipeline replay uses all248 interpreted observations with
+their original source/evaluation intervals, shifted by one epoch, supplied5ms
+ticks and a shared producer/receiver clock. It passes. A separate delivery replay
+adds a selected delay only to the final generated Frame: its136.245ms source age
+at publication becomes306.245ms with170ms transit, yielding source expiry.
+299ms transit also yields unarmed receiver state.0/50/150/160ms transit cases
+pass; all seven cases release every generated button pair. These are artificial
+counterexamples, **not measured original transport delay or its demonstrated cause**.
+
+Current source reports `wigglecontrol.delivery-rejection/v1` context on this exact
+Frame rejection path: failed predicates, source/packet ages, previous source,
+receive gap, mode and arm state before/after timing checks. It records no pointer
+coordinates. The freshness/arm/order/count checks and terminal release behavior
+are unchanged. A regression distinguishes source expiry during transit from an
+independent writer-watchdog lapse. This diagnostic improvement is not a runtime
+fix or a newly accepted beta; WG1 still selects1cf0aed. Capture the actual failing
+predicate on a receiving repetition before recording a causal finding, then fix
+that cause and qualify complete finite/application use. New camera trials retain
+fresh readiness/manual Start and private recording.

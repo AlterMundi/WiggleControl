@@ -125,6 +125,9 @@ impl Runtime {
     pub fn verification_saved(&self) -> bool {
         self.review_saved
     }
+    pub fn holding_review_target(&self) -> bool {
+        self.review.as_ref().is_some_and(Review::holding_target)
+    }
     pub fn is_sampling_or_reviewing(&self) -> bool {
         self.sampling.is_some() || self.review.is_some()
     }

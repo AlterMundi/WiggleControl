@@ -147,3 +147,19 @@ observed different live source/overlay PIDs and both units inactive/success with
 empty cgroups after each exit. The real calibration command was restored and
 left inactive. This proves that launcher lifecycle, not a successful new hand
 calibration. Previous accepted profile and failed-attempt evidence are preserved.
+
+Corner verification now reports `move` until the existing review state has fresh
+in-target evidence starting the corner dwell, then `hold`. Moving away, stale
+input or tracking loss returns the guidance to `move`; finishing a corner waits
+for the next target's painted acknowledgment. Previously every verification step
+reported `hold` immediately, including while still at the opposite corner. This
+contradicted the instruction to move to the new target. A regression covers the
+second-pose→first-corner transition, entry, tracking loss and advancement, while
+preserving all freshness, dwell and adoption requirements.
+
+In the retained human retry both measurement poses reached24 usable samples.
+The first verification target was upper-left, while all188 available mapped
+positions stayed in the lower-right quadrant and none reached its tolerance.
+It then timed out. This demonstrates the different failure boundary from the
+earlier out-of-frame measurement; it does not establish what the human noticed
+or intended. Keep the four-corner check and its real hold evidence intact.

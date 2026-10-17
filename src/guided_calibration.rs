@@ -7,6 +7,7 @@ pub struct Guide {
     step: usize,
     started: Option<u64>,
     terminal: Option<String>,
+    holding_corner: bool,
 }
 impl Guide {
     pub fn step(&self) -> usize {
@@ -35,6 +36,7 @@ impl Guide {
         };
         let state = runtime.state();
         if self.step >= 2 {
+            self.holding_corner = runtime.holding_review_target();
             if state["corners_verified"] == true {
                 self.terminal = Some(if runtime.verification_saved() {
                     "complete".into()
@@ -47,6 +49,7 @@ impl Guide {
             if state["corner_target"] != json!(expected) {
                 self.step += 1;
                 self.started = None;
+                self.holding_corner = false;
                 return;
             }
         }
@@ -74,7 +77,9 @@ impl Guide {
             }
         } else if elapsed.is_none() {
             "waiting"
-        } else if self.step < 2 && elapsed.is_some_and(|e| e < 15_000_000) {
+        } else if (self.step < 2 && elapsed.is_some_and(|e| e < 15_000_000))
+            || (self.step >= 2 && !self.holding_corner)
+        {
             "move"
         } else {
             "hold"
@@ -158,6 +163,52 @@ mod tests {
         assert!(!path.exists());
         crate::calibration_runtime::accept_saved(&path).unwrap();
         assert!(path.exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn corner_guidance_requests_movement_until_fresh_dwell_then_recovers_from_loss() {
+        let dir = std::env::temp_dir().join(format!("wiggle-guide-motion-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("profile.json");
+        let mut runtime = Runtime::new(&path, [1920, 1080]).unwrap();
+        runtime.control(Control::StartDiagonal).unwrap();
+        let upper_left = Point { x: 0.2, y: 0.3 };
+        let lower_right = Point { x: 0.8, y: 0.7 };
+        let mut guide = Guide::default();
+        let mut at = 1_000_000;
+        for point in [upper_left, lower_right] {
+            guide.acknowledge(at);
+            for n in 0..40 {
+                let time = at + 15_000_000 + n * 100_000;
+                runtime.frame(Some(point), Some(point), time, time, vec![]);
+            }
+            guide.update(&mut runtime, at + 20_000_000);
+            at += 30_000_000;
+        }
+        assert_eq!(guide.step(), 2);
+        assert_eq!(guide.state(at)["phase"], "waiting");
+        guide.acknowledge(at);
+        // Remaining at the second measurement is not a hold at verification corner 1.
+        runtime.frame(Some(lower_right), Some(lower_right), at, at, vec![]);
+        guide.update(&mut runtime, at);
+        assert_eq!(guide.state(at)["phase"], "move");
+        at += 100_000;
+        runtime.frame(Some(upper_left), Some(upper_left), at, at, vec![]);
+        guide.update(&mut runtime, at);
+        assert_eq!(guide.state(at)["phase"], "hold");
+        at += 100_000;
+        runtime.frame(None, None, at, at, vec![]);
+        guide.update(&mut runtime, at);
+        assert_eq!(guide.state(at)["phase"], "move");
+        for n in 0..6 {
+            let time = at + 100_000 + n * 100_000;
+            runtime.frame(Some(upper_left), Some(upper_left), time, time, vec![]);
+            guide.update(&mut runtime, time);
+        }
+        assert_eq!(guide.step(), 3);
+        assert_eq!(guide.state(at + 700_000)["phase"], "waiting");
+        assert!(!runtime.verification_saved());
+        assert!(!path.exists());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

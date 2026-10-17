@@ -310,3 +310,11 @@ pass. See [the display lifecycle](ONE-HAND-TRIAL.md#guided-calibration-display-l
 The previous accepted calibration remains selected until a new verified result
 is adopted and matching candidate session/settings are updated. Do not restart
 a finite controller in place of the human's explicit until-Stop request.
+
+A further guided retry accepted both measurement poses and entered verification,
+then timed out at the first upper-left target. Its mapped position remained near
+lower-right throughout. Source guidance incorrectly said `hold` immediately on
+every verification corner, despite requiring movement. It now reports `move`
+until actual fresh in-target dwell begins, then `hold`; loss/movement resets that
+cue. This changes guidance, not sampling, verification or adoption thresholds.
+Receiving adoption of this source correction must be recorded separately.

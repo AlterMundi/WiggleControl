@@ -432,6 +432,11 @@ impl Review {
         .get(self.next)
         .copied()
     }
+    /// Fresh in-target evidence has started the current corner's dwell.
+    /// This is not verification; loss, stale input and movement reset it.
+    pub fn holding_target(&self) -> bool {
+        self.held_since.is_some()
+    }
     pub fn observe(
         &mut self,
         point: Point,

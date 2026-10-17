@@ -290,3 +290,23 @@ are78.757ms apart at median. This is device-output evidence, not screen refresh,
 reduced perception delay or complete-trial acceptance. The
 [cadence analysis](research/one-hand-interaction-2026-10.md#actual-finite-trial-pointer-cadence-2026-10-17)
 records clock, eligibility-gap, unlabelled-hold and unmatched-baseline limits.
+
+## Subsequent human trial and recalibration —2026-10-17
+
+A second manual45s smooth run retained651 captures,394 issued results and four
+observed kernel down/up pairs; provider and observer both exited0 and were reaped,
+with the virtual device removed. The browser reported a503 delayed meaning receipt
+at the end. A finite-deadline/in-flight-result race is a hypothesis to verify;
+the original Frame-guard rejection did not recur. This is not whole-goal acceptance.
+
+The human then explicitly requested use until Stop and recalibration first.
+The existing manual `provider-camera-until-stop` command is prepared with the
+same228cc30 smooth profile and private recording; camera-free preflight and Stop
+pass. It remains stopped while recalibration is pending. The first guided attempt
+failed, with out-of-frame hand reported by the human. Its source ended while the
+native overlay stayed running. The receiving launcher now restarts the overlay
+per attempt and stops it on source exit; two camera-free desktop-launch cycles
+pass. See [the display lifecycle](ONE-HAND-TRIAL.md#guided-calibration-display-lifecycle).
+The previous accepted calibration remains selected until a new verified result
+is adopted and matching candidate session/settings are updated. Do not restart
+a finite controller in place of the human's explicit until-Stop request.

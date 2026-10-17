@@ -124,3 +124,26 @@ Validation: `python3 -B tools/test_one_hand_trial.py` covers actual process cook
 wrong artifact/command rejection, changed specs, automatic/unbounded preflight
 refusal, ended producers, permission failure and replaced-node cleanup without
 opening physical input. Actual receiving lifecycle and kernel tests are separate.
+
+## Guided calibration display lifecycle
+
+The existing `calibrate-guided CONFIG PORT PROFILE` workflow remains camera-only
+and saves a verified candidate before adoption. A receiving launcher must give
+each attempt a fresh native hand overlay and close that overlay when its producer
+ends, including retry/failure. Reusing an already running overlay can retain its
+old display, timer and pending controls after the calibration server has exited.
+
+For separate manually started user units, the calibration source can use
+`ExecStartPre=/usr/bin/systemctl --user restart OVERLAY_UNIT` and
+`ExecStopPost=/usr/bin/systemctl --user stop OVERLAY_UNIT`; its desktop launcher
+restarts the source unit. A plain overlay `start` does not reset an existing
+process. Keep the task-local Stop launcher able to stop both exact owned units.
+Starting/retrying camera calibration remains a fresh human desktop action.
+
+Receiving qualification reproduced the orphaned display with the calibration
+source inactive and overlay still active. After the unit correction, two actual
+desktop-launcher cycles, substituting a camera-free sleep for the producer,
+observed different live source/overlay PIDs and both units inactive/success with
+empty cgroups after each exit. The real calibration command was restored and
+left inactive. This proves that launcher lifecycle, not a successful new hand
+calibration. Previous accepted profile and failed-attempt evidence are preserved.

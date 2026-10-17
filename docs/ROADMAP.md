@@ -78,6 +78,13 @@ identify the failed predicate, a causal correction, then complete application
 and human comfort qualification. Preparation does not establish that runtime
 interruption is fixed. See the [current receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
 
+The retained actual trace now confirms frequent device output:15.488ms median/
+20.731ms p95 motion-report intervals versus78.757ms median hand-evaluation
+intervals. [The cadence analysis](research/one-hand-interaction-2026-10.md#actual-finite-trial-pointer-cadence-2026-10-17)
+keeps this distinct from display cadence and source-to-kernel latency. Perception
+age and eligibility pauses remain separate constraints; full finite runtime,
+natural double-click, actual drops and comfort acceptance remain incomplete.
+
 [Actual presence export](research/provider-presence-scores-2026-10.md) now retains
 measured per-hand quality at the original0.5 SDK floor. On the receiving GPU,
 100 executions/50 matched pairs retain exact public detector outputs, including

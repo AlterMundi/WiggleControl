@@ -509,3 +509,46 @@ The prepared45s physical comparison still requires fresh readiness; no receiving
 profile changed. This continuation is suitable for the next coherent collective
 synthesis with physical feedback. The immutable generation26 contribution above
 has not been silently rewritten or reindexed.
+
+## Actual finite-trial pointer cadence —2026-10-17
+
+The first manual smooth trial used d8f9bb9 on the receiving host. It ended before
+its45s deadline with the separately tracked receiver rejection in issue#9;
+the human gave positive overall feedback for the portion that ran. Its independent
+virtual-node observer retained3257 events,1238 synchronized reports and1235 reports
+containing an ABS_X or ABS_Y update. This is actual kernel input evidence, beyond
+the earlier logical-clock smoothness comparisons. Original journals/trace, their
+hashes and a reproducible device-free analysis remain private and unchanged.
+
+| Within-stream interval | Median(ms) | p95(ms) | p99(ms) |
+| --- | --- | --- | --- |
+| Kernel motion reports,1234 intervals |15.488 |20.731 |23.550 |
+| Observer reads of those motion reports |15.468 |20.755 |23.600 |
+| Interpreted hand evaluation,247 intervals |78.757 |95.014 |130.101 |
+
+Percentiles use nearest rank; median uses the usual middle-value interpolation.
+Motion spans19.455489s in the kernel stream and19.453995s in observer monotonic
+read time. No kernel timestamp reversal, SYN loss, partial record or unsynchronized
+button was observed. Kernel clock identity remains unverified: these are
+within-stream intervals, corroborated by the read clock, **not absolute
+source-to-kernel latency or display-frame timing**. The output reconstruction did
+deliver more frequent pointer updates than interpreted hand observations in this
+run. It does not make perception itself faster: source age at interpretation was
+136.792ms median/171.211ms p95/200.395ms maximum.
+
+Ten motion intervals exceed40ms; five exceed100ms. The maximum554.226ms interval
+overlaps seven interpreted `not_eligible` samples with no cursor, despite one hand
+remaining reported. This is evidence against treating every long interval as a
+missed smoothing tick. Unchanged positions can suppress ABS events, and eligibility
+or intentional click stabilization can pause motion. Semantic windows use observer
+read time and do not prove exact per-packet cause. Preserve the intended freeze
+when evidence is unsuitable rather than interpolating indiscriminately across it.
+
+Four observed down/up pairs last3704.816,4191.341,727.366 and2474.884ms in kernel
+time. These are unlabelled holds, not four successful intended drags or a natural
+double-click test. Startup/initial button state before observer attachment remain
+unknown. There is no matched real-kernel baseline, target/intent annotation,
+compositor receipt or complete finite-run acceptance. Source228cc30 adds diagnostic
+detail for a fresh manual repetition; this cadence analysis neither identifies nor
+fixes the early rejection. No camera, input, browser or receiving service was
+started for the analysis. The next physical trial still awaits fresh readiness.

@@ -283,3 +283,10 @@ Operational distinction: `/stop` is the human Stop route. `/provider/stop` repor
 worker cancellation and intentionally yields an error. An initial receiving probe
 omitted Origin (403), then used that worker route (cancellation/exit1); both probes
 were reaped without acquisition. Neither is evidence of a broken human Stop.
+
+The retained failed trial also supplies actual pointer cadence:1235 motion
+reports at15.488ms median/20.731ms p95 spacing, while interpreted hand evaluations
+are78.757ms apart at median. This is device-output evidence, not screen refresh,
+reduced perception delay or complete-trial acceptance. The
+[cadence analysis](research/one-hand-interaction-2026-10.md#actual-finite-trial-pointer-cadence-2026-10-17)
+records clock, eligibility-gap, unlabelled-hold and unmatched-baseline limits.

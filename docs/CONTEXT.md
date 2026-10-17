@@ -16,6 +16,13 @@ trial specifications select it with unchanged profile bytes; WG1 remains1cf0aed.
 Everything is stopped while awaiting fresh readiness for the next45s trial.
 See [the receiving checkpoint](BETA-1.md#first-finite-smooth-trial-and-receiver-diagnostics-2026-10-17).
 
+Actual retained-kernel analysis now confirms1235 motion reports:15.488ms median/
+20.731ms p95 spacing versus78.757ms median interpreted-hand evaluation spacing.
+This demonstrates frequent device output in that run, not display cadence or lower
+perception age (136.792ms median). The longest motion gap overlaps ineligible-hand
+samples. Preserve eligibility freezes; do not call every gap a smoothing failure.
+See [the measured limits](research/one-hand-interaction-2026-10.md#actual-finite-trial-pointer-cadence-2026-10-17).
+
 Current receiving result: all five scripted drag terminations completed once on
 the desktop and once in a PCManFM window using unchanged installed1cf0aed. Each
 retained kernel down/up, original folder moved and device removed; inspected

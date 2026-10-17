@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Open explicit mouse controls with an independent, idle detector unit.
+
+Starting these selected user units never requests model preparation/capture.
+The human control page's Start remains the acquisition boundary.
+"""
+import argparse
+import json
+import subprocess
+import time
+import urllib.request
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=('open', 'stop'))
+    parser.add_argument('--port', type=int, default=8876)
+    parser.add_argument('--source-unit', default='wigglecontrol-onehand-smooth.service')
+    parser.add_argument('--worker-unit', default='wigglecontrol-onehand-mouse-worker.service')
+    parser.add_argument('--control-unit', default='wigglecontrol-onehand-trial-browser.service')
+    args = parser.parse_args()
+    if not 1024 <= args.port <= 65535:
+        parser.error('Expected an unprivileged loopback port')
+    selected = [args.source_unit, args.worker_unit, args.control_unit]
+    if any(not name.startswith('wigglecontrol-') or not name.endswith('.service')
+           or '/' in name for name in selected):
+        parser.error('Expected selected WiggleControl user services')
+    if args.action == 'stop':
+        subprocess.run(['systemctl', '--user', 'stop', *selected], check=True)
+        return
+    subprocess.run(['systemctl', '--user', 'start', args.source_unit], check=True)
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            with urllib.request.urlopen(f'http://127.0.0.1:{args.port}/provider/config', timeout=1) as reply:
+                config = json.load(reply)
+            if not (config['manual_start'] and config['absolute_pointer']
+                    and config['max_hands'] == 1 and 'prepared' in config):
+                raise ValueError('Selected source does not support separate manual mouse controls')
+            break
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise TimeoutError('Selected mouse source is unavailable') from None
+            time.sleep(.1)
+    subprocess.run(['systemctl', '--user', 'start', args.worker_unit], check=True)
+    subprocess.run(['systemctl', '--user', 'start', args.control_unit], check=True)
+
+
+if __name__ == '__main__':
+    main()

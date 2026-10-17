@@ -344,3 +344,17 @@ Start. A camera-free HTTP1.1 metadata fixture on the actual1920x1080 display
 visibly confirms both the inward-movement warning and the first verification
 corner's MOVE instruction. The fixture/overlay were reaped; no camera or input
 was opened. This qualifies the displayed cues, not a new successful calibration.
+
+
+The subsequent human run completed both poses and all four corners. The existing
+`accept-calibration` command verified the saved candidate exactly and adopted it
+without acquisition. The matching reference/smooth workspaces and specification
+hashes were updated; both controller configuration checks and the continuous
+manual preflight pass. The prior profile and settings remain available privately.
+
+At the human's request the smooth228cc30 controller now runs until explicit Stop
+with its inference browser minimized: the desktop shows the regular pointer,
+without camera video or skeleton. Camera capture and private recording remain
+active, as required for hand control. This hides the feedback window; it does not
+remove the browser inference dependency or prove a performance improvement.
+The task-local STOP desktop entry remains available. WG1 rollback is unchanged.

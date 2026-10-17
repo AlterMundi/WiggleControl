@@ -2,6 +2,16 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Latest receiving result —2026-10-17: the human completed both diagonal poses and
+all four corner checks under calibration source79f01f6. Saved draft/verification
+matched through the existing camera-free acceptance command. Both candidate
+session/settings workspaces and their pinned hashes now select the accepted map;
+config checks and the until-Stop preflight pass. The human requested hand-driven
+mouse use with no camera view. The228cc30 smooth controller is running until Stop,
+with its inference browser minimized and private recording enabled. This is live
+use, not completed comfort/drag/performance acceptance; WG1 rollback is unchanged.
+
+
 Latest human task —2026-10-17: recalibrate before using the smooth controller
 until explicit Stop. After fixing an orphaned calibration overlay, a new attempt
 accepted both measurement poses but timed out at verification corner1. The guide

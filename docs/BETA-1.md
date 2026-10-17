@@ -52,12 +52,27 @@ shorter cursor/held-input rules. An absent hand with a connected detector keeps
 the session usable. Manual standby stays indefinite; no automatic restart or
 startup capture is added. Private recording remains enabled for human trials.
 
-This source increment follows human feedback that the latest calibration was
-precise and comfortable but felt slow. Closing the old combined view killed its
-detector and left capture active; that receiving session was stopped. Source
-tests and actual headless GPU/window/cleanup qualification must be reported
-separately before selecting the new receiving mode. Removing preview work is
-not evidence that inference or end-to-end latency improved.
+This increment follows human feedback that the latest calibration was precise
+and comfortable but felt slow. Closing the old combined view killed its detector
+and left capture active; that receiving session was stopped.
+
+Native source d092c51, artifact SHA256
+`e5acf7812e4a3b4862e8a4c8dc108c856c280dfb1623bad098bf9905a74dc1c3`,
+passes all jobs of CI39023513160. Receiving Chromium154 headless mode retains
+Broadcom V3D hardware inference. In an actual synthetic-only run, accepted results
+increased from28 to49 after both optional pages closed; the detector loaded zero
+feedback-image requests and had no camera canvas. Closing its target exercised
+the five-second worker-loss error and neutral cleanup; camera/input stayed off.
+The actual desktop Stop also reaped source and detector in manual standby, and
+the launcher reopened controls bound to the fresh run. Source/worker/control are
+manual user units, without restart or boot enablement. Prior runtime/configuration
+and WG1 remain rollback; the verified workspace and gesture settings are unchanged.
+
+The independent controls are ready for fresh human Start. The control window can
+be closed after starting; reopening it through `tools/mouse_launcher.py open`
+does not restart the detector or held input. Private recording remains enabled.
+Physical comfort and comparative performance in this mode remain untested.
+Removing preview work is not evidence that inference or end-to-end latency improved.
 
 ### Existing combined route
 

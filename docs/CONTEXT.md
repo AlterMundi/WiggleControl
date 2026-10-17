@@ -2,16 +2,20 @@
 
 ## One-hand interaction priority —2026-10-16
 
-Current change —2026-10-17: the human reports precise, comfortable recalibrated
-mouse use, with a slow/heavy feeling. Closing the combined feedback window killed
-its detector while capture remained active; that session was explicitly cleaned
-up. A separate no-preview detector, independent Start/Stop controls and optional
-feedback route are being qualified, together with five-second worker-loss
-cleanup. See [the mode contract](BETA-1.md#optional-feedback-with-a-separate-detector).
+Current receiving mode —2026-10-17: separate mouse controls and a headless GPU
+detector are deployed from native source d092c51. A receiving synthetic test kept
+results flowing after both optional pages closed; the worker requested no feedback
+images and had no camera canvas. Actual V3D GPU use is confirmed. Closing the
+detector exercised five-second source cleanup, with no camera/input in the test.
+Camera-free desktop Stop reaped both managed source and detector; reopening
+controls binds the fresh run ID. The recalibrated until-Stop controller is ready
+for explicit human Start. Physical comfort/performance of this mode is pending;
+no new hand capture was started for deployment. See
+[the mode contract](BETA-1.md#optional-feedback-with-a-separate-detector).
 Do not confuse a minimized preview with eliminating feedback decode/drawing, or
 claim a performance improvement without measurement.
 
-Latest receiving result —2026-10-17: the human completed both diagonal poses and
+Earlier receiving result —2026-10-17: the human completed both diagonal poses and
 all four corner checks under calibration source79f01f6. Saved draft/verification
 matched through the existing camera-free acceptance command. Both candidate
 session/settings workspaces and their pinned hashes now select the accepted map;

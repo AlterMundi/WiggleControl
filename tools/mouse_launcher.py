@@ -43,7 +43,9 @@ def main():
                 raise TimeoutError('Selected mouse source is unavailable') from None
             time.sleep(.1)
     subprocess.run(['systemctl', '--user', 'start', args.worker_unit], check=True)
-    subprocess.run(['systemctl', '--user', 'start', args.control_unit], check=True)
+    # A retained control page is bound to its prior run ID. Reopen it for the
+    # current source without touching the independent detector or held input.
+    subprocess.run(['systemctl', '--user', 'restart', args.control_unit], check=True)
 
 
 if __name__ == '__main__':

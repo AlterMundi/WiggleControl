@@ -10,6 +10,11 @@ Corrected4581f4a now shows MOVE until fresh corner dwell begins, then HOLD. CI a
 ARM receiving config-check pass; the manual calibration launcher selects it and
 is stopped awaiting human Start. All four corners and adoption remain required.
 See the [current receiving checkpoint](BETA-1.md#subsequent-human-trial-and-recalibration-2026-10-17).
+The next retry failed earlier at the lower-right measurement, again outside the
+frame. Source79f01f6 now promotes tracking rejection into the guided instruction
+and suppresses HOLD for invalid tracking. CI, receiving config-check and an actual
+camera-free1920x1080 cue render pass. Its manual calibration launcher is ready;
+all-corner human completion/adoption remain pending before until-Stop control.
 
 Current continuation —2026-10-17: the human resumed the same one-hand goal after
 the first finite smooth trial. The portion that ran received positive overall

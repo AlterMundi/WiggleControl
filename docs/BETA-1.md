@@ -335,3 +335,12 @@ tracking rejection directly into the guided instruction and suppresses HOLD for
 invalid tracking, rather than relying only on the smaller status text. This
 extends the earlier verification-cue correction; it does not bypass either pose
 or any of the four corner checks. Receiving delivery remains a separate record.
+
+Tracking-cue source79f01f6 passes native tests/Clippy and all jobs of CI39021786482.
+Receiving calibration now selects its ARM64 artifact, SHA256
+`eefbd8baf7373824ada73d03412bc2ab1f96e5bb64f6d351335325e555e63735`;
+recording-enabled config-check passes and the source remains inactive for manual
+Start. A camera-free HTTP1.1 metadata fixture on the actual1920x1080 display
+visibly confirms both the inward-movement warning and the first verification
+corner's MOVE instruction. The fixture/overlay were reaped; no camera or input
+was opened. This qualifies the displayed cues, not a new successful calibration.

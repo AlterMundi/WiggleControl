@@ -318,3 +318,13 @@ every verification corner, despite requiring movement. It now reports `move`
 until actual fresh in-target dwell begins, then `hold`; loss/movement resets that
 cue. This changes guidance, not sampling, verification or adoption thresholds.
 Receiving adoption of this source correction must be recorded separately.
+
+The corrected calibration source4581f4a passes all three jobs of CI39020555617,
+including ARM64 tests. Its receiving executable SHA256 is
+`cca591e8a17a62c905fad8eda2f045720917625957b4d5801c496e7dd767c758`.
+The calibration unit selects that artifact; config-check passes with recording
+enabled and the unit remains inactive for human manual Start. The native overlay
+binary, sampling configuration, prior accepted profile and until-Stop controller
+remain unchanged. Previous failed draft/evidence and executable are preserved.
+No camera/input was opened for delivery. A new human run must still demonstrate
+all four verified corners before adopting its result.

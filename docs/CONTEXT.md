@@ -2,6 +2,15 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Latest human task —2026-10-17: recalibrate before using the smooth controller
+until explicit Stop. After fixing an orphaned calibration overlay, a new attempt
+accepted both measurement poses but timed out at verification corner1. The guide
+incorrectly showed HOLD immediately while movement to the new target was needed.
+Corrected4581f4a now shows MOVE until fresh corner dwell begins, then HOLD. CI and
+ARM receiving config-check pass; the manual calibration launcher selects it and
+is stopped awaiting human Start. All four corners and adoption remain required.
+See the [current receiving checkpoint](BETA-1.md#subsequent-human-trial-and-recalibration-2026-10-17).
+
 Current continuation —2026-10-17: the human resumed the same one-hand goal after
 the first finite smooth trial. The portion that ran received positive overall
 feedback, but it ended before45s with a receiver Frame-guard rejection. Camera,

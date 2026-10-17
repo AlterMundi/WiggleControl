@@ -32,6 +32,35 @@ reduces weak-open double-pinch coverage. More replay held time is not acceptance
 
 ## Manual startup and use
 
+### Optional feedback with a separate detector
+
+The mouse-only route is `/provider/control`. Its Start explicitly requests
+preparation; opening or closing it does not acquire the camera or stop the mouse.
+A separately managed browser loads `/provider/worker`, which waits for that
+request before model warmup/capture. That page loads no preview script, camera
+view, skeleton drawing or feedback-image poll. The selected browser must retain
+hardware GPU inference; a headless flag alone is not receiving qualification.
+
+Optional `/provider/feedback` contains only the existing visual feedback, without
+a detector client. Closing it ends its polling/rendering while the separate
+detector continues. The older `/provider/view` retains the combined comparison
+path. Do not use that combined route as the mouse-only detector.
+
+Losing the detector's frame requests/results for five seconds now ends capture
+and input through the existing cleanup. This is separate from hand loss and its
+shorter cursor/held-input rules. An absent hand with a connected detector keeps
+the session usable. Manual standby stays indefinite; no automatic restart or
+startup capture is added. Private recording remains enabled for human trials.
+
+This source increment follows human feedback that the latest calibration was
+precise and comfortable but felt slow. Closing the old combined view killed its
+detector and left capture active; that receiving session was stopped. Source
+tests and actual headless GPU/window/cleanup qualification must be reported
+separately before selecting the new receiving mode. Removing preview work is
+not evidence that inference or end-to-end latency improved.
+
+### Existing combined route
+
 The receiving dashboard entry opens the beta's feedback/control view. The manual
 server can wait idle; it opens no model, camera, recorder or virtual device until
 the human presses **Start Beta1**. Startup warms the graph on a separately labelled

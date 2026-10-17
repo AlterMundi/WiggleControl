@@ -2,6 +2,15 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Current change —2026-10-17: the human reports precise, comfortable recalibrated
+mouse use, with a slow/heavy feeling. Closing the combined feedback window killed
+its detector while capture remained active; that session was explicitly cleaned
+up. A separate no-preview detector, independent Start/Stop controls and optional
+feedback route are being qualified, together with five-second worker-loss
+cleanup. See [the mode contract](BETA-1.md#optional-feedback-with-a-separate-detector).
+Do not confuse a minimized preview with eliminating feedback decode/drawing, or
+claim a performance improvement without measurement.
+
 Latest receiving result —2026-10-17: the human completed both diagonal poses and
 all four corner checks under calibration source79f01f6. Saved draft/verification
 matched through the existing camera-free acceptance command. Both candidate

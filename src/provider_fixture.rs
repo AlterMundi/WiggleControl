@@ -60,8 +60,17 @@ struct State {
     lease: Option<Lease>,
     submission: Option<Submission>,
     receipt: Option<(u64, Value)>,
+    worker_last_seen: Option<Instant>,
 }
 impl State {
+    fn worker_expired(&self, now: Instant) -> bool {
+        self.ready
+            && !self.eof
+            && self
+                .worker_last_seen
+                .is_some_and(|last| now.saturating_duration_since(last) >= Duration::from_secs(5))
+    }
+
     /// Acquisition history is retained separately from confirmed current input.
     fn system_input(&self) -> Option<bool> {
         if !self.input_started || self.writer_reaped {
@@ -211,6 +220,24 @@ impl Extension for Bridge {
                     headers: String::new(),
                 })
             }
+            ("GET", "/provider/feedback") => Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "text/html; charset=utf-8",
+                body: include_bytes!("../tools/preview.html").to_vec(),
+                headers: String::new(),
+            }),
+            ("GET", "/provider/worker") => Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "text/html; charset=utf-8",
+                body: include_bytes!("../tools/provider_worker.html").to_vec(),
+                headers: String::new(),
+            }),
+            ("GET", "/provider/control") => Ok(ExtensionResponse {
+                status: "200 OK",
+                mime: "text/html; charset=utf-8",
+                body: include_bytes!("../tools/provider_control.html").to_vec(),
+                headers: String::new(),
+            }),
             ("GET", "/provider/client.mjs") => Ok(ExtensionResponse {
                 status: "200 OK",
                 mime: "text/javascript",
@@ -242,7 +269,8 @@ impl Extension for Bridge {
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
-                "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output}),
+                "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
+                "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -290,6 +318,7 @@ impl Extension for Bridge {
                         ));
                     }
                     state.ready = true;
+                    state.worker_last_seen = Some(Instant::now());
                 } else if path == "/provider/terminal-visible" {
                     let mut state = self.state.lock().unwrap();
                     if !state.finishing {
@@ -342,6 +371,7 @@ impl Extension for Bridge {
                         json!({"error":"one frame already in flight"}),
                     ));
                 }
+                s.worker_last_seen = Some(Instant::now());
                 let current = s.latest.clone().filter(|f| f.sequence > s.last_issued);
                 if let Some(mut lease) = current {
                     let now = monotonic_us()?;
@@ -409,6 +439,7 @@ impl Extension for Bridge {
                         json!({"error":"result already pending"}),
                     ));
                 }
+                s.worker_last_seen = Some(Instant::now());
                 if now < lease.frame.source_us || now - lease.frame.source_us > self.stale_us {
                     s.lease = None;
                     s.expired += 1;
@@ -991,6 +1022,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             if let Some(error) = bridge.state.lock().unwrap().error.clone() {
                 return Err(error.into());
             }
+            if bridge.state.lock().unwrap().worker_expired(Instant::now()) {
+                return Err("worker disconnected: no frame requests/results for 5 seconds".into());
+            }
             tracker.tick(now);
             for capture in std::mem::take(&mut bridge.state.lock().unwrap().captures) {
                 journal.emit(capture)?;
@@ -1311,6 +1345,52 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn worker_loss_is_bounded_without_timing_out_manual_standby_or_missing_hands() {
+        let bridge = Bridge::new(BTreeMap::new(), 300_000, "run".into(), 1);
+        let now = Instant::now();
+        {
+            let mut s = bridge.state.lock().unwrap();
+            assert!(!s.worker_expired(now)); // Manual standby is indefinite.
+            s.ready = true;
+            s.worker_last_seen = Some(now);
+            assert!(!s.worker_expired(now + Duration::from_millis(4999)));
+            assert!(s.worker_expired(now + Duration::from_secs(5)));
+            s.worker_last_seen = Some(now - Duration::from_secs(6));
+        }
+        // An alive worker polling with no frame/hand still keeps its connection.
+        assert_eq!(
+            bridge
+                .respond("GET", "/provider/frame", b"")
+                .unwrap()
+                .status,
+            "204 No Content"
+        );
+        assert!(!bridge.state.lock().unwrap().worker_expired(Instant::now()));
+        let mut s = bridge.state.lock().unwrap();
+        s.eof = true;
+        assert!(!s.worker_expired(now + Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn optional_feedback_and_controls_do_not_own_the_detector() {
+        let bridge = Bridge::new(BTreeMap::new(), 300_000, "run".into(), 1);
+        for path in ["/provider/feedback", "/provider/control"] {
+            let response = bridge.respond("GET", path, b"").unwrap();
+            assert_eq!(response.status, "200 OK");
+            let body = String::from_utf8(response.body).unwrap();
+            assert!(!body.contains("/provider/client.mjs"));
+        }
+        let response = bridge.respond("GET", "/provider/worker", b"").unwrap();
+        let body = String::from_utf8(response.body).unwrap();
+        assert!(body.contains("/provider/client.mjs"));
+        assert!(!body.contains("<canvas"));
+        assert!(!body.contains("/frame"));
+        assert!(!body.contains("preview.html"));
+        let state = bridge.state.lock().unwrap();
+        assert!(!state.ready && !state.camera_opened && !state.input_started);
+    }
     #[test]
     fn terminal_activity_distinguishes_acquisition_history_from_reaped_or_unknown_input() {
         let bridge = Bridge::new(BTreeMap::new(), 300_000, "teardown".into(), 1);

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiggleControl · Mouse</title>
+<style>
+:root{color-scheme:dark;background:#090e17;color:#f5f0e6;font:24px system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;padding:32px 156px 32px 32px;max-width:1000px}header{border-left:20px solid #dcb3c3;border-top:10px solid #f4c283;border-radius:40px 0 0 0;background:#111925;padding:20px 24px}h1{font-size:32px;margin:0}main{background:#111925;border:2px solid #87d7ee;border-radius:28px 0 0 28px;margin-top:24px;padding:24px}p{line-height:1.5}button,a{font:inherit}button{width:100%;min-height:70px;margin:10px 0;border:0;border-radius:35px 0 0 35px;background:#a8dac6;color:#090e17;font-weight:700}#stop{background:#f4c283}button:disabled{opacity:.5}a{color:#87d7ee}button:focus-visible,a:focus-visible{outline:4px solid #87d7ee;outline-offset:5px}#message{min-height:2em}@media(max-width:800px){body{padding:20px}h1{font-size:28px}}
+</style>
+<header><h1>WIGGLECONTROL // MOUSE</h1></header>
+<main>
+<p id="state" role="status">Checking camera and mouse state…</p>
+<button id="start" disabled>START MOUSE</button><button id="stop" disabled>STOP SESSION</button>
+<p id="message" role="status"></p>
+<p>Open thumb/index to begin. Pinch to click; hold and move to drag.</p>
+<p>You can close this window. The mouse keeps running until Stop.</p>
+<p><a href="/provider/feedback" target="_blank" rel="noopener">Open camera feedback</a></p>
+<p>Camera recording stays local. Closing feedback stops only its display.</p>
+</main>
+<script>
+let runId=null,busy=false,ended=false;
+const get=id=>document.getElementById(id);
+async function poll(){try{
+ const r=await fetch('/provider/config',{cache:'no-store',signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error('State unavailable');const c=await r.json();
+ if(runId&&runId!==c.run_id)throw Error('Session changed. Reopen the mouse controls.');runId=c.run_id;ended=!c.active;
+ get('state').textContent=ended?(c.error?'Session ended: '+c.error:'Session ended · Camera off · Mouse off'):c.camera_opened?`Camera active · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'} · Recording locally · Until Stop`:c.prepared?'Preparing detector · Camera off · Mouse off':'Ready · Camera off · Mouse off';
+ get('start').disabled=busy||ended||c.prepared;get('stop').disabled=busy||ended;
+ }catch(e){get('state').textContent='State unavailable · Check the activity panel';get('message').textContent=e.message;get('start').disabled=true;get('stop').disabled=!runId||busy;}
+ if(!ended)setTimeout(poll,1000);
+}
+async function command(action){if(!runId||busy)return;busy=true;get('start').disabled=true;get('stop').disabled=true;try{
+ const r=await fetch('/provider/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId}),signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error(await r.text());get('message').textContent=action==='stop'?'Stop requested. Waiting for camera and mouse closure.':'Start requested. Preparing the detector.';
+ }catch(e){get('message').textContent=e.message;}finally{busy=false;}}
+get('start').onclick=()=>command('prepare');get('stop').onclick=()=>command('stop');poll();
+</script></html>

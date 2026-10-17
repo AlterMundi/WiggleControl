@@ -9,6 +9,18 @@ const run = async()=>{
   runId=config.run_id;
   document.querySelector('h1').textContent=config.absolute_pointer?'WIGGLECONTROL // BETA 1 · ONE HAND':config.camera_source?'WIGGLECONTROL // CAMERA WORKER':config.recorded_source?'WIGGLECONTROL // RECORDED HAND REPLAY':'WIGGLECONTROL // REAL-CLOCK FIXTURE';
   if(config.manual_start){
+    if(document.documentElement?.dataset.providerWorker==='external-start'){
+      // A separate control page requests preparation. Closing that page must
+      // neither terminate this detector nor activate capture on its own.
+      while(true){
+        const response=await fetch('/provider/config',{cache:'no-store',signal:AbortSignal.timeout(2000)});
+        if(!response.ok)throw Error('Mouse controls unavailable');
+        const current=await response.json();
+        if(current.run_id!==runId||!current.active)throw Error('Mouse session ended before Start');
+        if(current.prepared)break;
+        await new Promise(resolve=>setTimeout(resolve,250));
+      }
+    }else{
     const start=document.getElementById('start-beta');
     if(!start)throw Error('Manual Start control unavailable');
     start.hidden=false;
@@ -16,6 +28,7 @@ const run = async()=>{
     start.disabled=true;start.hidden=true;
     const preparing=await post('/provider/prepare');
     if(!preparing.ok)throw Error('Start request was rejected');
+    }
   }
   const bytes = await (await fetch('/hand_landmarker.task')).arrayBuffer();
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]

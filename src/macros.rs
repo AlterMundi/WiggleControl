@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Pose {
+    /// Positively observed alternate pose; never neutral and cannot bind an action.
+    Other,
+    /// Four curled fingers and thumb extended away from the palm; no gravity axis.
+    ThumbOut,
     OpenPalm,
     Victory,
     ThumbsUp,
@@ -15,6 +19,7 @@ pub enum Pose {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
+    Escape,
     Recenter,
     TogglePrecision,
     ToggleScroll,
@@ -79,7 +84,7 @@ impl VisualPolicy {
         })
     }
 }
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Feedback {
     pub enabled: bool,
     pub armed: bool,
@@ -112,6 +117,7 @@ pub struct Frame {
 }
 pub struct Engine {
     config: Config,
+    min_confidence: f64,
     enabled: bool,
     last_now: Option<u64>,
     watermark: Option<u64>,
@@ -125,12 +131,22 @@ pub struct Engine {
 }
 impl Engine {
     pub fn new(config: Config) -> Result<Self, &'static str> {
+        Self::with_min_confidence(config, 0.8)
+    }
+    /// Internal geometric gestures use their actual observation-admission policy.
+    /// Named visual classifiers retain the public constructor's 0.8 threshold.
+    pub(crate) fn with_min_confidence(
+        config: Config,
+        min_confidence: f64,
+    ) -> Result<Self, &'static str> {
         if !(200_000..=3_000_000).contains(&config.hold_us)
             || !(100_000..=2_000_000).contains(&config.neutral_us)
             || !(200_000..=5_000_000).contains(&config.cooldown_us)
             || !(50_000..=1_000_000).contains(&config.stale_us)
             || config.bindings.is_empty()
             || config.bindings.len() > 16
+            || config.bindings.iter().any(|b| b.pose == Pose::Other)
+            || !(0.01..=1.0).contains(&min_confidence)
             || config
                 .bindings
                 .iter()
@@ -141,6 +157,7 @@ impl Engine {
         }
         Ok(Self {
             config,
+            min_confidence,
             enabled: false,
             last_now: None,
             watermark: None,
@@ -235,7 +252,7 @@ impl Engine {
             self.neutralize("missing_pose");
             return None;
         };
-        if !hand.confidence.is_finite() || !(0.8..=1.0).contains(&hand.confidence) {
+        if !hand.confidence.is_finite() || !(self.min_confidence..=1.0).contains(&hand.confidence) {
             self.neutralize("low_confidence");
             return None;
         }

@@ -42,6 +42,7 @@ pub struct Settings {
     pub right_click: bool,
     pub right_click_dominance_ratio: f64,
     pub detail: Option<crate::detail::Config>,
+    pub escape: Option<crate::escape::Config>,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -66,6 +67,7 @@ impl Default for Settings {
             right_click: false,
             right_click_dominance_ratio: 0.5,
             detail: None,
+            escape: None,
         }
     }
 }
@@ -85,6 +87,9 @@ pub struct MacroReceipt {
 }
 #[derive(Debug, Serialize)]
 pub struct Output {
+    /// One-shot command for this observation only; never repeated by a tick.
+    pub escape: bool,
+    pub escape_feedback: Option<macros::Feedback>,
     pub mode: Mode,
     pub right_click: bool,
     /// Active held modifier; separate from destructive exclusive mode transitions.
@@ -133,6 +138,8 @@ pub struct Controller {
     right_click_dominance_ratio: f64,
     detail_config: Option<crate::detail::Config>,
     detail: crate::detail::Held,
+    escape_config: Option<crate::escape::Config>,
+    escape_engine: Option<macros::Engine>,
     contacts: Vec<Contact>,
     watermark: Option<u64>,
     last_now: Option<u64>,
@@ -185,6 +192,11 @@ impl Controller {
             right_click_dominance_ratio: settings.right_click_dominance_ratio,
             detail_config: settings.detail,
             detail: Default::default(),
+            escape_config: settings.escape,
+            escape_engine: settings
+                .escape
+                .map(|c| c.engine(settings.gestures.stale_us, settings.gestures.min_confidence))
+                .transpose()?,
             contacts: Vec::new(),
             watermark: None,
             last_now: None,
@@ -192,6 +204,8 @@ impl Controller {
     }
     fn output(&self, mouse: Vec<Event>, transition: bool) -> Output {
         Output {
+            escape: false,
+            escape_feedback: self.escape_engine.as_ref().map(macros::Engine::feedback),
             mode: self.mode,
             right_click: self.right_click,
             detail: self.detail_config.filter(|_| self.detail.active()),
@@ -221,6 +235,9 @@ impl Controller {
     }
     pub fn detail_config(&self) -> Option<crate::detail::Config> {
         self.detail_config
+    }
+    pub fn escape_config(&self) -> Option<crate::escape::Config> {
+        self.escape_config
     }
     pub fn visual_policy(&self) -> Option<&macros::VisualPolicy> {
         self.visual_policy.as_ref()
@@ -300,6 +317,9 @@ impl Controller {
         if let Some(macros) = &mut self.macros {
             macros.stop();
         }
+        if let Some(escape) = &mut self.escape_engine {
+            escape.stop();
+        }
         if self.running {
             if self.mode.touch() {
                 self.touches.start();
@@ -308,6 +328,9 @@ impl Controller {
             }
             if let Some(macros) = &mut self.macros {
                 macros.start();
+            }
+            if let Some(escape) = &mut self.escape_engine {
+                escape.start();
             }
         }
         let mut output = self.output(events, true);
@@ -383,7 +406,10 @@ impl Controller {
                 pose,
                 middle_pinch,
                 detail,
-            } => self.observe_with_modifiers(now_us, observation, pose, middle_pinch, detail),
+                escape,
+            } => {
+                self.observe_with_controls(now_us, observation, pose, middle_pinch, detail, escape)
+            }
         }
     }
     pub fn action(&mut self, action: macros::Action) -> Output {
@@ -423,7 +449,7 @@ impl Controller {
     ) -> (Output, bool) {
         let reserve = 20_000.min(self.config.stale_us / 4);
         if output.running
-            && !output.transition
+            && (!output.transition || output.escape)
             && !output.drag_hold.is_some_and(|hold| hold.in_grace)
             && source.is_some_and(|t| {
                 now.saturating_sub(t) >= self.config.stale_us.saturating_sub(reserve)
@@ -441,6 +467,9 @@ impl Controller {
             return self.neutralize("consumer_clock_regression");
         }
         self.last_now = Some(now);
+        if let Some(escape) = &mut self.escape_engine {
+            escape.tick(now);
+        }
         if self
             .watermark
             .is_some_and(|t| now.saturating_sub(t) >= self.config.stale_us)
@@ -455,7 +484,20 @@ impl Controller {
         let mouse = self.pointer_events(mouse);
         // Tick-only releases have no new observation and need a delivery transition.
         if !mouse.is_empty() {
+            // Pointer expiry must release on schedule without discarding a
+            // separately fresh cancellation-pose hold. Missing/stale pose, owner,
+            // mode and Stop still reset its engine through their normal paths.
+            let escape = self
+                .escape_engine
+                .take()
+                .map(|engine| (engine, self.primary));
             let mut output = self.neutralize("pointer_state_expired");
+            if let Some((engine, owner)) = escape {
+                self.escape_engine = Some(engine);
+                self.primary = owner;
+                output.primary_hand = owner;
+                output.escape_feedback = self.escape_engine.as_ref().map(macros::Engine::feedback);
+            }
             output.mouse.splice(0..0, mouse);
             return output;
         }
@@ -496,6 +538,17 @@ impl Controller {
         middle_pinch: Option<pointer_buttons::Evidence>,
         detail: Option<crate::detail::Evidence>,
     ) -> Output {
+        self.observe_with_controls(now, frame, pose, middle_pinch, detail, None)
+    }
+    pub fn observe_with_controls(
+        &mut self,
+        now: u64,
+        frame: touch_gestures::Frame,
+        pose: Option<macros::HandPose>,
+        middle_pinch: Option<pointer_buttons::Evidence>,
+        detail: Option<crate::detail::Evidence>,
+        escape: Option<crate::escape::Evidence>,
+    ) -> Output {
         let regressed = self.last_now.is_some_and(|t| now < t);
         let tick = self.tick(now);
         if !self.running {
@@ -529,6 +582,114 @@ impl Controller {
         } else {
             self.selected_hand(&frame)
         };
+        if selected != self.primary {
+            self.detail = Default::default();
+            self.pointer_ready = false;
+            self.button_candidate = None;
+            if let Some(macros) = &mut self.macros {
+                macros.start();
+            }
+            if let Some(escape) = &mut self.escape_engine {
+                escape.start();
+            }
+        }
+        self.primary = selected;
+        // Escape uses positive in-view raw pose evidence, not pointer eligibility:
+        // four curled fingers deliberately fail the normal pointer's open-hand gate.
+        let escape_pose = escape
+            .filter(|e| {
+                e.source_us == frame.source_us && Some(e.hand_id) == selected && !self.mode.touch()
+            })
+            .and_then(|e| {
+                let hand = frame.hands.iter().find(|h| h.id == e.hand_id)?;
+                if hand.confidence < self.config.min_confidence {
+                    return None;
+                }
+                let neutral = self.fully_open(hand)
+                    && (!self.right_click
+                        || middle_pinch
+                            .and_then(|m| m.middle_hand(hand, frame.source_us))
+                            .is_some_and(|m| self.fully_open(&m)));
+                let pose = match e.pose {
+                    crate::escape::Pose::Neutral if neutral => None,
+                    crate::escape::Pose::ThumbOut => Some(macros::Pose::ThumbOut),
+                    _ => Some(macros::Pose::Other),
+                };
+                Some(macros::HandPose {
+                    id: hand.id,
+                    confidence: hand.confidence,
+                    pose,
+                })
+            });
+        let escape_pose_transition = escape_pose.is_some()
+            && frame
+                .hands
+                .iter()
+                .any(|h| Some(h.id) == selected && (!h.engaged || !h.pinch_eligible));
+        let (escape_fired, escape_holding) = if let Some(engine) = &mut self.escape_engine {
+            let fired = engine.observe(
+                now,
+                macros::Frame {
+                    version: 1,
+                    source_us: frame.source_us,
+                    ambiguous: false,
+                    contacts_active: false,
+                    hand: escape_pose,
+                },
+            ) == Some(macros::Action::Escape);
+            let feedback = engine.feedback();
+            (
+                fired,
+                feedback.candidate == Some(macros::Pose::ThumbOut)
+                    || (feedback.armed
+                        && escape_pose_transition
+                        && self.pointer.pinch_state() == "pressed"),
+            )
+        } else {
+            (false, false)
+        };
+        if escape_fired {
+            let mut output = self.neutralize("escape");
+            output.escape = true;
+            let receipt = MacroReceipt {
+                action: macros::Action::Escape,
+                handled: true,
+                source_us: frame.source_us,
+                mode: self.mode,
+                running: self.running,
+            };
+            self.last_macro_action = Some(receipt);
+            output.last_macro_action = Some(receipt);
+            return output;
+        }
+        if escape_holding {
+            // Suppress pinch guesses and motion during a confirmed-owner candidate.
+            // Preserve only the existing same-source bounded drag grace, never
+            // extend it with these cancellation-pose observations.
+            let hand = frame
+                .hands
+                .iter()
+                .find(|h| Some(h.id) == selected)
+                .cloned()
+                .map(|mut h| {
+                    h.engaged = true;
+                    h.pinch_eligible = false;
+                    h
+                });
+            let events = self.pointer.observe(
+                now,
+                Observation {
+                    version: 1,
+                    source_us: frame.source_us,
+                    hand,
+                },
+            );
+            let events = self.pointer_events(events);
+            let mut output = self.output(events, tick.transition);
+            output.mouse.splice(0..0, tick.mouse);
+            output.reason = Some("escape_holding");
+            return output;
+        }
         if let Some(hold) = self.pointer.drag_hold() {
             let owner_changed = selected.is_some_and(|id| id != hold.hand_id);
             let disengaged = frame
@@ -546,15 +707,6 @@ impl Controller {
             }
         }
         let mut mouse = tick.mouse;
-        if selected != self.primary {
-            self.detail = Default::default();
-            self.pointer_ready = false;
-            self.button_candidate = None;
-            if let Some(macros) = &mut self.macros {
-                macros.start();
-            }
-        }
-        self.primary = selected;
         if let Some(config) = self.detail_config.filter(|_| self.mode == Mode::Pointer) {
             let held = detail
                 .filter(|e| e.source_us == frame.source_us && Some(e.hand_id) == selected)
@@ -786,6 +938,8 @@ pub enum Command {
         middle_pinch: Option<pointer_buttons::Evidence>,
         #[serde(default)]
         detail: Option<crate::detail::Evidence>,
+        #[serde(default)]
+        escape: Option<crate::escape::Evidence>,
     },
 }
 pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {

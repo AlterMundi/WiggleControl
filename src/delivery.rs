@@ -107,7 +107,23 @@ impl Publisher {
             .sequence
             .checked_add(1)
             .ok_or_else(|| io::Error::other("delivery sequence exhausted"))?;
-        Ok(Some(if output.transition {
+        Ok(Some(if output.escape {
+            let source_us =
+                source.ok_or_else(|| invalid("Escape requires its observation source"))?;
+            if !output.running
+                || !output.transition
+                || output.button_down
+                || !output.contacts.is_empty()
+            {
+                return Err(invalid("Escape requires a running neutralized controller"));
+            }
+            Packet::Escape {
+                sequence: self.sequence,
+                issued_us: now,
+                source_us,
+                mode: output.mode,
+            }
+        } else if output.transition {
             Packet::Transition {
                 sequence: self.sequence,
                 issued_us: now,

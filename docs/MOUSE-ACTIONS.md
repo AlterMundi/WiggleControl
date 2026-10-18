@@ -153,8 +153,9 @@ relaxed no-action rates and sustained comfort remain issue10/#13 work. The earli
 thumb/middle scroll candidate cannot also select right: select and qualify a
 separate scroll gesture before release. Existing explicit scroll mode remains
 separate. Detail rest/small-target/drawing/edges and held-action changes still
-need focused acceptance. [Separate controller Escape delivery](ESCAPE.md) is source work;
-no new Escape gesture is selected on the receiving host.
+need focused acceptance. [Escape delivery and deliberate thumb-out recognition](ESCAPE.md) now connect
+in source under default-off `escape:{}`. Keyboard effects/gesture comfort remain
+unqualified; no new Escape gesture is selected on the receiving host.
 
 Pi tests remain serialized with realtime-conversation work. Continue off-Pi
 source/replay work between freshly acknowledged finite physical trials. No camera

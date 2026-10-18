@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod cursor;
 pub mod detail;
+pub mod escape;
 pub mod filter;
 pub mod macros;
 pub mod pointer_buttons;

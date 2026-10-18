@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Escape gesture source candidate —2026-10-18: default-off `escape:{}` connects
+selected in-view raw thumb-out pose to the fixed-key writer, with700ms hold,
+200ms positive open rearm, no repeat and no new classifier. Uses the actual
+configured observation threshold; generic named-pose/visual requirements remain.
+Retained1912-observation paired replay preserves click/detail/motion meaning,
+with no Escape candidate or action. No Pi deployment/capture; keyboard/application
+and human gesture qualification remain. See [ESCAPE.md](ESCAPE.md).
+
 Physical detail update —2026-10-18: Nicolás reports very good detail operation,
 including intentional clicking with detail in the X menu. Retrysourcef21a48b
 completed90s/error-free; four observed cycles and balanced3left/2right clicks,

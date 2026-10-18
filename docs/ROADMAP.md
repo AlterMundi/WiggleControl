@@ -14,7 +14,8 @@ motion independently of left/right buttons. A separate sourcef21a48b Pi trial
 completed90s; Nicolás reports very good detail use with intentional clicking in
 the X menu. Small-target/rest/drawing, edge/held-action behavior and longer comfort
 remain to qualify; the normal beta/calibration remain preserved. [Escape delivery](ESCAPE.md)
-has a source adapter; its deliberate gesture and receiving effects remain pending.
+now connects an opt-in deliberate thumb-out gesture in source; actual keyboard
+effects and human recognition/comfort remain pending.
 
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into

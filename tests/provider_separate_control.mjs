@@ -89,6 +89,8 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  assert.match(element('operation').textContent,/Clock not started/);
  assert.match(element('gesture-help').textContent,/middle pinch: right/);
  assert.match(element('gesture-help').textContent,/ring and little/);
+ config.escape_configured=true;await vm.runInContext('poll()',context);
+ assert.match(element('gesture-help').textContent,/thumb out for Escape/);
  config.system_input=true;config.remaining_ms=89_800;
  await vm.runInContext('poll()',context);
  assert.match(element('state').textContent,/Opening camera.*Mouse enabled/);
@@ -97,6 +99,11 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  await vm.runInContext('poll()',context);assert.match(element('operation').textContent,/SCREEN.*88 seconds/);
  config.detail_active=true;await vm.runInContext('poll()',context);
  assert.match(element('operation').textContent,/DETAIL.*88 seconds/);
+ config.escape_feedback={candidate:'thumb_out',armed:true,hold_elapsed_us:350000,hold_required_us:700000};
+ await vm.runInContext('poll()',context);
+ assert.match(element('operation').textContent,/ESC hold 50%/);
+ config.escape_feedback={candidate:null,armed:false};await vm.runInContext('poll()',context);
+ assert.match(element('operation').textContent,/Escape: open hand/);
  assert.match(element('lifetime-help').textContent,/90 seconds of acquisition/);
  config.remaining_ms=null;await vm.runInContext('poll()',context);
  assert.match(element('operation').textContent,/Waiting for acquisition clock/);

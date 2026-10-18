@@ -65,6 +65,7 @@ struct State {
     control_mode: Option<controller::Mode>,
     controller_running: bool,
     detail_active: bool,
+    escape_feedback: Option<crate::macros::Feedback>,
 }
 impl State {
     fn remaining_ms(&self, seconds: Option<u64>, now: Instant) -> Option<u64> {
@@ -81,6 +82,7 @@ impl State {
         self.control_mode = Some(output.mode);
         self.controller_running = output.running;
         self.detail_active = output.detail.is_some();
+        self.escape_feedback = output.escape_feedback.clone();
     }
     fn worker_expired(&self, now: Instant) -> bool {
         self.ready
@@ -112,6 +114,7 @@ struct Bridge {
     absolute_pointer: bool,
     cursor_output: Option<crate::cursor::Config>,
     detail_configured: bool,
+    escape_configured: bool,
     right_click: bool,
     manual_start: bool,
     trial_seconds: Option<u64>,
@@ -159,6 +162,7 @@ impl Bridge {
             absolute_pointer: false,
             cursor_output: None,
             detail_configured: false,
+            escape_configured: false,
             right_click: false,
             manual_start: false,
             trial_seconds: None,
@@ -297,7 +301,8 @@ impl Extension for Bridge {
                 "remaining_ms":state.remaining_ms(self.trial_seconds,Instant::now()),
                 "mode":state.control_mode,"controller_running":state.controller_running&&!state.eof,
                 "detail_configured":self.detail_configured,"detail_active":state.detail_active&&!state.eof,
-                "right_click":self.right_click}),
+                "right_click":self.right_click,"escape_configured":self.escape_configured,
+                "escape_feedback":if state.eof {None}else{state.escape_feedback.as_ref()}}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -825,6 +830,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     bridge.absolute_pointer = config.provider_absolute_pointer;
     bridge.cursor_output = config.pointer_cursor_output;
     bridge.detail_configured = controller.detail_config().is_some();
+    bridge.escape_configured = controller.escape_config().is_some();
     bridge.right_click = controller.right_click_enabled();
     bridge.manual_start = manual_start;
     bridge.trial_seconds = (camera_source && !until_stop).then_some(duration / 1_000_000);
@@ -837,7 +843,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
             "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
-            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
+            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
     }
@@ -1466,10 +1472,18 @@ mod tests {
         bridge.manual_start = true;
         bridge.trial_seconds = Some(90);
         bridge.detail_configured = true;
+        bridge.escape_configured = true;
         bridge.right_click = true;
+        let mut controller = controller::Controller::new(controller::Settings {
+            escape: Some(Default::default()),
+            ..Default::default()
+        })
+        .unwrap();
+        let initial = controller.start();
         let now = Instant::now();
         {
             let mut s = bridge.state.lock().unwrap();
+            s.control_output(&initial);
             s.preparing = Some(now - Duration::from_secs(10));
             assert_eq!(s.remaining_ms(Some(90), now), None);
             s.acquisition_started = Some(now - Duration::from_secs(2));
@@ -1488,6 +1502,8 @@ mod tests {
         assert_eq!(live["detail_configured"], true);
         assert_eq!(live["detail_active"], true);
         assert_eq!(live["right_click"], true);
+        assert_eq!(live["escape_configured"], true);
+        assert_eq!(live["escape_feedback"]["enabled"], true);
         assert_eq!(live["mode"], "pointer");
         assert_eq!(live["controller_running"], true);
         assert!(live["remaining_ms"].as_u64().unwrap() <= 88_000);
@@ -1503,6 +1519,7 @@ mod tests {
                 .unwrap();
         assert_eq!(end["detail_active"], false);
         assert_eq!(end["controller_running"], false);
+        assert!(end["escape_feedback"].is_null());
         assert_eq!(end["remaining_ms"], 0);
     }
 

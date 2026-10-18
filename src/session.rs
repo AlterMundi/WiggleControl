@@ -738,7 +738,18 @@ pub(crate) fn observe_controller(
             held,
         })
     });
-    controller.observe_with_modifiers(now, observation, pose, evidence, detail)
+    let escape = controller.escape_config().and_then(|settings| {
+        let id = controller.selected_pointer_hand(&observation)?;
+        let hand = detected
+            .iter()
+            .find(|h| h.id == id && h.in_view(size[0], size[1]))?;
+        Some(crate::escape::Evidence {
+            hand_id: id,
+            source_us: observation.source_us,
+            pose: crate::escape::classify(settings, &hand.world_landmarks)?,
+        })
+    });
+    controller.observe_with_controls(now, observation, pose, evidence, detail, escape)
 }
 pub(crate) fn write_controller(
     output: &mut Option<std::process::ChildStdin>,
@@ -1866,6 +1877,77 @@ mod tests {
             );
             assert_eq!(out.detail.is_some(), expected, "source{t}");
             assert_eq!(out.primary_hand, Some(7));
+        }
+    }
+
+    #[test]
+    fn raw_escape_bridge_uses_claimed_in_view_pose_not_pointer_eligibility() {
+        use crate::escape::Pose;
+        let config:SessionConfig=serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera","models":"/fictional/models","runtime":"/fictional/runtime",
+            "fps":10,"gain":2000,"pinch_3d":false,"freshness_ms":300,"gesture_min_confidence":0.5
+        })).unwrap();
+        for obstruct in [false, true] {
+            let mut controller = crate::controller::Controller::new(crate::controller::Settings {
+                gestures: config.gestures(),
+                escape: Some(Default::default()),
+                ..Default::default()
+            })
+            .unwrap();
+            controller.start();
+            controller.select_hand(Some(7));
+            for n in 0..=10 {
+                let t = 1 + n * 100_000;
+                let pose = if n <= 2 {
+                    Pose::Neutral
+                } else {
+                    Pose::ThumbOut
+                };
+                let mut raw = fictional_hand(7, false, 0.2);
+                raw.confidence = 0.5;
+                raw.world_landmarks = crate::escape::tests::world(pose);
+                if pose == Pose::ThumbOut {
+                    for (tip, pip) in [(8, 6), (12, 10), (16, 14), (20, 18)] {
+                        raw.landmarks[pip].y = 280.0;
+                        raw.landmarks[tip].y = 350.0;
+                    }
+                }
+                // Out-of-view evidence at the beginning of the hold must disarm;
+                // reappearance still curled cannot complete the previous gesture.
+                if obstruct && n == 4 {
+                    raw.landmarks[0].x = -1.0;
+                }
+                let mut other = raw.clone();
+                other.id = 9;
+                other.world_landmarks = crate::escape::tests::world(Pose::Other);
+                let observed = config.observation(Some(&raw), 640, 480, t).hand.unwrap();
+                if pose == Pose::ThumbOut {
+                    assert!(!observed.engaged && !observed.pinch_eligible);
+                }
+                let frame = crate::touch_gestures::Frame {
+                    version: 1,
+                    source_us: t,
+                    ambiguous: false,
+                    hands: vec![
+                        config.observation(Some(&other), 640, 480, t).hand.unwrap(),
+                        observed,
+                    ],
+                };
+                let out = observe_controller(
+                    &config,
+                    &mut controller,
+                    t,
+                    frame,
+                    None,
+                    &[other, raw],
+                    [640, 480],
+                );
+                assert_eq!(
+                    out.escape,
+                    n == 10 && !obstruct,
+                    "sample{n} obstruct{obstruct}"
+                );
+            }
         }
     }
 

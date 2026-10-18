@@ -71,3 +71,9 @@ Local qualification:214 native-feature tests passed, zero failed, one existing
 opt-in benchmark ignored. Native all-target Clippy and format checks pass.
 The isolated installation/legacy-upgrade/rollback fixture passed. These are
 source checks, not keyboard classification/application-effect evidence.
+
+Exact-source [CI39177348502](https://github.com/AlterMundi/WiggleControl/actions/runs/39177348502)
+passed replay, native-vision/isolated installation and ARM64 build/test jobs for
+sourcef16f399. Its artifact remains receiving-unqualified and is not selected on
+the Pi. The next increment must add the deliberate gesture producer before human
+Escape acceptance can be claimed.

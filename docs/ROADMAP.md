@@ -9,9 +9,12 @@ Linux x86-64 testing. Changing detail during a drag/stroke is optional: include 
 independent, defer only separate extra work. Second-hand modifiers, multitouch
 and Windows/macOS ports remain later work.
 
-An opt-in [held-detail source candidate](DETAIL.md) now modifies calibrated
-absolute motion independently of left/right button state. Receiving adoption and
-physical acceptance remain pending.
+The opt-in [held-detail implementation](DETAIL.md) modifies calibrated absolute
+motion independently of left/right buttons. A separate sourcef21a48b Pi trial
+completed90s; Nicolás reports very good detail use with intentional clicking in
+the X menu. Small-target/rest/drawing, edge/held-action behavior and longer comfort
+remain to qualify; the normal beta/calibration remain preserved. [Escape delivery](ESCAPE.md)
+has a source adapter; its deliberate gesture and receiving effects remain pending.
 
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into

@@ -198,3 +198,10 @@ Basic detail recognition and deliberate click use now have positive human
 feedback. Still qualify rest jitter, small targets, text selection/slow drawing,
 edges, cursor continuity, longer comfort and any changes during held actions.
 These results do not complete the public preview or a measured false-action rate.
+
+
+Retained timing for this take (1271 interpreted frames): exposure-source timestamp
+to Rust meaning p50=87.043ms, nearest-rank p95=121.427ms, max=179.099ms. Capture
+source intervals (1285 gaps) p50=67.982ms, p95=68.025ms, max=208.004ms over89.209s.
+These exclude writer/compositor/display/human response and include no CPU/thermal
+sample. No matched baseline task was run, so they do not establish a speedup.

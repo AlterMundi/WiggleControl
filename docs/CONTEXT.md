@@ -2,14 +2,19 @@
 
 ## One-hand interaction priority —2026-10-16
 
-Current software-only increment —2026-10-18: the human authorized work with retained
-inputs while camera/lighting setup is deferred. No sensor/input/display/power
-activation is required. Source coalesces observation/index/native-writer JSON
-writes without changing bytes or delaying flush, publishes feedback only after
-an image/state consumer requests it (500ms interest expiry), and bounds the
-browser's recent timing trace to1024 entries. Native/JS tests pass; receiving
-replay/deployment and physical acceptance remain separate. Model, gestures,
-calibration, cursor tuning and camera controls are unchanged.
+Current software-only increment —2026-10-18: source2c533e5 is qualified camera-free
+and installed for the next manual Start. JSON writes are coalesced without changing
+bytes/flush semantics; feedback snapshots are prepared only for recent image/state
+consumers; browser timing is bounded1024. Full CI39122960408 passes. Matched source
+replays show about9% lower Rust CPU, without a median pipeline-latency gain. An
+independent100/200/200/100% browser-quota comparison improves source→meaning p95
+from~101 to~79ms. Worker quota200% is selected for the next Start; the source quota,
+accepted model/calibration/gesture/cursor settings and host1.5GHz/fan policy remain.
+A60s15Hz replay accepted901/901 frames with zero live snapshots when no viewer
+was present; feedback reopening/closure also passed. Camera/input/display were not
+started, and the production session remains stopped. Physical comfort/performance
+acceptance awaits later human use. See
+[the receiving comparison](research/one-hand-interaction-2026-10.md#receiving-software-only-comparison-and-scheduling-quota-2026-10-18).
 
 
 Latest human feedback —2026-10-17: mouse-only mode works better than ever, though

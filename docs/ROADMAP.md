@@ -11,6 +11,13 @@ six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receivin
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.
 
+Current software-only result: source2c533e5 is selected for next manual Start.
+Coalesced writes, on-demand feedback and bounded timing pass camera-free checks.
+A separate browser quota200% comparison reduces simulated whole-chain p95
+~101→79ms while preserving host frequency/fan policy and the accepted model/
+calibration/gesture settings. No new physical trial is claimed. See
+[the measured receiving scope](research/one-hand-interaction-2026-10.md#receiving-software-only-comparison-and-scheduling-quota-2026-10-18).
+
 Current authorized track: software-only optimization while camera/lighting setup
 is deferred. Coalesce JSON writes on recording/input paths, skip unused feedback
 preparation, bound diagnostic state, and qualify identical retained/synthetic

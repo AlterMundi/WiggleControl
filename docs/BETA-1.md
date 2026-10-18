@@ -424,3 +424,15 @@ explicit discarded count. Private video/observation journals retain full evidenc
 This removes unbounded diagnostic growth, not input samples. Source/native tests,
 receiving replay and human comfort must be reported separately; write-call or CPU
 savings alone do not demonstrate lower camera-to-screen latency.
+
+
+Receiving adoption: native2c533e5 passes full CI39122960408, receiving GPU synthetic
+replays, feedback-demand recovery and camera-free manual until-Stop preflight.
+It is selected for the next manual Start, with the old binary/units retained.
+A separate browser quota comparison selects200% aggregate CPU allowance, removing
+frequent scheduler stalls without changing host frequency/fan policy. Repeat
+source→meaning p95 improves~101→79ms in the camera-free fixture; the model and
+physical gesture quality are unchanged. A60s15Hz source processes901/901 frames.
+No production camera/model/input/display was started for adoption. Human
+smoothness acceptance and camera/lighting work remain pending; see the
+[measurement scope](research/one-hand-interaction-2026-10.md#receiving-software-only-comparison-and-scheduling-quota-2026-10-18).

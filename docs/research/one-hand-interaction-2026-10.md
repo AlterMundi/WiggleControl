@@ -640,3 +640,69 @@ after:158588/161796/145156µs. Do not generalize that microbenchmark ratio to wh
 controller speed. Production stdout already has its own line buffering; the
 unbuffered recording file/index/native child pipe are different sinks. Exact-byte
 regressions and receiving runtime measurements are the relevant adoption gates.
+
+
+## Receiving software-only comparison and scheduling quota —2026-10-18
+
+All cases below use the same existing synthetic JPEG sequence, selected one-hand
+model/settings/workspace and headless worker. Host CPU remained
+capped at1.5GHz with the existing silent fan policy. No camera, microphone, virtual
+input or visible desktop was started. These are camera-free real-clock measurements,
+not the previous human-video trial's exposure-to-screen latency.
+
+### Source changes with worker quota held at100%
+
+Old/new/new/old6.27s source cases accepted114/115/116/114 observations. Rust process
+CPU times were455.36/406.39/406.77/440.75ms. This is about9% less Rust CPU over the
+same fixed source interval; browser CPU still dominates, so it is not a9% overall
+pipeline gain. Median source→meaning age stayed around64–67ms. New cases published
+zero live feedback snapshots without viewers, with successful worker-close and
+neutral termination. The I/O/snapshot optimizations do not establish a meaningful
+median interaction-latency gain on their own.
+
+### Independent browser scheduling comparison
+
+The worker's prior100% systemd CPU quota permits one CPU worth of aggregate
+execution across its processes/threads. The host has four CPUs. Keeping the new
+binary/settings unchanged, tested quotas in order100/200/200/100%:
+
+| Browser CPU quota | Accepted frames | Source→meaning median(ms) | p95(ms) |
+| --- | ---: | ---: | ---: |
+|100% |114 |65.31 |101.28 |
+|200% |123 |63.24 |78.89 |
+|200% |123 |63.42 |78.42 |
+|100% |115 |64.19 |101.51 |
+
+The first100% run recorded74 throttled cgroup periods out of141; the paired200%
+run recorded28 of113. Inference medians stayed about36.6–36.7ms. Scheduling stalls
+can appear during fetch, inference/worker return or result posting: the worker-
+roundtrip p95 was77.9ms in the first100% run but42.2ms in its repeated100% case,
+with respective maxima94.0/95.2ms. Both200% runs stayed near40ms p95/46ms max.
+The repeatable whole-chain p95 change is approximately101→79ms, not a fixed37ms
+saving on every frame. No model, camera or gesture policy changed in this quota
+comparison. More burst CPU allowance is a resource tradeoff, not free acceleration.
+
+A subsequent60s,15Hz synthetic source with200% quota accepted all901 frames,
+with zero skipped/expired frames and zero feedback snapshots. Source→meaning
+median53.02ms/p9564.70ms; the browser used37.18 CPU-seconds over the full run.
+Temperature was71.05°C at one intermediate observation and67.2°C after completion.
+These are samples, not a thermal peak bound or sustained fanless human-use acceptance.
+
+### Demand recovery and adoption
+
+An optional feedback page opened after worker results were flowing. Its first
+empty request enabled publication; the page advanced to a real synthetic frame.
+Closing it left the detector running (received count8 before the view and58 after
+closure). The final35 live snapshots match a short viewer window plus bounded
+interest expiry, compared with zero in all no-view cases. Camera/input stayed off.
+All probes terminated normally and their owned browsers were stopped.
+
+Source2c533e5, full CI39122960408 and exact ARM artifact SHA256
+`e542e5859eac12aa55d6f9e6cfd62df2c57b4ee259c2a94c5a198f59b647b165`,
+is installed for the next manual Start. The separate worker selects200% quota;
+source quota, host frequency/fan policy, model, calibrated workspace, gesture/
+cursor settings, recording requirement and WG1 rollback are preserved. Native
+82 tests plus the explicit benchmark, Clippy and JavaScript checks pass. The
+camera-free until-Stop preflight confirms no acquisition/input. No production
+source, model, sensor, UI or input was started for this delivery. Physical perceived
+smoothness remains to compare when the human returns to the setup.

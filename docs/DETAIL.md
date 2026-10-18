@@ -2,7 +2,8 @@
 
 Owner: [issue11](https://github.com/AlterMundi/WiggleControl/issues/11),
 [Linux public preview](LINUX-PREVIEW.md). Implemented in source on 2026-10-18;
-not installed on the Pi or accepted with a physical hand.
+disabled in the Pi candidate and not accepted with a physical hand. The matching
+binary was later staged separately for a right-button-only trial; see BETA-1.md.
 
 ## Selection and meaning
 

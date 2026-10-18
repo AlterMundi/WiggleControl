@@ -460,3 +460,23 @@ physical gesture quality are unchanged. A60s15Hz source processes901/901 frames.
 No production camera/model/input/display was started for adoption. Human
 smoothness acceptance and camera/lighting work remain pending; see the
 [measurement scope](research/one-hand-interaction-2026-10.md#receiving-software-only-comparison-and-scheduling-quota-2026-10-18).
+
+## First separate right-button application trial — 2026-10-18
+
+Exact-source ac9dac4 / CI39173687500 passed replay/native/ARM64 checks. A separate
+finite90s manually started candidate enabled thumb/index left and thumb/middle
+right; held detail remained disabled. The default beta/configuration, accepted
+calibration and power policy were preserved.
+
+The scratch application received23 trusted right context-menu events and13 left
+clicks. Selected virtual-device raw events recorded23 right press/release pairs
+and16 left pairs, with no held buttons at termination; application counts cover
+only the target area. Intended gestures and comfort are not labelled yet. The
+provider/observer ended0 and were reaped; device removal and camera/input closure
+were observed. Private video and observations were retained.
+
+The human started while task UI preparation was finishing; its initially missing
+countdown was corrected during the trial. Continuous feedback metadata preparation
+also remained active, so this is not complete timed-protocol or performance
+acceptance. Detail, gesture scroll/Escape, complete tasks and independent packaging
+remain pending. This separate candidate is not a beta-default update or release.

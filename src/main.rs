@@ -230,7 +230,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 wigglecontrol::session::controller_config(&config, std::path::Path::new(&args[2]))?;
             println!(
                 "{}",
-                serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,"pointer_model":"relative","visual_macros":controller.visual_policy().is_some(),
+                serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,
+                    "pointer_model":if config.provider_absolute_pointer {"absolute_workspace"} else {"relative"},
+                    "right_click":controller.right_click_enabled(),"visual_macros":controller.visual_policy().is_some(),
                     "neutral_pose":controller.visual_policy().map(|p|p.neutral_pose),
                     "macro_min_confidence":controller.visual_policy().map(|p|p.min_confidence),
                     "pair_separation_widths":config.pair_separation_widths,

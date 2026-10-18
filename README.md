@@ -8,7 +8,8 @@ they do not need a WiggleControl integration.
 The selected beta uses headless GPU hand inference, Rust gesture interpretation
 and Linux virtual input; a native CPU backend also exists. The next delivery is
 the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
-Right-click, gesture Escape and absolute detail mode remain planned work;
+Right-click has an [opt-in source candidate](docs/MOUSE-ACTIONS.md), not yet
+physically accepted. Gesture Escape and absolute detail remain planned;
 multitouch and other operating systems remain later qualification/ports.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need

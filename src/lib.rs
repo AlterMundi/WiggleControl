@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub mod cursor;
 pub mod filter;
 pub mod macros;
+pub mod pointer_buttons;
 
 #[cfg(target_os = "linux")]
 pub mod controller;

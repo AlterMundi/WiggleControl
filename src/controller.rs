@@ -1,6 +1,9 @@
 //! Exclusive interaction modes over the existing pointer/contact/macro engines.
 //! Intent only: acquiring sensors and delivering OS input remain separate adapters.
-use crate::{macros, touch::Contact, touch_gestures, Config, Engine, Event, Hand, Observation};
+use crate::{
+    macros, pointer_buttons, touch::Contact, touch_gestures, Config, Engine, Event, Hand,
+    MouseButton, Observation,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -36,6 +39,7 @@ pub struct Settings {
     pub cursor_output: Option<crate::cursor::Config>,
     pub macros: Option<macros::Config>,
     pub visual_macros: Option<macros::VisualPolicy>,
+    pub right_click: bool,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -57,6 +61,7 @@ impl Default for Settings {
             cursor_output: None,
             macros: None,
             visual_macros: None,
+            right_click: false,
         }
     }
 }
@@ -77,6 +82,7 @@ pub struct MacroReceipt {
 #[derive(Debug, Serialize)]
 pub struct Output {
     pub mode: Mode,
+    pub right_click: bool,
     pub running: bool,
     pub transition: bool,
     pub reason: Option<&'static str>,
@@ -87,6 +93,8 @@ pub struct Output {
     pub confirmation_elapsed_us: u64,
     pub pointer_ready: bool,
     pub button_down: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pointer_button: Option<MouseButton>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub drag_hold: Option<crate::DragHold>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,6 +121,9 @@ pub struct Controller {
     claimed: Option<u64>,
     primary: Option<u64>,
     pointer_ready: bool,
+    button_candidate: Option<(MouseButton, u64)>,
+    active_button: Option<MouseButton>,
+    right_click: bool,
     contacts: Vec<Contact>,
     watermark: Option<u64>,
     last_now: Option<u64>,
@@ -151,6 +162,9 @@ impl Controller {
             claimed: None,
             primary: None,
             pointer_ready: false,
+            button_candidate: None,
+            active_button: None,
+            right_click: settings.right_click,
             contacts: Vec::new(),
             watermark: None,
             last_now: None,
@@ -159,6 +173,7 @@ impl Controller {
     fn output(&self, mouse: Vec<Event>, transition: bool) -> Output {
         Output {
             mode: self.mode,
+            right_click: self.right_click,
             running: self.running,
             transition,
             reason: None,
@@ -169,6 +184,7 @@ impl Controller {
             confirmation_elapsed_us: self.pointer.confirmation_elapsed_us(),
             pointer_ready: self.pointer_ready,
             button_down: self.pointer.pinch_state() == "pressed",
+            pointer_button: self.active_button.or(self.button_candidate.map(|(b, _)| b)),
             drag_hold: self.pointer.drag_hold(),
             release_pending: self.pointer.release_pending(),
             mouse,
@@ -184,6 +200,40 @@ impl Controller {
     }
     pub fn visual_policy(&self) -> Option<&macros::VisualPolicy> {
         self.visual_policy.as_ref()
+    }
+    pub fn right_click_enabled(&self) -> bool {
+        self.right_click
+    }
+    #[cfg(feature = "native-vision")]
+    pub(crate) fn selected_pointer_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
+        if !self.running || frame.ambiguous || self.mode.touch() {
+            None
+        } else {
+            self.selected_hand(frame)
+        }
+    }
+    /// Route both edges to the button chosen at press, including tick/Stop release.
+    fn pointer_events(&mut self, events: Vec<Event>) -> Vec<Event> {
+        events
+            .into_iter()
+            .map(|event| match event {
+                Event::Button { down } => {
+                    let button = if down {
+                        let button = self.button_candidate.map_or(MouseButton::Left, |(b, _)| b);
+                        self.active_button = Some(button);
+                        button
+                    } else {
+                        self.active_button.take().unwrap_or(MouseButton::Left)
+                    };
+                    if button == MouseButton::Left {
+                        event
+                    } else {
+                        Event::NamedButton { button, down }
+                    }
+                }
+                event => event,
+            })
+            .collect()
     }
     fn selected_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
         if self.mode == Mode::TwoContacts {
@@ -214,6 +264,8 @@ impl Controller {
     }
     fn neutralize(&mut self, reason: &'static str) -> Output {
         let events = self.pointer.stop();
+        let events = self.pointer_events(events);
+        self.button_candidate = None;
         self.contacts = self.touches.stop();
         self.primary = None;
         self.pointer_ready = false;
@@ -301,7 +353,8 @@ impl Controller {
                 now_us,
                 observation,
                 pose,
-            } => self.observe(now_us, observation, pose),
+                middle_pinch,
+            } => self.observe_with_buttons(now_us, observation, pose, middle_pinch),
         }
     }
     pub fn action(&mut self, action: macros::Action) -> Output {
@@ -345,6 +398,7 @@ impl Controller {
             return self.neutralize("stale_input");
         }
         let mouse = self.pointer.tick(now);
+        let mouse = self.pointer_events(mouse);
         // Tick-only releases have no new observation and need a delivery transition.
         if !mouse.is_empty() {
             let mut output = self.neutralize("pointer_state_expired");
@@ -369,6 +423,15 @@ impl Controller {
         frame: touch_gestures::Frame,
         pose: Option<macros::HandPose>,
     ) -> Output {
+        self.observe_with_buttons(now, frame, pose, None)
+    }
+    pub fn observe_with_buttons(
+        &mut self,
+        now: u64,
+        frame: touch_gestures::Frame,
+        pose: Option<macros::HandPose>,
+        middle_pinch: Option<pointer_buttons::Evidence>,
+    ) -> Output {
         let regressed = self.last_now.is_some_and(|t| now < t);
         let tick = self.tick(now);
         if !self.running {
@@ -382,6 +445,7 @@ impl Controller {
             || frame.hands.len() > 2
             || frame.hands.iter().any(|h| !h.valid_for(frame.source_us))
             || (frame.hands.len() == 2 && frame.hands[0].id == frame.hands[1].id)
+            || (self.right_click && frame.hands.iter().any(|h| h.secondary_pinch.is_some()))
         {
             let mut released = self.neutralize("invalid_observation");
             released.mouse.splice(0..0, tick.mouse);
@@ -420,11 +484,13 @@ impl Controller {
         let mut mouse = tick.mouse;
         if selected != self.primary {
             self.pointer_ready = false;
+            self.button_candidate = None;
             if let Some(macros) = &mut self.macros {
                 macros.start();
             }
         }
         self.primary = selected;
+        let mut buttons_neutral = !self.right_click;
         if self.mode.touch() {
             let hands = frame
                 .hands
@@ -443,6 +509,40 @@ impl Controller {
             );
         } else {
             let mut hand = frame.hands.iter().find(|h| Some(h.id) == selected).cloned();
+            if self.right_click {
+                let middle = hand
+                    .as_ref()
+                    .and_then(|h| middle_pinch.and_then(|e| e.middle_hand(h, frame.source_us)));
+                buttons_neutral = hand.as_ref().is_some_and(|h| self.fully_open(h))
+                    && middle.as_ref().is_some_and(|h| self.fully_open(h));
+                let choice = self.active_button.or_else(|| {
+                    hand.as_ref()
+                        .zip(middle.as_ref())
+                        .and_then(|(index, middle)| {
+                            pointer_buttons::selection(index, middle, &self.config)
+                        })
+                });
+                self.button_candidate = choice.map(|button| {
+                    self.button_candidate
+                        .filter(|(previous, _)| *previous == button)
+                        .unwrap_or((button, frame.source_us))
+                });
+                if choice == Some(MouseButton::Right) {
+                    hand = middle.or_else(|| {
+                        hand.map(|mut h| {
+                            // Lost middle-finger evidence is unknown input for an
+                            // existing right drag, never an index-based release.
+                            h.pinch_eligible = false;
+                            h
+                        })
+                    });
+                }
+                if let Some(hand) = &mut hand {
+                    hand.pinch_onset_allowed &= self.button_candidate.is_some_and(|(_, since)| {
+                        frame.source_us.saturating_sub(since) >= self.config.confirm_us
+                    });
+                }
+            }
             if hand.as_ref().is_none_or(|h| {
                 !h.engaged || !h.pinch_eligible || h.confidence < self.config.min_confidence
             }) && !self.pointer.drag_hold().is_some_and(|hold| {
@@ -453,7 +553,11 @@ impl Controller {
                 self.pointer_ready = false;
             }
             if !self.pointer_ready {
-                self.pointer_ready = hand.as_ref().is_some_and(|h| self.open(h));
+                self.pointer_ready = if self.right_click {
+                    buttons_neutral
+                } else {
+                    hand.as_ref().is_some_and(|h| self.open(h))
+                };
             }
             if !self.pointer_ready {
                 hand = None;
@@ -469,6 +573,21 @@ impl Controller {
                     hand,
                 },
             );
+            let events = self.pointer_events(events);
+            if self.right_click
+                && !buttons_neutral
+                && self.pointer.pinch_state() != "pressed"
+                && events.iter().any(|e| {
+                    matches!(
+                        e,
+                        Event::Button { down: false } | Event::NamedButton { down: false, .. }
+                    )
+                })
+            {
+                // Opening only the active pinch cannot arm an already closed
+                // different finger. Require explicit neutral across both.
+                self.pointer_ready = false;
+            }
             mouse.extend(events.into_iter().map(|event| match event {
                 Event::Move { dx, dy } if self.mode == Mode::Precision => Event::Move {
                     dx: dx * self.precision_gain,
@@ -477,7 +596,8 @@ impl Controller {
                 event => event,
             }));
         }
-        let busy = !self.contacts.is_empty()
+        let busy = (self.right_click && !self.mode.touch() && !buttons_neutral)
+            || !self.contacts.is_empty()
             || matches!(self.pointer.pinch_state(), "closing" | "pressed")
             || frame.hands.iter().any(|h| {
                 (self.mode == Mode::TwoContacts || Some(h.id) == selected)
@@ -574,6 +694,8 @@ pub enum Command {
         observation: touch_gestures::Frame,
         #[serde(default)]
         pose: Option<macros::HandPose>,
+        #[serde(default)]
+        middle_pinch: Option<pointer_buttons::Evidence>,
     },
 }
 pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {

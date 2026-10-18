@@ -448,7 +448,15 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
                 value["visual_macros"] = visual_classifier.is_some().into();
                 value["classifier_ms"] =
                     (classifier_started.elapsed().as_secs_f64() * 1000.0).into();
-                controller.observe(frame.now_us, observation, pose)
+                crate::session::observe_controller(
+                    &config,
+                    &mut controller,
+                    frame.now_us,
+                    observation,
+                    pose,
+                    &found.hands,
+                    [frame.width, frame.height],
+                )
             }
         };
         value["controller"] = serde_json::to_value(state)?;

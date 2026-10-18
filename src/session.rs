@@ -667,6 +667,9 @@ pub fn controller_config(
     {
         return Err("controller cursor output settings must match the session".into());
     }
+    if settings.right_click && (config.dual_crop || config.secondary_model.is_some()) {
+        return Err("right-click gestures require a single estimate per finger".into());
+    }
     if config.prayer_enabled {
         return Err("prayer requires its separate calibrated workflow".into());
     }
@@ -686,6 +689,39 @@ pub fn controller_config(
         return Err("absolute provider requires pointer/scroll without macros".into());
     }
     Ok(crate::controller::Controller::new(settings)?)
+}
+/// Share the exact pinch metric/normalization between index and middle fingers.
+pub(crate) fn observe_controller(
+    config: &SessionConfig,
+    controller: &mut crate::controller::Controller,
+    now: u64,
+    observation: crate::touch_gestures::Frame,
+    pose: Option<crate::macros::HandPose>,
+    detected: &[crate::vision::DetectedHand],
+    size: [u32; 2],
+) -> crate::controller::Output {
+    let evidence = controller
+        .right_click_enabled()
+        .then(|| {
+            let id = controller.selected_pointer_hand(&observation)?;
+            let hand = detected.iter().find(|h| h.id == id)?;
+            let mut middle = hand.clone();
+            middle.landmarks[8] = hand.landmarks[12];
+            middle.world_landmarks[8] = hand.world_landmarks[12];
+            let interpreted = config
+                .observation(Some(&middle), size[0], size[1], observation.source_us)
+                .hand?;
+            Some(crate::pointer_buttons::Evidence {
+                hand_id: id,
+                source_us: observation.source_us,
+                middle_tip: interpreted.index_tip,
+                pinch_distance_m: interpreted.pinch_distance_m,
+                pinch_distance_ratio: interpreted.pinch_distance_ratio,
+                onset_allowed: interpreted.pinch_onset_allowed,
+            })
+        })
+        .flatten();
+    controller.observe_with_buttons(now, observation, pose, evidence)
 }
 pub(crate) fn write_controller(
     output: &mut Option<std::process::ChildStdin>,
@@ -711,7 +747,12 @@ pub(crate) fn write_controller_mapped(
         frame
             .mouse
             .iter()
-            .filter(|e| matches!(e, Event::Button { down: true }))
+            .filter(|e| {
+                matches!(
+                    e,
+                    Event::Button { down: true } | Event::NamedButton { down: true, .. }
+                )
+            })
             .count() as u64
     } else {
         0
@@ -1141,7 +1182,15 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                 };
                 let classifier_ms = classifier_started.elapsed().as_secs_f64() * 1000.0;
                 now = monotonic_us()?;
-                let state = controller.observe(now, observation, pose);
+                let state = observe_controller(
+                    &config,
+                    controller,
+                    now,
+                    observation,
+                    pose,
+                    &detected.hands,
+                    [image.width(), image.height()],
+                );
                 let prepared =
                     until_stop || preview_clock.as_ref().is_some_and(|c| c.started.is_some());
                 if prepared {
@@ -1632,6 +1681,88 @@ mod tests {
         };
         hand.world_landmarks[8][2] = world_gap;
         hand
+    }
+
+    #[test]
+    fn raw_landmark_button_bridge_uses_claimed_hand_without_a_classifier_or_model() {
+        let config: SessionConfig = serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera", "models":"/fictional/models",
+            "runtime":"/fictional/runtime", "fps":10, "gain":2000,
+            "pinch_3d":false, "pinch_2d_reference":"wrist_middle_mcp",
+            "pinch_close_ratio":0.38, "pinch_open_ratio":0.40,
+            "gesture_min_confidence":0.5
+        }))
+        .unwrap();
+        let mut controller = crate::controller::Controller::new(crate::controller::Settings {
+            gestures: config.gestures(),
+            right_click: true,
+            ..Default::default()
+        })
+        .unwrap();
+        controller.start();
+        controller.select_hand(Some(7));
+        for (t, closed, right, edge) in [
+            (1, false, false, None),
+            (20_001, true, true, None),
+            (60_001, true, true, Some((crate::MouseButton::Right, true))),
+            (70_001, true, true, None),
+            (
+                80_001,
+                false,
+                false,
+                Some((crate::MouseButton::Right, false)),
+            ),
+            (100_001, true, false, None),
+            (140_001, true, false, Some((crate::MouseButton::Left, true))),
+        ] {
+            let mut raw = fictional_hand(7, closed && !right, 0.2);
+            raw.confidence = 0.5;
+            raw.landmarks[9] = crate::vision::XY { x: 200.0, y: 300.0 };
+            raw.landmarks[12] = crate::vision::XY {
+                x: if right {
+                    raw.landmarks[4].x + 2.0
+                } else {
+                    400.0
+                },
+                y: raw.landmarks[4].y,
+            };
+            // A different hand appears first, with the opposite gesture.
+            let mut other = raw.clone();
+            other.id = 9;
+            other.landmarks[12].x = if right {
+                400.0
+            } else {
+                other.landmarks[4].x + 2.0
+            };
+            let observation = crate::touch_gestures::Frame {
+                version: 1,
+                source_us: t,
+                ambiguous: false,
+                hands: vec![
+                    config.observation(Some(&other), 640, 480, t).hand.unwrap(),
+                    config.observation(Some(&raw), 640, 480, t).hand.unwrap(),
+                ],
+            };
+            let output = observe_controller(
+                &config,
+                &mut controller,
+                t,
+                observation,
+                None,
+                &[other, raw],
+                [640, 480],
+            );
+            let edges: Vec<_> = output
+                .mouse
+                .iter()
+                .filter_map(|e| match e {
+                    Event::Button { down } => Some((crate::MouseButton::Left, *down)),
+                    Event::NamedButton { button, down } => Some((*button, *down)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(edges, edge.into_iter().collect::<Vec<_>>(), "source{t}");
+        }
     }
 
     #[test]

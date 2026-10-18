@@ -224,7 +224,15 @@ pub fn check_controller(
         } else {
             (None, None)
         };
-        let state = controller.observe(frame.source_us, observation, pose);
+        let state = crate::session::observe_controller(
+            &config,
+            &mut controller,
+            frame.source_us,
+            observation,
+            pose,
+            &detected.hands,
+            [width, height],
+        );
         let raw: Vec<_> = detected.hands.iter().map(|h| {
             let mut raw = serde_json::json!({"id":h.id,"confidence":h.confidence,"tracked":h.tracked,
                 "handedness":h.handedness,"landmarks":h.landmarks.iter().map(|p|[p.x,p.y]).collect::<Vec<_>>(),

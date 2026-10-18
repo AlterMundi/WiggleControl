@@ -94,6 +94,7 @@ impl Pipeline {
                     hands,
                 },
                 pose: None,
+                middle_pinch: None,
             },
             Some(source),
         )

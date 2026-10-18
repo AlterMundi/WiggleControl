@@ -5,6 +5,85 @@ use std::{
     io::Write,
     process::{Command, Stdio},
 };
+
+#[test]
+fn serialized_middle_only_gesture_runs_through_absolute_pipeline_and_eof_releases_right() {
+    let path = std::env::temp_dir().join(format!(
+        "wigglecontrol-middle-pipeline-{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&path, r#"{"right_click":true}"#).unwrap();
+    let frame = |t, index, middle| {
+        json!({
+            "type":"frame", "now_us":t,
+            "observation":{"version":1,"source_us":t,"ambiguous":false,"hands":[{
+                "id":7,"confidence":0.99,"engaged":true,"pinch_eligible":true,
+                "cursor":{"x":0.3,"y":0.6},"thumb_tip":{"x":0.4,"y":0.5},
+                "index_tip":{"x":0.5,"y":0.5},"palm_width":0.2,
+                "pinch_distance_ratio":index
+            }]},
+            "middle_pinch":{"hand_id":7,"source_us":t,
+                "middle_tip":{"x":0.42,"y":0.5},"pinch_distance_ratio":middle}
+        })
+    };
+    let input = [
+        json!({"type":"start"}),
+        frame(1, 0.6, 0.6),
+        frame(20_001, 0.6, 0.1),
+        frame(60_001, 0.6, 0.1),
+        frame(70_001, 0.1, 0.1),
+    ]
+    .iter()
+    .map(Value::to_string)
+    .collect::<Vec<_>>()
+    .join("\n")
+        + "\n";
+    let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .arg("pipeline-replay")
+        .arg(&path)
+        .args(["2000", "150", "--absolute"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let rows: Vec<Value> = String::from_utf8(result.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(rows
+        .iter()
+        .all(|r| r["camera_opened"] == false && r["system_input"] == false));
+    let edges: Vec<_> = rows
+        .iter()
+        .flat_map(|r| r["mouse"].as_array().unwrap())
+        .filter(|e| e["kind"] == 1)
+        .map(|e| (e["code"].as_u64().unwrap(), e["value"].as_i64().unwrap()))
+        .collect();
+    assert_eq!(
+        edges,
+        vec![
+            (u64::from(KeyCode::BTN_RIGHT.0), 1),
+            (u64::from(KeyCode::BTN_RIGHT.0), 0)
+        ]
+    );
+    assert_eq!(rows[3]["controller"]["pointer_button"], "right");
+    std::fs::remove_file(path).unwrap();
+}
+
 #[test]
 fn delivery_protocol_replay_releases_all_buttons_on_eof_and_rejected_input() {
     for (tail, success) in [

@@ -808,7 +808,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
             "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
-            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
+            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"right_click":controller.right_click_enabled(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
     }
@@ -1068,7 +1068,15 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 feedback.visual_pose = visual_pose;
                 // Classification is part of meaning latency and cannot extend freshness.
                 now = monotonic_us()?;
-                let state = controller.observe(now, observation, pose);
+                let state = crate::session::observe_controller(
+                    &config,
+                    &mut controller,
+                    now,
+                    observation,
+                    pose,
+                    &found.hands,
+                    [640, 480],
+                );
                 feedback.recorded_time_ms = lease.recorded.as_ref().and_then(|r| {
                     recording_epoch.map(|first| (r.source_us - first) as f64 / 1000.0)
                 });

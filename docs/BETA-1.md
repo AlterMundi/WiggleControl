@@ -1,5 +1,12 @@
 # Beta 1 — one-hand desktop control
 
+Source-only two-finger candidate —2026-10-18: [mouse actions](MOUSE-ACTIONS.md)
+now connect thumb/index to left and thumb/middle to right under explicit
+controller `right_click:true`, default false. Matching finger metrics, selected
+track and confirmed neutral prevent button transfer or already-closed rearm.
+Optional feedback identifies the held button. No Pi deployment or physical trial;
+scroll must use a distinct gesture and Escape/detail remain pending.
+
 Source-only action work —2026-10-18: [explicit button output](MOUSE-ACTIONS.md)
 adds independent named-button delivery and all-button cancellation/release.
 Gesture bindings, actual device effects and human acceptance remain pending;

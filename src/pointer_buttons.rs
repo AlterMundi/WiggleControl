@@ -37,14 +37,25 @@ impl Evidence {
     }
 }
 
-/// New gestures are exclusive. Both pinches closed is unknown, not a third chord.
+/// Clear finger dominance can resolve a nearby non-contact tip estimate.
+/// Similarly closed pinches are unknown, not a third chord.
 /// During a drag the controller uses its already selected finger until release.
-pub(crate) fn selection(index: &Hand, middle: &Hand, config: &Config) -> Option<MouseButton> {
+pub(crate) fn selection(
+    index: &Hand,
+    middle: &Hand,
+    config: &Config,
+    dominance: f64,
+) -> Option<MouseButton> {
     let (index_gap, index_close, _) = index.primary_metric(config);
     let (middle_gap, middle_close, _) = middle.primary_metric(config);
-    if middle.open(config, true) && (index.open(config, true) || index_gap <= index_close) {
+    if (index.open(config, true) && middle.open(config, true))
+        || (index_gap <= index_close
+            && (middle.open(config, true) || index_gap < middle_gap * dominance))
+    {
         Some(MouseButton::Left)
-    } else if middle_gap <= middle_close && index.open(config, true) {
+    } else if middle_gap <= middle_close
+        && (index.open(config, true) || middle_gap < index_gap * dominance)
+    {
         Some(MouseButton::Right)
     } else {
         None

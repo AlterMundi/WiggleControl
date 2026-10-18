@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Source-only retained-data check —2026-10-18: the opt-in two-finger candidate
+preserves mouse events, cursor, pinch state and readiness on all 641 observations
+from two retained trials after adding a clear finger-dominance rule. The strict
+candidate delayed one onset 132.035ms; default dominance 0.5 removes that replay
+regression. These are comparisons against retained predictions, not human intent
+labels or physical right-click acceptance. See [mouse actions](MOUSE-ACTIONS.md).
+No receiving configuration/deployment or sensor session changed.
+
 Source-only two-finger candidate —2026-10-18: [mouse actions](MOUSE-ACTIONS.md)
 now connect thumb/index to left and thumb/middle to right under explicit
 controller `right_click:true`, default false. Matching finger metrics, selected

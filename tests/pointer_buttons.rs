@@ -88,8 +88,12 @@ mod linux {
     }
     impl Pipeline {
         fn new(enabled: bool, grace: bool) -> Self {
+            Self::with_dominance(enabled, grace, 0.5)
+        }
+        fn with_dominance(enabled: bool, grace: bool, dominance: f64) -> Self {
             let settings = Settings {
                 right_click: enabled,
+                right_click_dominance_ratio: dominance,
                 gestures: wigglecontrol::Config {
                     drag_grace_us: if grace { 1_000_000 } else { 0 },
                     ..Default::default()
@@ -141,6 +145,13 @@ mod linux {
                 Some(middle(t, closed && button == MouseButton::Right)),
             )
         }
+        fn ratio_frame(&mut self, t: u64, index: f64, middle_gap: f64) -> (Output, Batch) {
+            let mut index_hand = hand(7, false);
+            index_hand.pinch_distance_ratio = Some(index);
+            let mut evidence = middle(t, false);
+            evidence.pinch_distance_ratio = Some(middle_gap);
+            self.frame(t, vec![index_hand], Some(evidence))
+        }
     }
     fn edges(batch: &Batch) -> Vec<(u16, i32)> {
         batch
@@ -157,6 +168,33 @@ mod linux {
             edges(&p.sample(60_001, true, MouseButton::Right).1),
             vec![(KeyCode::BTN_RIGHT.0, 1)]
         );
+    }
+
+    #[test]
+    fn clearly_dominant_finger_does_not_wait_for_a_nearby_estimate_to_open() {
+        for (index, middle, code) in [
+            (0.1, 0.37, KeyCode::BTN_LEFT),
+            (0.37, 0.1, KeyCode::BTN_RIGHT),
+        ] {
+            let mut strict = Pipeline::with_dominance(true, false, 0.0);
+            let mut candidate = Pipeline::with_dominance(true, false, 0.5);
+            for p in [&mut strict, &mut candidate] {
+                p.ratio_frame(1, 0.6, 0.6);
+                p.ratio_frame(20_001, index, middle);
+            }
+            assert!(edges(&strict.ratio_frame(60_001, index, middle).1).is_empty());
+            assert_eq!(
+                edges(&candidate.ratio_frame(60_001, index, middle).1),
+                vec![(code.0, 1)]
+            );
+        }
+        for ratio in [-0.1, 1.0, f64::NAN] {
+            assert!(Controller::new(Settings {
+                right_click_dominance_ratio: ratio,
+                ..Default::default()
+            })
+            .is_err());
+        }
     }
 
     #[test]

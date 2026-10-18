@@ -52,10 +52,10 @@ false; the selected receiving beta/settings are unchanged.
 
 With that explicit source option:
 
-- Thumb/index pinch with middle separated selects left; thumb/middle pinch with
-  index separated selects right. Both pinches closed before an action is unknown,
-  not a new three-finger chord. Independent finger comfort/threshold coverage
-  still needs physical qualification.
+- Thumb/index pinch selects left; thumb/middle pinch selects right. The other
+  pinch may be open or clearly less closed under the dominance rule below.
+  Similarly closed estimates are unknown, not a new three-finger chord.
+  Independent finger comfort/threshold coverage still needs physical qualification.
 - Both finger pinches must be positively open before acquisition/rearm. Closing
   another finger during a drag cannot transfer its button. Releasing the active
   finger while the other remains closed releases only the active button and
@@ -97,6 +97,47 @@ serialized middle-only input through the absolute event pipeline/EOF release,
 exclusive finger selection, no button transfer, explicit dual-open rearm, unknown
 middle evidence and default-left behavior. These are constructed observations,
 not model recognition accuracy, real OS client effects or human acceptance.
+
+## Retained-frame comparison and clear finger dominance —2026-10-18
+
+A paired replay used 641 accepted observations from two retained human trials
+(248 and 393 frames), with their original source/evaluation clocks, the same
+current executable/tracker and matched settings. The right-click-disabled
+reference exactly reproduces both original per-frame held-state sequences.
+Original camera video and landmark journals remain private.
+
+The first strict two-finger candidate required the other estimate to be fully
+open. It retained all eight reference left-press intents and produced no right
+presses, but delayed one onset by two source frames (132.035ms). At that onset,
+index gap ratio was approximately 0.101 while middle was 0.371: both fell below
+the existing 0.38 close threshold, despite a large relative difference. These are
+model outputs, not measured skin gaps or independent intention labels.
+
+The candidate now accepts a closed finger when the other is open OR its gap is
+strictly less than half the other finger's gap. Symmetric/near-equal estimates
+remain ambiguous; equal zeros cannot select a button. Controller setting
+`right_click_dominance_ratio` defaults 0.5 and accepts finite0 <= value < 1;
+zero disables the dominance extension and reproduces strict selection. Both
+measurements must retain the same metric kind/scale and all existing gates.
+A synthetic mirrored counterexample covers left/right selection, ambiguity and
+strict-policy rejection. This is a candidate selection rule, not physical proof.
+
+| Retained take | Observations | Reference / candidate left presses | Reference / candidate held samples | Mouse events, cursor, state and ready mismatches |
+| --- | --- | --- | --- | --- |
+| First finite trial | 248 | 4 /4 | 136 /136 | 0 |
+| Second finite trial | 393 | 4 /4 | 90 /90 | 0 |
+
+The dominance candidate reproduces all compared controller fields on all 641
+frames, with no right-press intents and neutral EOF. This comparison performs no
+new inference, acquisition, intermediate writer ticks or OS delivery. It checks
+compatibility with retained predictions; those predictions are not ground-truth
+click/drag labels, and the takes do not establish physical right-click accuracy,
+relaxed-hand false-action rates, long-term comfort or universal coverage.
+
+Current local full native-feature run: 197 passed, zero failed, one existing
+opt-in benchmark ignored; native all-target Clippy and format pass. The prior
+196-test count describes the strict source increment. Default/receiving right
+click remains disabled, and the accepted calibration/model/power policy is unchanged.
 
 ## Still to implement and qualify
 

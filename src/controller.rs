@@ -40,6 +40,7 @@ pub struct Settings {
     pub macros: Option<macros::Config>,
     pub visual_macros: Option<macros::VisualPolicy>,
     pub right_click: bool,
+    pub right_click_dominance_ratio: f64,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -62,6 +63,7 @@ impl Default for Settings {
             macros: None,
             visual_macros: None,
             right_click: false,
+            right_click_dominance_ratio: 0.5,
         }
     }
 }
@@ -124,6 +126,7 @@ pub struct Controller {
     button_candidate: Option<(MouseButton, u64)>,
     active_button: Option<MouseButton>,
     right_click: bool,
+    right_click_dominance_ratio: f64,
     contacts: Vec<Contact>,
     watermark: Option<u64>,
     last_now: Option<u64>,
@@ -138,6 +141,11 @@ impl Controller {
             || !(0.05..=1.0).contains(&settings.precision_gain)
         {
             return Err("invalid controller version or precision gain");
+        }
+        if !settings.right_click_dominance_ratio.is_finite()
+            || !(0.0..1.0).contains(&settings.right_click_dominance_ratio)
+        {
+            return Err("right-click dominance ratio must be finite and 0 <= ratio < 1");
         }
         if let Some(policy) = &settings.visual_macros {
             policy.validate(settings.macros.as_ref())?;
@@ -165,6 +173,7 @@ impl Controller {
             button_candidate: None,
             active_button: None,
             right_click: settings.right_click,
+            right_click_dominance_ratio: settings.right_click_dominance_ratio,
             contacts: Vec::new(),
             watermark: None,
             last_now: None,
@@ -203,6 +212,9 @@ impl Controller {
     }
     pub fn right_click_enabled(&self) -> bool {
         self.right_click
+    }
+    pub fn right_click_dominance_ratio(&self) -> f64 {
+        self.right_click_dominance_ratio
     }
     #[cfg(feature = "native-vision")]
     pub(crate) fn selected_pointer_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
@@ -519,7 +531,12 @@ impl Controller {
                     hand.as_ref()
                         .zip(middle.as_ref())
                         .and_then(|(index, middle)| {
-                            pointer_buttons::selection(index, middle, &self.config)
+                            pointer_buttons::selection(
+                                index,
+                                middle,
+                                &self.config,
+                                self.right_click_dominance_ratio,
+                            )
                         })
                 });
                 self.button_candidate = choice.map(|button| {

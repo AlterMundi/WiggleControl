@@ -130,7 +130,12 @@ fn delivery_guard_discards_an_observation_that_expired_after_interpretation() {
         .apply(handoff + 84, packet, 2000.0, 300_000)
         .unwrap();
     // Closed reacquisition cannot invent the discarded click.
-    assert!(!down(&observe(&mut c, handoff + 100, true)));
+    let closed = c.observe(
+        handoff + 100,
+        frame(handoff - 100, vec![hand(7, true, 0.5, 0.5)]),
+        None,
+    );
+    assert!(!down(&closed));
     // Queued but fresh open evidence need not be newer than the wall-clock guard.
     let opened = c.observe(
         handoff + 200,

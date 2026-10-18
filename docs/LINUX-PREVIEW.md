@@ -41,7 +41,8 @@ Linux build does not establish Windows or macOS support.
 - A deliberate Escape gesture releases controller-owned held input and emits
   one Esc; no repeat until positive rearm. Its application-dependent effect is
   distinct from controller Stop and never invokes a coordinated global Stop.
-- Detail is a held precision modifier selected before an action. It reduces
+- Detail is a held precision modifier; selecting it before an action is the
+  acceptable baseline, and changing it during an action is optional. It reduces
   pointer travel for the same hand travel and stabilizes rest while preserving
   very small deliberate movement. More smoothing alone or a large fixed dead
   zone is not sufficient. It cannot create additional sensor resolution.
@@ -51,11 +52,13 @@ Linux build does not establish Windows or macOS support.
 - Detail entry and exit must not jump the cursor or trigger clicks. Specify
   anchoring, return-to-screen mapping, edge access and recenter/reposition behavior
   before acceptance; restoring the original absolute map immediately can jump.
-- Select screen/detail before pressing. Latch the chosen movement mode through
-  the held click/drag/drawing stroke. Modifier changes cannot change gain or
-  interrupt the action; re-evaluate fresh evidence after release and neutral
-  rearm. Explicit Escape/Stop and established tracking/process failure behavior
-  remain able to release input. Missing modifier evidence is not an open hand.
+- Prefer detail independent of click/drag state if that is the natural design.
+  Do not add action locks solely to enforce this plan. If changing detail during
+  a held action is separate extra work, defer it: selecting mode before the action
+  is acceptable. Neither design may jump the cursor, invent clicks or
+  unintentionally release a drag. Qualify the chosen behavior, retaining explicit
+  Escape/Stop and established tracking/process failure handling. Missing modifier
+  evidence is not an open hand.
 - Retain lightweight mode/activity feedback, physical input fallback, reliable
   scoped Stop and no startup acquisition or automatic restart.
 
@@ -102,8 +105,10 @@ select its exact version at delivery. CI artifacts are not a published release.
 
 ## Deferred work and historical incidents
 
-Switching precision during a held drag/stroke is explicitly deferred by Nicolás;
-choosing mode before the action is acceptable for this release. A second hand
+Changing precision during a held drag/stroke is not a release requirement.
+Nicolás clarified that it should be included if naturally independent of button
+state; do not artificially isolate it to enforce deferral. Defer only separate
+added work; choosing mode before the action remains acceptable. A second hand
 as a modifier, bimanual tools, prayer entry, general macros, two-contact touchscreen,
 multiple participants, four hands and Windows/macOS adapters remain future work.
 Issues #1/#3 retain broad implementation/exploration scope; #2 retains calibration
@@ -117,9 +122,8 @@ premature drag release and #9.
 
 ## Native goal handoff
 
-This milestone and its issues preserve the next plan. The existing
-[one-hand goal file](ONE-HAND-GOAL.md) and native goal state are not replaced,
-cleared, resumed or marked complete by this document. Next, reconcile that goal
-with this bounded delivery scope and perform the human-selected clear/new-goal
-step. No camera session, desktop input test, reboot or release publication is
-started by recording the plan.
+The reconciled [goal specification](ONE-HAND-GOAL.md) carries the previous goal's
+reliability/temporal-continuity/comfort work into this bounded delivery. Nicolás
+cleared the old native goal and explicitly requested the new one on2026-10-18.
+Native creation/state is recorded by the harness, not inferred from this document.
+No camera session, desktop input test or reboot is started by recording this plan.

@@ -5,12 +5,13 @@ tracked by [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1
 Complete left/right/double click, gesture scroll and Escape; add a held detail
 modifier selected before an action; package and qualify independent Linux use.
 Pi 5/labwc is the initial receiving environment; Nicolás offers the ThinkPad for
-Linux x86-64 testing. Changing detail during a drag/stroke, second-hand modifiers,
-multitouch and Windows/macOS ports are later work.
+Linux x86-64 testing. Changing detail during a drag/stroke is optional: include it if naturally
+independent, defer only separate extra work. Second-hand modifiers, multitouch
+and Windows/macOS ports remain later work.
 
-The preview plan owns the current delivery scope and issue order. The existing
-[goal specification](ONE-HAND-GOAL.md) and native goal state remain unchanged until
-the separate human-selected goal replacement. The broader touchscreen roadmap
+The preview plan owns the current delivery scope and issue order. The reconciled
+[goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into
+the new human-requested goal after the old goal was cleared. The broader touchscreen roadmap
 and dated implementation/receiving checkpoints below remain historical evidence,
 not additional gates on this Linux preview.
 

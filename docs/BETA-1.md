@@ -3,7 +3,8 @@
 Next delivery scope — 2026-10-18: [Linux public preview](LINUX-PREVIEW.md),
 [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).
 This is planned screen/detail and basic-action work, not receiving adoption.
-Switching detail during a held action is deferred; existing beta evidence follows.
+Detail may change during a held action if naturally independent of button state;
+defer only separate added work. Existing beta evidence follows.
 
 Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
 recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)

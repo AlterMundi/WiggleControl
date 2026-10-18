@@ -1,122 +1,109 @@
-# Goal: a fluent, responsive one-hand camera controller
+# Goal: deliver the one-hand Linux screen/detail public preview
 
-Evolve WiggleControl's existing one-hand Beta1 into the most accurate, responsive,
-comfortable and reliable everyday desktop controller we can achieve on the
-current receiving hardware. Prioritize this goal before returning to the broader
-multihand/multipoint touchscreen objective, which remains preserved in ROADMAP.md.
-Iterate autonomously through recorded trials, simulation, mathematical models,
-implementation and measured receiving experiments. Complete human/application
-acceptance before declaring the controller finished.
+Deliver the independently installable experimental Linux one-hand mouse defined
+in [LINUX-PREVIEW.md](LINUX-PREVIEW.md) and
+[milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).
+This goal supersedes the open-ended one-hand goal from 2026-10-16, carrying forward
+its unfinished reliability/comfort work and actual evidence. That earlier goal
+and this file's history remain preserved in Git/native history; they are not
+retroactively completed.
 
-## Sticky desktop drag resolved by human acceptance —2026-10-18
+## Deliverable
 
-Nicolás reports that the folder has not remained attached again and explicitly
-asks to consider issue[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
-resolved; he will report any recurrence. Close this incident on that basis.
-The original cause was not identified and no specific corrective change is
-proven. Earlier pending-reproduction statements below are historical and no
-longer block the one-hand beta. Premature drag release, double-click comfort and
-other one-hand acceptance remain separate work. Reopen the incident if it recurs.
+- Comfortable calibrated screen pointing, reliable left/right click, natural
+  double click, sustained drag/release and gesture-controlled scroll.
+- A deliberate one-shot Escape gesture that releases controller-owned input,
+  cancels pending actions and emits Esc once until positive rearm; scoped Stop
+  remains independently available. Esc is application-dependent, not a global Stop.
+- Held detail precision: smaller pointer displacement for the same hand movement,
+  stable rest without creep, useful very small intentional motion and no cursor
+  jump on entry/exit. Start with the ring/little-finger-flexed candidate, preserving
+  pinch freedom, but qualify actual gesture comfort and nonconflicting bindings.
+- Standalone Linux installation/configuration, saved guided calibration, manual
+  Start/Stop, optional feedback separate from inference, private/explicit recording
+  behavior, pinned/licensed assets, upgrade/uninstall/rollback and a tagged GitHub
+  prerelease with honest supported environments and limits.
+- Initial physical scope is Pi 5/labwc/Wayland. Prepare/test Linux x86-64 on the
+  offered ThinkPad with its actual resources and coordinated human readiness.
+  Windows/macOS and multipoint remain later work.
 
-## Human feedback motivating this goal — 2026-10-16
+## Implementation judgment and retained work
 
-Nicolás reports that the current beta generally works reasonably well: hand
-tracking looks good, even during rotations, and the pointer reaches its intended
-target. Pinch state feedback looks accurate. However:
+Use the functioning headless GPU observation -> Rust meaning -> Linux device
+path and existing APIs/helpers. Replacing the perception backend is not a release
+prerequisite. Prefer small coherent changes, meaningful regressions and measured
+comparisons over new parallel infrastructure or repeating passed checks.
 
-- A double pinch does not reliably produce an application double-click.
-- Drags often end prematurely during an apparent tracking interruption, then do
-  not resume when the closed pinch returns.
-- Pointer movement looks like discrete jumps rather than continuous motion;
-  stationary stability and pinch-induced cursor displacement need improvement.
-- A desktop folder drag also remained attached after release and source shutdown.
-  This separate delivery failure is tracked in issue #8; its cause is unknown.
+Detail should be an independent movement modifier if that integrates naturally
+with button/drag state. Nicolás clarified on 2026-10-18: do not build artificial
+isolation or action locks merely to enforce a plan. If changing detail during a
+held drag/stroke requires separate added work, defer that extension; selecting
+detail before the action is an acceptable release baseline. In either design,
+mode changes must not jump the cursor, invent clicks or unintentionally release
+a held button. Document and test the chosen behavior; do not queue surprising
+changes. Missing modifier evidence is not a confirmed open hand.
 
-These are attributed human observations, not frame-level intent annotations or
-proof that perception is perfect. Check them against retained images, predictions,
-source clocks and application events. Three actual beta sessions have retained
-private camera recordings and controller journals; do not claim they include the
-desktop, audio, every intermediate instant or independently labelled intent.
+Carry forward the prior goal's temporal interpretation: distinguish deliberate
+open release from missing/uncertain samples; preserve established drag continuity
+within measured bounded same-hand grace, never transferring it to an uncertain
+new hand or re-pressing after completed release. Keep source freshness truthful
+and the independent writer/process watchdog effective; Stop remains immediate.
 
-## Intended architecture and behavior
+Carry forward cursor anchor/click stabilization, adaptive filtering and independent
+output cadence. Compare bounded prediction/interpolation, reversals, small motion,
+rest jitter, overshoot and lag without buying smoothness through excessive delay.
+Reuse unchanged source/device evidence; compare candidates on identical retained
+private recordings, journals and independently defined synthetic trajectories.
+Keep predictions separate from human intent labels and actual OS/application effects.
 
-Develop the proposed middle layer between observed hand data and delivered mouse
-input, extending the existing perception/controller/writer separation and filters.
-Keep observed evidence, estimated interaction state and actual delivered effects
-distinct and inspectable. Reuse supported configuration and behavior before
-adding code; avoid rewriting already working perception without evidence.
+Issue #8 (folder remained attached) is closed on Nicolás's explicit acceptance:
+it has not recurred; its original cause remains unknown. It is not a blocker or
+an instruction to reproduce it unless it recurs. #4 and #9 remain scoped release
+dependencies to qualify/disposition from observed evidence, not assumed causes.
+#10–#13 own actions, detail, packaging and acceptance; broader umbrella issues do
+not impose prayer, multitouch or arbitrary macro completion on this release.
 
-1. Preserve trustworthy end-to-end button delivery and the existing camera-free
-   release/Stop/process-failure qualification. Issue #8 is resolved by the human
-   as of2026-10-18; further reproduction is not a prerequisite. If it recurs,
-   compare semantic decisions, actual kernel events and application drag/drop
-   using owned empty fixtures. Keep terminal receipts distinct from historical
-   acquisition flags.
-2. Make click, double-click and drag deliberate and consistent. Measure the
-   actual application's timing and spatial requirements, pinch confirmation and
-   rearm, and cursor movement during pinches. Preserve normal click/drag behavior
-   while making double-click easy. Compare natural repeated pinches and an
-   explicit configurable alternative only if useful; do not silently introduce
-   extra clicks to hide recognition failures.
-3. Add temporal continuity for an already established drag. Distinguish a measured
-   open-hand release from a missing/uncertain sample. Test a bounded grace period,
-   including Nicolás's proposed approximately one-second candidate, rather than
-   dropping immediately on a transient gap. Freeze uncertain motion initially;
-   resume the same drag only with adequate same-hand evidence within the grace
-   interval. End it on confirmed release, timeout or explicit Stop. Do not
-   re-press after a completed release or transfer a held button to another hand.
-   Design this separately from the independent writer/process-health watchdog;
-   an alive estimator may retain uncertain interaction state without relabelling
-   old observations as fresh or leaving input held after its process dies.
-4. Improve cursor placement, stability and visual continuity together. Compare
-   the existing exponential and One Euro filters, hand anchor choices, click
-   stabilization, timestamp-aware velocity estimation and an independent smooth
-   output cadence. Evaluate short-horizon prediction/interpolation with bounded
-   speed, acceleration and overshoot; a one-second drag grace is not permission
-   to extrapolate motion for one second. Stop or decay prediction when evidence
-   disappears, handle reversals/stationary targets and reconcile measurements
-   without snapping. Avoid buying apparent smoothness with excessive lag.
-5. Qualify the integrated experience on the receiving desktop. Keep existing
-   calibration, working physical input, power profile and reversible deployment.
-   Retain visible state for actual experiments: observed/estimated cursor, drag
-   held/grace state, prediction age and actual input activity when relevant.
-   Let Nicolás contribute visual and comfort observations during real work.
+## Operation and collaboration
 
-## Iteration and completion
+Preserve accepted calibration/profile/rollback, physical input fallback and
+existing power/fan policy. Build away from the Pi when supported; reuse existing
+checkout/caches and infrastructure capabilities. Do not infer current screen or
+camera availability from an old Farscape restriction or an old ready message.
+Coordinate new desktop injection with owned scratch tasks, never human files.
+Camera acquisition requires fresh human readiness/manual Start and the established
+private trial recording; research/replay stays camera-free. Do not leave a sensor
+session running after its requested scope or install automatic capture/restarts.
 
-Use the retained private footage and journals first, preserving original bytes,
-timestamps and prediction/annotation provenance. Add deterministic trajectories,
-dropout durations, ambiguous returns, rotations, reversals, tremor and stopped
-producer cases. Compare candidates on identical inputs and actual elapsed time.
-Measure click/double-click success, unintended actions, drag completion and
-premature release, stationary jitter, target error, motion continuity, latency,
-overshoot and resource use. Do not optimize only an aggregate score or one clip.
+Show useful experiment progress when the desktop is available, without spending
+work solely on demonstrations or stealing the screen from the human. Keep optional
+video/skeleton rendering out of the mouse-only hot path. No unsolicited peer
+contact, private-history export or coordinated global Stop. Preserve origin,
+licenses and private host/recording bindings outside public GitHub artifacts.
 
-Keep real experiments visible on Cuevanico while doing useful work, not by
-replaying demonstrations solely for display. Research/replay must not acquire a
-camera. New physical trials require the established human-ready/manual Start
-boundary and private video retention. Coordinate finite desktop injection;
-protect human files with owned scratch tasks. Do not resume the old workbench,
-start capture automatically, contact peers or initiate a global Stop.
+## Completion and delivery evidence
 
-Current human constraint after goal creation: the Pi is being used to watch
-Farscape. Develop locally without using its screen, injecting input, acquiring
-camera data, changing its deployment/services or running heavy receiving tests
-until the human makes it available. This temporarily overrides visible receiving
-experimentation; local device-free work can continue.
+Maintain a concise current acceptance record, README/INSTALL/BETA/ROADMAP, owning
+issues and receiving runbook with implemented, deployed, observed and unqualified
+status. Consider substantial reusable findings for collective research without
+turning routine delivery into publication bureaucracy or exporting private footage.
 
-Maintain BETA-1.md, ROADMAP.md, the relevant issues and the receiving runbook with
-what is implemented, deployed, observed and still uncertain. Evaluate substantial
-reusable findings for collective research; keep raw private recordings and native
-conversation history out of that corpus. Do not turn routine delivery into a
-research publication requirement.
+Complete only when the scoped interactions pass relevant reproducible regressions,
+real application tasks and human comfort acceptance. Reuse the working targets:
+at least 18/20 intended clicks, ten completed drags, 60 relaxed seconds without
+unintended action and at least five minutes of seated use. Record right/double
+click, scroll, Esc and detail small-target/text/slow-drawing outcomes separately.
+Verify calibration retry/cancel and four-corner review; preserve previous profiles.
 
-The goal is complete when the integrated one-hand controller passes reproducible
-regressions and real application tasks, and Nicolás accepts that click,
-double-click, sustained drag, gap recovery and pointer movement feel reliable,
-responsive and comfortable in seated everyday use. Report measured limits and
-remaining failures honestly. If hardware/perception imposes a demonstrated limit,
-document the evidence and best working tradeoff; do not claim perfection.
-Only then return to the broader multipoint touchscreen roadmap under its own
-goal. This file defines the replacement objective; it does not edit or resume the
-native harness goal by itself.
+Measure actual capture cadence, latency definitions, jitter/lag, CPU/memory and
+sustained thermal behavior. Compare the prepared software-only increment in human
+use; distinguish synthetic evidence from physical performance. Camera/lighting
+changes are separately coordinated comparisons, not an implicit hardware purchase
+or permission to change the current setup. Document demonstrated limits honestly.
+
+Verify clean standalone Linux installation, permissions after a coordinated boot,
+update/config preservation and removal/rollback. Publish exact source-bound
+artifacts/checksums/licenses and the qualified prerelease after acceptance. A
+source commit, CI artifact or attractive hand skeleton alone does not complete
+the goal. Do useful camera-free work while a specific human test is pending.
+If external input is required, retain the concrete remaining test and evidence
+without declaring the whole project complete or reviving resolved incidents.

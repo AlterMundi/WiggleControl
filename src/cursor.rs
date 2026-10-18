@@ -231,6 +231,30 @@ impl Cursor {
         self.consistent_intervals = 0;
         self.click = Click::Idle;
     }
+    /// Anchor a movement modifier at the last visible point without resetting
+    /// source freshness, button meaning or click-lock deadlines.
+    pub fn reanchor(&mut self, point: Point, now: u64) -> Result<(), &'static str> {
+        if !point.valid() || self.sample.is_some_and(|s| now < s.estimated_us) {
+            return Err("cursor reanchor requires finite position and ordered time");
+        }
+        if let Some(sample) = &mut self.sample {
+            sample.observed = point;
+            sample.predicted = point;
+            sample.estimated = point;
+            sample.estimated_us = now;
+            sample.prediction_us = 0;
+        }
+        if let Click::Locked {
+            observed, output, ..
+        } = &mut self.click
+        {
+            *observed = point;
+            *output = point;
+        }
+        self.velocity = Point { x: 0.0, y: 0.0 };
+        self.consistent_intervals = 0;
+        Ok(())
+    }
     pub fn feedback(&self) -> Option<Sample> {
         self.sample
     }

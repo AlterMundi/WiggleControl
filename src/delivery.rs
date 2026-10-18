@@ -57,6 +57,8 @@ pub struct Publisher {
     cursor_owner: Option<u64>,
     cursor_held: bool,
     cursor_freshness_us: u64,
+    detail_map: crate::detail::Mapping,
+    mapping_owner: Option<u64>,
 }
 impl Publisher {
     pub fn with_cursor_output(
@@ -140,6 +142,34 @@ impl Publisher {
             ));
         }
         let mut packet = self.packet(output, now, source)?;
+        if output.transition
+            || !output.running
+            || output.mode != Mode::Pointer
+            || self.mapping_owner != output.primary_hand
+        {
+            self.detail_map.reset();
+            self.mapping_owner = output.primary_hand;
+        }
+        let mapped = if output.mode == Mode::Pointer && matches!(packet, Some(Packet::Frame { .. }))
+        {
+            output
+                .pointer_cursor
+                .map(|point| {
+                    self.detail_map
+                        .observe(
+                            workspace.map(point),
+                            output.detail,
+                            self.cursor
+                                .as_ref()
+                                .and_then(|c| c.feedback())
+                                .map(|s| s.estimated),
+                        )
+                        .map_err(io::Error::other)
+                })
+                .transpose()?
+        } else {
+            None
+        };
         if let Some(cursor) = &mut self.cursor {
             let was_held = self.cursor_held;
             self.cursor_held = output.running && output.button_down;
@@ -175,11 +205,15 @@ impl Publisher {
                         }
                         self.cursor_owner = output.primary_hand;
                     }
+                    let (point, changed) = mapped.unwrap_or((workspace.map(point), false));
+                    if changed {
+                        cursor.reanchor(point, now).map_err(io::Error::other)?;
+                    }
                     cursor
                         .observe(
                             source.unwrap(),
                             now,
-                            workspace.map(point),
+                            point,
                             output.pointer_state == "closing",
                             output.button_down,
                         )
@@ -216,7 +250,7 @@ impl Publisher {
         {
             mouse.retain(|e| !matches!(e, Event::Move { .. }));
             if output.mode == Mode::Pointer {
-                *absolute = output.pointer_cursor.map(|p| workspace.map(p));
+                *absolute = mapped.map(|(point, _)| point);
             }
         }
         Ok(packet)

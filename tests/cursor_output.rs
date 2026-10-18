@@ -95,6 +95,7 @@ impl Pipeline {
                 },
                 pose: None,
                 middle_pinch: None,
+                detail: None,
             },
             Some(source),
         )

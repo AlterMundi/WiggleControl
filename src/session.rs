@@ -667,6 +667,9 @@ pub fn controller_config(
     {
         return Err("controller cursor output settings must match the session".into());
     }
+    if settings.detail.is_some() && !config.provider_absolute_pointer {
+        return Err("held detail requires calibrated absolute provider output".into());
+    }
     if settings.right_click && (config.dual_crop || config.secondary_model.is_some()) {
         return Err("right-click gestures require a single estimate per finger".into());
     }
@@ -721,7 +724,21 @@ pub(crate) fn observe_controller(
             })
         })
         .flatten();
-    controller.observe_with_buttons(now, observation, pose, evidence)
+    let detail = controller.detail_config().and_then(|settings| {
+        let id = controller.selected_pointer_hand(&observation)?;
+        let hand = detected.iter().find(|h| h.id == id)?;
+        let held = crate::detail::folded(
+            settings,
+            hand.world_landmarks[13..17].try_into().ok()?,
+            hand.world_landmarks[17..21].try_into().ok()?,
+        )?;
+        Some(crate::detail::Evidence {
+            hand_id: id,
+            source_us: observation.source_us,
+            held,
+        })
+    });
+    controller.observe_with_modifiers(now, observation, pose, evidence, detail)
 }
 pub(crate) fn write_controller(
     output: &mut Option<std::process::ChildStdin>,
@@ -1762,6 +1779,83 @@ mod tests {
                 })
                 .collect();
             assert_eq!(edges, edge.into_iter().collect::<Vec<_>>(), "source{t}");
+        }
+    }
+
+    #[test]
+    fn raw_detail_bridge_uses_selected_hand_and_positive_extended_rearm() {
+        let config: SessionConfig = serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera", "models":"/fictional/models",
+            "runtime":"/fictional/runtime", "fps":10,"gain":2000,
+            "pinch_3d":false, "gesture_min_confidence":0.5
+        }))
+        .unwrap();
+        let mut controller = crate::controller::Controller::new(crate::controller::Settings {
+            gestures: config.gestures(),
+            detail: Some(Default::default()),
+            ..Default::default()
+        })
+        .unwrap();
+        controller.start();
+        controller.select_hand(Some(7));
+        for (t, held, expected) in [
+            (1, false, false),
+            (100_001, false, false),
+            (150_001, true, false),
+            (250_001, true, true),
+            (300_001, false, true),
+            (400_001, false, false),
+        ] {
+            let mut raw = fictional_hand(7, false, 0.2);
+            raw.confidence = 0.5;
+            let straight = [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.01, 0.0],
+                [0.0, 0.02, 0.0],
+                [0.0, 0.03, 0.0],
+            ];
+            let folded = [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.01, 0.0],
+                [0.0, 0.01, 0.01],
+                [0.0, 0.0, 0.01],
+            ];
+            for start in [13, 17] {
+                raw.world_landmarks[start..start + 4].copy_from_slice(if held {
+                    &folded
+                } else {
+                    &straight
+                });
+            }
+            let mut other = raw.clone();
+            other.id = 9;
+            for start in [13, 17] {
+                other.world_landmarks[start..start + 4].copy_from_slice(if held {
+                    &straight
+                } else {
+                    &folded
+                });
+            }
+            let observation = crate::touch_gestures::Frame {
+                version: 1,
+                source_us: t,
+                ambiguous: false,
+                hands: vec![
+                    config.observation(Some(&other), 640, 480, t).hand.unwrap(),
+                    config.observation(Some(&raw), 640, 480, t).hand.unwrap(),
+                ],
+            };
+            let out = observe_controller(
+                &config,
+                &mut controller,
+                t,
+                observation,
+                None,
+                &[other, raw],
+                [640, 480],
+            );
+            assert_eq!(out.detail.is_some(), expected, "source{t}");
+            assert_eq!(out.primary_hand, Some(7));
         }
     }
 

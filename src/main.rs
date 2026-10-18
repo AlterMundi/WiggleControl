@@ -233,6 +233,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::json!({"valid":true,"camera_opened":false,"system_input":false,
                     "pointer_model":if config.provider_absolute_pointer {"absolute_workspace"} else {"relative"},
                     "right_click":controller.right_click_enabled(),
+                    "detail":controller.detail_config(),
                     "right_click_dominance_ratio":controller.right_click_dominance_ratio(),
                     "visual_macros":controller.visual_policy().is_some(),
                     "neutral_pose":controller.visual_policy().map(|p|p.neutral_pose),

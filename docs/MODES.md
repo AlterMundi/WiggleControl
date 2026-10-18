@@ -139,10 +139,20 @@ physical acceptance. No macro can start an idle camera.
 
 Controller settings `"right_click": true` enables the source candidate described
 in [MOUSE-ACTIONS.md](MOUSE-ACTIONS.md): thumb/index for left and thumb/middle
-for right, each with the other pinch open. It defaults false. An optional
+for right, with the other pinch open or clearly less closed under the documented
+dominance rule. It defaults false. An optional
 `middle_pinch` on controller frame commands carries same-track, same-source finger
 evidence; the native/provider bridge supplies it automatically from raw landmarks.
 Button ownership stays with the pressed finger until release. Both pinches must
 reopen before a different already-closed finger can arm; missing evidence is not
 neutral. This is separate from movement precision and from a scroll gesture.
 No receiving adoption or physical acceptance is claimed by the source option.
+
+## Held detail modifier
+
+The optional `detail` controller setting now connects the actual calibrated
+absolute path, independently of exclusive modes and held buttons. Ring/little
+flexion is the initial source gesture candidate, not physical acceptance.
+See [DETAIL.md](DETAIL.md) for configuration, evidence validation, confirmation,
+continuous entry/exit, rest/subpixel behavior and limits. The legacy exclusive
+relative precision mode above retains its transition/rearm contract.

@@ -68,7 +68,8 @@ With that explicit source option:
   confirmation budget. Unknown/mismatched finger evidence cannot fall back to a
   new left click. Source time, selected track, confidence/eligibility and unit-kind
   checks remain in force. This button ownership does not impose precision-mode
-  locks; independent detail motion remains later work.
+  locks; the later [held-detail source candidate](DETAIL.md) applies independently
+  to calibrated absolute motion, with receiving acceptance still pending.
 
 One shared native/provider/recorded-sequence bridge extracts the middle tip and
 its gap using the same selected SessionConfig metric/normalization as index.

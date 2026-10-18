@@ -9,6 +9,10 @@ Linux x86-64 testing. Changing detail during a drag/stroke is optional: include 
 independent, defer only separate extra work. Second-hand modifiers, multitouch
 and Windows/macOS ports remain later work.
 
+An opt-in [held-detail source candidate](DETAIL.md) now modifies calibrated
+absolute motion independently of left/right button state. Receiving adoption and
+physical acceptance remain pending.
+
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into
 the new human-requested goal after the old goal was cleared. The broader touchscreen roadmap

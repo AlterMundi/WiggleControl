@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Source-only held-detail candidate —2026-10-18: [detail precision](DETAIL.md)
+connects ring/little flexion evidence to calibrated absolute motion, independent
+of button state, with visible-position anchors and continuous screen return.
+206 native-feature tests pass; paired 641-observation retained replays preserve
+button/cursor meaning with no detail activation (no folded samples in those takes).
+It remains disabled by default and unqualified on the receiving host. No Pi
+operation, calibration/config replacement or human trial occurred.
+
 Source-only retained-data check —2026-10-18: the opt-in two-finger candidate
 preserves mouse events, cursor, pinch state and readiness on all 641 observations
 from two retained trials after adding a clear finger-dominance rule. The strict

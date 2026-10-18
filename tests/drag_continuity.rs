@@ -29,6 +29,7 @@ fn frame(t: u64, hands: Vec<Hand>) -> Command {
         },
         pose: None,
         middle_pinch: None,
+        detail: None,
     }
 }
 fn button(batch: &Batch, value: i32) -> bool {
@@ -235,6 +236,7 @@ fn changed_owner_disengagement_ambiguity_stop_and_mode_change_release_without_mo
                 },
                 pose: None,
                 middle_pinch: None,
+                detail: None,
             },
             3 => Command::Stop,
             _ => Command::Mode { mode: Mode::Scroll },

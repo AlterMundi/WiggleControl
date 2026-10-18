@@ -41,6 +41,7 @@ pub struct Settings {
     pub visual_macros: Option<macros::VisualPolicy>,
     pub right_click: bool,
     pub right_click_dominance_ratio: f64,
+    pub detail: Option<crate::detail::Config>,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -64,6 +65,7 @@ impl Default for Settings {
             visual_macros: None,
             right_click: false,
             right_click_dominance_ratio: 0.5,
+            detail: None,
         }
     }
 }
@@ -85,6 +87,8 @@ pub struct MacroReceipt {
 pub struct Output {
     pub mode: Mode,
     pub right_click: bool,
+    /// Active held modifier; separate from destructive exclusive mode transitions.
+    pub detail: Option<crate::detail::Config>,
     pub running: bool,
     pub transition: bool,
     pub reason: Option<&'static str>,
@@ -127,12 +131,17 @@ pub struct Controller {
     active_button: Option<MouseButton>,
     right_click: bool,
     right_click_dominance_ratio: f64,
+    detail_config: Option<crate::detail::Config>,
+    detail: crate::detail::Held,
     contacts: Vec<Contact>,
     watermark: Option<u64>,
     last_now: Option<u64>,
 }
 impl Controller {
     pub fn new(settings: Settings) -> Result<Self, &'static str> {
+        if let Some(config) = settings.detail {
+            config.validate()?;
+        }
         if let Some(config) = settings.cursor_output {
             config.validate()?;
         }
@@ -174,6 +183,8 @@ impl Controller {
             active_button: None,
             right_click: settings.right_click,
             right_click_dominance_ratio: settings.right_click_dominance_ratio,
+            detail_config: settings.detail,
+            detail: Default::default(),
             contacts: Vec::new(),
             watermark: None,
             last_now: None,
@@ -183,6 +194,7 @@ impl Controller {
         Output {
             mode: self.mode,
             right_click: self.right_click,
+            detail: self.detail_config.filter(|_| self.detail.active()),
             running: self.running,
             transition,
             reason: None,
@@ -206,6 +218,9 @@ impl Controller {
                     .is_some_and(|now| r.source_us <= now && now - r.source_us < 2_000_000)
             }),
         }
+    }
+    pub fn detail_config(&self) -> Option<crate::detail::Config> {
+        self.detail_config
     }
     pub fn visual_policy(&self) -> Option<&macros::VisualPolicy> {
         self.visual_policy.as_ref()
@@ -278,6 +293,7 @@ impl Controller {
         let events = self.pointer.stop();
         let events = self.pointer_events(events);
         self.button_candidate = None;
+        self.detail = Default::default();
         self.contacts = self.touches.stop();
         self.primary = None;
         self.pointer_ready = false;
@@ -366,7 +382,8 @@ impl Controller {
                 observation,
                 pose,
                 middle_pinch,
-            } => self.observe_with_buttons(now_us, observation, pose, middle_pinch),
+                detail,
+            } => self.observe_with_modifiers(now_us, observation, pose, middle_pinch, detail),
         }
     }
     pub fn action(&mut self, action: macros::Action) -> Output {
@@ -444,6 +461,16 @@ impl Controller {
         pose: Option<macros::HandPose>,
         middle_pinch: Option<pointer_buttons::Evidence>,
     ) -> Output {
+        self.observe_with_modifiers(now, frame, pose, middle_pinch, None)
+    }
+    pub fn observe_with_modifiers(
+        &mut self,
+        now: u64,
+        frame: touch_gestures::Frame,
+        pose: Option<macros::HandPose>,
+        middle_pinch: Option<pointer_buttons::Evidence>,
+        detail: Option<crate::detail::Evidence>,
+    ) -> Output {
         let regressed = self.last_now.is_some_and(|t| now < t);
         let tick = self.tick(now);
         if !self.running {
@@ -495,6 +522,7 @@ impl Controller {
         }
         let mut mouse = tick.mouse;
         if selected != self.primary {
+            self.detail = Default::default();
             self.pointer_ready = false;
             self.button_candidate = None;
             if let Some(macros) = &mut self.macros {
@@ -502,6 +530,24 @@ impl Controller {
             }
         }
         self.primary = selected;
+        if let Some(config) = self.detail_config.filter(|_| self.mode == Mode::Pointer) {
+            let held = detail
+                .filter(|e| e.source_us == frame.source_us && Some(e.hand_id) == selected)
+                .and_then(|e| {
+                    frame
+                        .hands
+                        .iter()
+                        .find(|h| h.id == e.hand_id)
+                        .filter(|h| {
+                            h.engaged
+                                && h.pinch_eligible
+                                && h.confidence >= self.config.min_confidence
+                        })
+                        .map(|_| e.held)
+                });
+            self.detail
+                .observe(config, frame.source_us, held, self.config.stale_us);
+        }
         let mut buttons_neutral = !self.right_click;
         if self.mode.touch() {
             let hands = frame
@@ -713,6 +759,8 @@ pub enum Command {
         pose: Option<macros::HandPose>,
         #[serde(default)]
         middle_pinch: Option<pointer_buttons::Evidence>,
+        #[serde(default)]
+        detail: Option<crate::detail::Evidence>,
     },
 }
 pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {

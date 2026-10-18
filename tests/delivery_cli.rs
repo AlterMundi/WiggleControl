@@ -6,52 +6,70 @@ use std::{
     process::{Command, Stdio},
 };
 #[test]
-fn delivery_protocol_replay_is_device_free_and_releases_before_reporting_malformed_input() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
-        .args(["delivery-replay", "2000", "150"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let packets = [
-        json!({"type":"packet","now_us":1,"packet":{"type":"transition","sequence":1,"issued_us":1,"mode":"pointer","enabled":true}}),
-        json!({"type":"packet","now_us":2,"packet":{"type":"frame","sequence":2,"issued_us":2,"source_us":2,"mode":"pointer","mouse":[{"type":"button","down":true}],"contacts":[]}}),
-    ];
-    let input = packets
-        .iter()
-        .map(Value::to_string)
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\n{broken\n";
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(input.as_bytes())
-        .unwrap();
-    let result = child.wait_with_output().unwrap();
-    assert!(!result.status.success());
-    let rows: Vec<Value> = String::from_utf8(result.stdout)
-        .unwrap()
-        .lines()
-        .map(|s| serde_json::from_str(s).unwrap())
-        .collect();
-    assert!(rows
-        .iter()
-        .all(|r| r["camera_opened"] == false && r["system_input"] == false));
-    assert!(rows.iter().any(|r| r["mouse"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|e| e["code"] == KeyCode::BTN_LEFT.0 && e["value"] == 1)));
-    assert!(rows.last().unwrap()["mouse"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|e| e["code"] == KeyCode::BTN_LEFT.0 && e["value"] == 0));
+fn delivery_protocol_replay_releases_all_buttons_on_eof_and_rejected_input() {
+    for (tail, success) in [
+        ("", true),
+        ("{broken", false),
+        (
+            r#"{"type":"packet","now_us":3,"packet":{"type":"frame","sequence":3,"issued_us":3,"source_us":3,"mode":"pointer","mouse":[{"type":"button","button":"right","down":true}],"contacts":[]}}"#,
+            false,
+        ),
+        (
+            r#"{"type":"packet","now_us":3,"packet":{"type":"frame","sequence":3,"issued_us":3,"source_us":3,"mode":"pointer","mouse":[{"type":"named_button","button":"unknown","down":true}],"contacts":[]}}"#,
+            false,
+        ),
+    ] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .args(["delivery-replay", "2000", "150"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let packets = [
+            json!({"type":"packet","now_us":1,"packet":{"type":"transition","sequence":1,"issued_us":1,"mode":"pointer","enabled":true}}),
+            json!({"type":"packet","now_us":2,"packet":{"type":"frame","sequence":2,"issued_us":2,"source_us":2,"mode":"pointer","mouse":[{"type":"button","down":true},{"type":"named_button","button":"right","down":true},{"type":"named_button","button":"middle","down":true}],"contacts":[]}}),
+        ];
+        let mut input = packets
+            .iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        if !tail.is_empty() {
+            input.push_str(tail);
+            input.push('\n');
+        }
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        let result = child.wait_with_output().unwrap();
+        assert_eq!(result.status.success(), success, "{tail}");
+        let rows: Vec<Value> = String::from_utf8(result.stdout)
+            .unwrap()
+            .lines()
+            .map(|s| serde_json::from_str(s).unwrap())
+            .collect();
+        assert!(rows
+            .iter()
+            .all(|r| r["camera_opened"] == false && r["system_input"] == false));
+        for code in [KeyCode::BTN_LEFT, KeyCode::BTN_RIGHT, KeyCode::BTN_MIDDLE] {
+            assert!(rows.iter().any(|r| r["mouse"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["code"] == code.0 && e["value"] == 1)));
+            assert!(rows.last().unwrap()["mouse"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["code"] == code.0 && e["value"] == 0));
+        }
+    }
 }
-
 #[test]
 fn full_pipeline_encodes_two_contacts_and_eof_release_without_uinput() {
     use std::fs;

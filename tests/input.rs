@@ -1,6 +1,7 @@
 #![cfg(target_os = "linux")]
 use evdev::{EventType, KeyCode, RelativeAxisCode};
 use wigglecontrol::input::{MouseIntent, MouseState};
+use wigglecontrol::MouseButton;
 #[test]
 fn real_button_codes_and_idempotent_release() {
     let mut s = MouseState::default();
@@ -100,4 +101,85 @@ fn absolute_pointer_frames_are_bounded_and_share_button_release() {
         .unwrap();
     assert_eq!(state.release()[0].value(), 0);
     assert!(state.release().is_empty());
+}
+
+#[test]
+fn named_buttons_are_independent_and_legacy_left_shares_the_same_state() {
+    let mut state = MouseState::default();
+    state
+        .apply(MouseIntent::Button { down: true }, 1.0)
+        .unwrap();
+    assert!(state
+        .apply(
+            MouseIntent::NamedButton {
+                button: MouseButton::Left,
+                down: true,
+            },
+            1.0,
+        )
+        .unwrap()
+        .is_empty());
+    for (button, code) in [
+        (MouseButton::Right, KeyCode::BTN_RIGHT),
+        (MouseButton::Middle, KeyCode::BTN_MIDDLE),
+    ] {
+        let events = state
+            .apply(MouseIntent::NamedButton { button, down: true }, 1.0)
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0],
+            evdev::InputEvent::new(EventType::KEY.0, code.0, 1)
+        );
+        assert!(state
+            .apply(MouseIntent::NamedButton { button, down: true }, 1.0)
+            .unwrap()
+            .is_empty());
+    }
+    let left_up = state
+        .apply(MouseIntent::Button { down: false }, 1.0)
+        .unwrap();
+    assert_eq!(
+        left_up,
+        vec![evdev::InputEvent::new(
+            EventType::KEY.0,
+            KeyCode::BTN_LEFT.0,
+            0
+        )]
+    );
+    let release = state.apply(MouseIntent::Release, 1.0).unwrap();
+    assert_eq!(
+        release
+            .iter()
+            .map(|e| (e.code(), e.value()))
+            .collect::<Vec<_>>(),
+        vec![(KeyCode::BTN_RIGHT.0, 0), (KeyCode::BTN_MIDDLE.0, 0)]
+    );
+    assert!(state.release().is_empty());
+    // Release neutralizes input without permanently disabling the writer.
+    assert_eq!(
+        state
+            .apply(MouseIntent::Button { down: true }, 1.0)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(state.apply(MouseIntent::Stop, 1.0).unwrap().len(), 1);
+}
+
+#[test]
+fn named_button_protocol_rejects_unknown_button_without_reinterpreting_it_as_left() {
+    let intent: MouseIntent =
+        serde_json::from_str(r#"{"type":"named_button","button":"right","down":true}"#).unwrap();
+    let mut state = MouseState::default();
+    let events = state.apply(intent, 1.0).unwrap();
+    assert_eq!(events[0].code(), KeyCode::BTN_RIGHT.0);
+    for text in [
+        r#"{"type":"named_button","button":"unknown","down":true}"#,
+        r#"{"type":"named_button","down":true}"#,
+        r#"{"type":"button","button":"right","down":true}"#,
+    ] {
+        assert!(serde_json::from_str::<MouseIntent>(text).is_err());
+    }
+    assert_eq!(state.release()[0].code(), KeyCode::BTN_RIGHT.0);
 }

@@ -1,4 +1,5 @@
 //! Linux mouse output. No camera, compositor control or privileged inference.
+use crate::MouseButton;
 use evdev::{
     uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode,
     PropType, RelativeAxisCode, UinputAbsSetup,
@@ -13,22 +14,51 @@ use std::{
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MouseIntent {
-    Move { dx: f64, dy: f64 },
-    Absolute { x: f64, y: f64 },
-    Button { down: bool },
-    Scroll { vertical: i32, horizontal: i32 },
+    Move {
+        dx: f64,
+        dy: f64,
+    },
+    Absolute {
+        x: f64,
+        y: f64,
+    },
+    Button {
+        down: bool,
+    },
+    NamedButton {
+        button: MouseButton,
+        down: bool,
+    },
+    Scroll {
+        vertical: i32,
+        horizontal: i32,
+    },
+    /// Neutralize every held button without stopping the writer.
+    Release,
     Heartbeat,
     Stop,
 }
 
 #[derive(Default)]
 pub struct MouseState {
-    held: bool,
+    held: [bool; 3],
     residual: [f64; 2],
 }
 impl MouseState {
     pub(crate) fn is_held(&self) -> bool {
-        self.held
+        self.held.iter().any(|held| *held)
+    }
+    fn button(&mut self, button: MouseButton, down: bool) -> Vec<InputEvent> {
+        let (index, code) = match button {
+            MouseButton::Left => (0, KeyCode::BTN_LEFT),
+            MouseButton::Right => (1, KeyCode::BTN_RIGHT),
+            MouseButton::Middle => (2, KeyCode::BTN_MIDDLE),
+        };
+        if std::mem::replace(&mut self.held[index], down) == down {
+            Vec::new()
+        } else {
+            vec![InputEvent::new(EventType::KEY.0, code.0, i32::from(down))]
+        }
     }
     pub fn apply(&mut self, intent: MouseIntent, gain: f64) -> io::Result<Vec<InputEvent>> {
         let mut events = Vec::new();
@@ -77,16 +107,8 @@ impl MouseState {
                     ));
                 }
             }
-            MouseIntent::Button { down } => {
-                if down != self.held {
-                    events.push(InputEvent::new(
-                        EventType::KEY.0,
-                        KeyCode::BTN_LEFT.0,
-                        i32::from(down),
-                    ));
-                }
-                self.held = down;
-            }
+            MouseIntent::Button { down } => return Ok(self.button(MouseButton::Left, down)),
+            MouseIntent::NamedButton { button, down } => return Ok(self.button(button, down)),
             MouseIntent::Scroll {
                 vertical,
                 horizontal,
@@ -107,17 +129,16 @@ impl MouseState {
                 }
             }
             MouseIntent::Heartbeat => (),
-            MouseIntent::Stop => return Ok(self.release()),
+            MouseIntent::Release | MouseIntent::Stop => return Ok(self.release()),
         }
         Ok(events)
     }
     pub fn release(&mut self) -> Vec<InputEvent> {
         self.residual = [0.0; 2];
-        if std::mem::take(&mut self.held) {
-            vec![InputEvent::new(EventType::KEY.0, KeyCode::BTN_LEFT.0, 0)]
-        } else {
-            Vec::new()
-        }
+        [MouseButton::Left, MouseButton::Right, MouseButton::Middle]
+            .into_iter()
+            .flat_map(|button| self.button(button, false))
+            .collect()
     }
 }
 pub(crate) fn create(absolute: bool) -> io::Result<VirtualDevice> {
@@ -147,7 +168,11 @@ pub(crate) fn create(absolute: bool) -> io::Result<VirtualDevice> {
     } else {
         builder
             .name("WiggleControl Mouse")
-            .with_keys(&AttributeSet::from_iter([KeyCode::BTN_LEFT]))?
+            .with_keys(&AttributeSet::from_iter([
+                KeyCode::BTN_LEFT,
+                KeyCode::BTN_RIGHT,
+                KeyCode::BTN_MIDDLE,
+            ]))?
             .with_relative_axes(&AttributeSet::from_iter([
                 RelativeAxisCode::REL_X,
                 RelativeAxisCode::REL_Y,

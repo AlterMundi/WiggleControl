@@ -1,5 +1,10 @@
 # Beta 1 — one-hand desktop control
 
+Source-only action work —2026-10-18: [explicit button output](MOUSE-ACTIONS.md)
+adds independent named-button delivery and all-button cancellation/release.
+Gesture bindings, actual device effects and human acceptance remain pending;
+no Pi deployment or device test is performed by this increment.
+
 Next delivery scope — 2026-10-18: [Linux public preview](LINUX-PREVIEW.md),
 [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).
 This is planned screen/detail and basic-action work, not receiving adoption.

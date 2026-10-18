@@ -83,7 +83,7 @@ to less than 0.004. This is mathematical replay evidence, not measured human
 noise/lag or a claim to implement the 1€ filter. Native qualification will compare
 filter choices and cursor anchors. Scroll mapping is deliberately still pending.
 
-Events: `move` with normalized `dx`/`dy`, `button` with `down`, and `cancel` with
+Events: `move` with normalized `dx`/`dy`, legacy left `button` with `down`, and `cancel` with
 `reason`. OS translation/gain belongs to the Linux adapter. Replay release events
 do not prove an OS button was released. A device writer must independently own
 and release its state on producer/process failure.
@@ -98,3 +98,12 @@ remain open. In this mode palm vertical movement emits wheel intent (12 steps
 per workspace unit, fractional accumulation); upward motion scrolls upward.
 Pointer motion is parked, held clicks release, and exit resets the pointer
 baseline without a jump. This initial mapping requires human qualification.
+
+## Explicit button delivery extension
+
+The additive `named_button` event includes `button` (`left`, `right`, `middle`)
+and `down`. It is supported by the independent delivery/direct Linux writer;
+ordinary pinch observations still emit the legacy left event. Unknown event
+fields/buttons are rejected. Per-button held state and all-button cancellation
+are described in [MOUSE-ACTIONS.md](MOUSE-ACTIONS.md). Source/replay support is
+not physical right-click gesture acceptance or receiving adoption.

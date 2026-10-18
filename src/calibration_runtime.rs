@@ -292,7 +292,14 @@ impl Runtime {
                 None,
                 events
                     .into_iter()
-                    .filter(|e| matches!(e, Event::Cancel { .. } | Event::Button { down: false }))
+                    .filter(|e| {
+                        matches!(
+                            e,
+                            Event::Cancel { .. }
+                                | Event::Button { down: false }
+                                | Event::NamedButton { down: false, .. }
+                        )
+                    })
                     .collect(),
             );
         }
@@ -573,6 +580,25 @@ mod tests {
         );
         assert!(target.is_none());
         assert_eq!(events, vec![Event::Button { down: false }]);
+        let right_up = Event::NamedButton {
+            button: crate::MouseButton::Right,
+            down: false,
+        };
+        let (target, events) = runtime.frame(
+            None,
+            None,
+            1,
+            150_001,
+            vec![
+                Event::NamedButton {
+                    button: crate::MouseButton::Right,
+                    down: true,
+                },
+                right_up.clone(),
+            ],
+        );
+        assert!(target.is_none());
+        assert_eq!(events, vec![right_up]);
         runtime.control(Control::Start).unwrap();
         runtime.control(Control::Cancel).unwrap();
         assert_eq!(profile_store::load(&path).unwrap().workspace.min.x, 0.2);

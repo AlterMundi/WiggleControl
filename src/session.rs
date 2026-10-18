@@ -522,10 +522,16 @@ fn write_events(
                 }
                 serde_json::json!({"type":"button","down":down})
             }
+            Event::NamedButton { button, down } => {
+                if down {
+                    presses += 1;
+                }
+                serde_json::json!({"type":"named_button","button":button,"down":down})
+            }
             Event::Scroll { vertical } => {
                 serde_json::json!({"type":"scroll","vertical":vertical,"horizontal":0})
             }
-            Event::Cancel { .. } => serde_json::json!({"type":"button","down":false}),
+            Event::Cancel { .. } => serde_json::json!({"type":"release"}),
         };
         if let Some(output) = output {
             serde_json::to_writer(&mut *output, &value)?;
@@ -1557,6 +1563,50 @@ pub(crate) fn check_writer_exit(
 mod tests {
     use super::*;
     use std::os::unix::process::ExitStatusExt;
+
+    #[test]
+    fn direct_writer_serialization_cancels_every_named_button_without_stopping() {
+        let mut child = std::process::Command::new("cat")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take();
+        let presses = write_events(
+            &mut input,
+            vec![
+                Event::Button { down: true },
+                Event::NamedButton {
+                    button: crate::MouseButton::Right,
+                    down: true,
+                },
+                Event::Cancel {
+                    reason: "explicit".into(),
+                },
+            ],
+            true,
+        )
+        .unwrap();
+        drop(input);
+        let result = child.wait_with_output().unwrap();
+        assert!(result.status.success());
+        assert_eq!(presses, 2);
+        let lines = String::from_utf8(result.stdout).unwrap();
+        let mut state = crate::input::MouseState::default();
+        let mut release = Vec::new();
+        for line in lines.lines() {
+            let intent = serde_json::from_str(line).unwrap();
+            let events = state.apply(intent, 1.0).unwrap();
+            release.extend(events.into_iter().filter(|e| e.value() == 0));
+        }
+        assert_eq!(
+            release.iter().map(|e| e.code()).collect::<Vec<_>>(),
+            vec![evdev::KeyCode::BTN_LEFT.0, evdev::KeyCode::BTN_RIGHT.0]
+        );
+        assert!(state.release().is_empty());
+        assert!(lines.lines().any(|line| line == r#"{"type":"release"}"#));
+        assert!(lines.lines().all(|line| line != r#"{"type":"stop"}"#));
+    }
 
     fn fictional_hand(id: u64, pixel_closed: bool, world_gap: f64) -> crate::vision::DetectedHand {
         use crate::vision::{DetectedHand, XY};

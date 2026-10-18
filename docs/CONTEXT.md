@@ -1,5 +1,10 @@
 # Project context — 2026-10-13
 
+Source-only action work —2026-10-18: [explicit button output](MOUSE-ACTIONS.md)
+adds independent named-button delivery and all-button cancellation/release.
+Gesture bindings, actual device effects and human acceptance remain pending;
+no Pi deployment or device test is performed by this increment.
+
 ## Shared Pi testing —2026-10-18
 
 Nicolás reports concurrent work on the realtime integrating conversation, also

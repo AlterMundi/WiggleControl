@@ -229,15 +229,30 @@ pub struct Observation {
     pub hand: Option<Hand>,
 }
 
+/// Logical mouse buttons, independent of platform event codes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
     /// Normalized displacement intent; adapter applies calibrated gain.
     Move {
         dx: f64,
         dy: f64,
     },
+    /// Existing pinch event; always the left button.
     Button {
+        down: bool,
+    },
+    /// Explicit button selection; legacy `button` remains left-only.
+    NamedButton {
+        button: MouseButton,
         down: bool,
     },
     Scroll {

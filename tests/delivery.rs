@@ -5,7 +5,7 @@ use wigglecontrol::{
     delivery::{Batch, Packet, Publisher, State},
     touch::Contact,
     touch_gestures::Frame,
-    Event, Hand, Point,
+    Event, Hand, MouseButton, Point,
 };
 fn transition(sequence: u64, issued_us: u64, mode: Mode) -> Packet {
     Packet::Transition {
@@ -444,4 +444,135 @@ fn calibrated_absolute_packets_keep_source_fences_order_buttons_and_release_with
         .unwrap();
     let released = apply(&mut consumer, 250_003, p);
     assert!(released.mouse.iter().all(|e| e.event_type().0 != 3));
+}
+
+#[test]
+fn named_right_drag_orders_position_before_press_and_releases_on_all_terminal_paths() {
+    for termination in [
+        "stop",
+        "cancel",
+        "transition",
+        "deadline",
+        "watchdog",
+        "rejection",
+    ] {
+        let mut state = State::default();
+        apply(&mut state, 1, transition(1, 1, Mode::Pointer));
+        let batch = apply(
+            &mut state,
+            2,
+            Packet::Frame {
+                sequence: 2,
+                issued_us: 2,
+                source_us: 2,
+                mode: Mode::Pointer,
+                absolute: Some(Point { x: 0.3, y: 0.7 }),
+                mouse: vec![Event::NamedButton {
+                    button: MouseButton::Right,
+                    down: true,
+                }],
+                contacts: vec![],
+            },
+        );
+        assert_eq!(batch.mouse.len(), 3);
+        assert_eq!(batch.mouse[0].code(), AbsoluteAxisCode::ABS_X.0);
+        assert_eq!(batch.mouse[1].code(), AbsoluteAxisCode::ABS_Y.0);
+        assert_eq!(
+            (batch.mouse[2].code(), batch.mouse[2].value()),
+            (KeyCode::BTN_RIGHT.0, 1)
+        );
+        // A delayed-but-alive estimator may retain this established right drag,
+        // but only the original source/deadline and existing watchdog can do so.
+        let hold = apply(
+            &mut state,
+            3,
+            Packet::Hold {
+                sequence: 3,
+                issued_us: 3,
+                source_us: 2,
+                until_us: if termination == "watchdog" {
+                    1_000_002
+                } else {
+                    100_002
+                },
+                mode: Mode::Pointer,
+            },
+        );
+        assert!(hold.mouse.is_empty());
+        let release = match termination {
+            "stop" => apply(&mut state, 4, Packet::Stop),
+            "cancel" => apply(
+                &mut state,
+                4,
+                packet(
+                    4,
+                    4,
+                    Mode::Pointer,
+                    vec![Event::Cancel {
+                        reason: "explicit".into(),
+                    }],
+                    vec![],
+                ),
+            ),
+            "transition" => apply(&mut state, 4, transition(4, 4, Mode::Scroll)),
+            "deadline" => state.tick(100_002, 150_000).unwrap(),
+            "watchdog" => state.tick(150_003, 150_000).unwrap(),
+            _ => {
+                assert!(state
+                    .apply(
+                        4,
+                        packet(4, 4, Mode::Scroll, vec![], vec![]),
+                        2000.0,
+                        150_000
+                    )
+                    .is_err());
+                state.release()
+            }
+        };
+        assert_eq!(release.mouse.len(), 1, "{termination}");
+        assert_eq!(
+            (release.mouse[0].code(), release.mouse[0].value()),
+            (KeyCode::BTN_RIGHT.0, 0)
+        );
+        assert!(state.release().mouse.is_empty());
+    }
+}
+
+#[test]
+fn scroll_can_release_named_buttons_but_cannot_press_them() {
+    let mut state = State::default();
+    apply(&mut state, 1, transition(1, 1, Mode::Scroll));
+    let release = apply(
+        &mut state,
+        2,
+        packet(
+            2,
+            2,
+            Mode::Scroll,
+            vec![Event::NamedButton {
+                button: MouseButton::Right,
+                down: false,
+            }],
+            vec![],
+        ),
+    );
+    assert!(release.mouse.is_empty());
+    assert!(state
+        .apply(
+            3,
+            packet(
+                3,
+                3,
+                Mode::Scroll,
+                vec![Event::NamedButton {
+                    button: MouseButton::Right,
+                    down: true
+                }],
+                vec![]
+            ),
+            2000.0,
+            150_000
+        )
+        .is_err());
+    assert!(state.release().mouse.is_empty());
 }

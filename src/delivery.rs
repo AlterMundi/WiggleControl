@@ -444,6 +444,7 @@ impl State {
                                     Event::Scroll { .. }
                                         | Event::Cancel { .. }
                                         | Event::Button { down: false }
+                                        | Event::NamedButton { down: false, .. }
                                 )
                             })
                     }
@@ -475,6 +476,9 @@ impl State {
                         Event::Button { down } => {
                             self.mouse.apply(MouseIntent::Button { down }, gain)?
                         }
+                        Event::NamedButton { button, down } => self
+                            .mouse
+                            .apply(MouseIntent::NamedButton { button, down }, gain)?,
                         Event::Scroll { vertical } => self.mouse.apply(
                             MouseIntent::Scroll {
                                 vertical,

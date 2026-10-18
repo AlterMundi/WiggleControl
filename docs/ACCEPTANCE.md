@@ -17,6 +17,20 @@ and sustained comfort acceptance remain open. Gesture scroll/Escape still requir
 implementation before their human trials. The resolved sticky-folder incident
 is not reopened by these ordinary drag-qualification tasks.
 
+## Positive held-detail application use — 2026-10-18
+
+Nicolás reports that detail worked very well, including deliberate click/detail
+use in the X menu. The separate90s retry completed successfully with four observed
+mode cycles, three left and two right press/release pairs, all confirmed
+intentional by the human. Camera/input closure and child/device cleanup are
+retained. See [DETAIL.md](DETAIL.md) for scope and source-bound evidence.
+
+This accepts a first real application use of the modifier and clicking. Small
+pointing/drawing/rest tasks, mode changes during held actions, longer comfort and
+measured unintended-action rates remain open; gesture scroll/Escape and standalone
+release work remain incomplete. The accidental task-window closure is not reported
+as a controller fault.
+
 ## Historical six-milestone baseline
 
 The table and finite trial protocol below retain the original broader

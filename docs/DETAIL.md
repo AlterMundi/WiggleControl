@@ -170,3 +170,31 @@ Start was locked through task preparation; the1.5s instructions and1600x857
 content fit the1600x950 viewport. Accepted baseline/profile hashes match the
 prior take. No retry acquisition or physical acceptance is claimed by this
 preparation. Private recordings and all original failed-take evidence remain.
+
+
+## Positive physical detail use — 2026-10-18
+
+Nicolás reports that detail worked very well and confirms that he deliberately
+combined clicking and detail in the X menu, with good results. He accidentally
+closed the task window. This is positive application-use feedback for the held
+modifier with mouse actions; it does not identify the exact X client/desktop menu
+or establish whether a mode change occurred during a held drag.
+
+The matched sourcef21a48b retry completed90s successfully:1286 captured frames,
+1271 interpreted observations,478 confirmed detail observations and four observed
+entry/exit cycles. Selected-node evidence contains three left and two right press/
+release pairs, all balanced, with no overflow or partial events. Nicolás explicitly
+confirms all five clicks were intentional, including trying detail with clicking.
+No prediction is substituted for his statement. The earlier pre-publication expiry
+failure did not recur in this take; no delivery-source discard occurred. One
+perception lease expired; no image/metadata feedback snapshots were prepared.
+
+Camera and system input closed; detector/writer/provider/observer were reaped,
+the virtual mouse was removed and owned test units are inactive. Video and
+landmark journals remain private. The terminal report had no error. No automatic
+capture/restart or baseline/profile/power change occurred.
+
+Basic detail recognition and deliberate click use now have positive human
+feedback. Still qualify rest jitter, small targets, text selection/slow drawing,
+edges, cursor continuity, longer comfort and any changes during held actions.
+These results do not complete the public preview or a measured false-action rate.

@@ -9,8 +9,8 @@ The selected beta uses headless Chromium GPU hand inference, Rust gesture interp
 and Linux virtual input; a native CPU backend also exists. The next delivery is
 the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
 Left/right gestures have [first positive human feedback](docs/ACCEPTANCE.md);
-[held absolute detail](docs/DETAIL.md) is implemented in source and awaits physical
-qualification. Gesture scroll and Escape remain unfinished;
+[held absolute detail](docs/DETAIL.md) has positive first-use feedback with clicking in a real menu;
+precision/rest/drawing and longer comfort qualification remain. Gesture scroll and Escape remain unfinished;
 multitouch and other operating systems remain later qualification/ports.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need

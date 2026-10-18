@@ -1,5 +1,11 @@
 # Project context — 2026-10-13
 
+Physical detail update —2026-10-18: Nicolás reports very good detail operation,
+including intentional clicking with detail in the X menu. Retrysourcef21a48b
+completed90s/error-free; four observed cycles and balanced3left/2right clicks,
+all human-confirmed intentional. Camera/input closed; own units inactive.
+See [DETAIL.md](DETAIL.md) and [ACCEPTANCE.md](ACCEPTANCE.md).
+
 Detail retry —2026-10-18: the first physical take entered and exited detail once,
 then stopped because a delivered observation was336251us old (300000us limit).
 Camera/input closure and child cleanup are retained. Add pre-publication age

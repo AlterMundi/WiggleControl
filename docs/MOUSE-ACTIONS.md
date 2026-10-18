@@ -140,15 +140,22 @@ opt-in benchmark ignored; native all-target Clippy and format pass. The prior
 196-test count describes the strict source increment. Default/receiving right
 click remains disabled, and the accepted calibration/model/power policy is unchanged.
 
-## Still to implement and qualify
+## Current receiving and remaining qualification
 
-The source candidate is not installed/enabled for the human. Actual device/client
-classification and effects, pinch comfort, false activation, natural double click
-and the complete vocabulary remain issue10/#13 work. The earlier thumb/middle
-scroll candidate must not also select right: choose/qualify a separate scroll
-gesture before release. Existing explicit scroll mode remains separate. Escape
-and detail motion remain planned work; no selected runtime/profile changed.
+The separate candidate has positive human feedback for left/right clicks and
+[held detail with intentional clicks in the X menu](DETAIL.md). This supersedes
+source-only receiving statements in the dated implementation sections above.
+Default beta/calibration remain preserved; separate trials retain exact artifacts,
+private recordings, actual input evidence and explicit human feedback.
+
+Natural double click, complete scroll/Escape gestures, longer drag/loss tasks,
+relaxed no-action rates and sustained comfort remain issue10/#13 work. The earlier
+thumb/middle scroll candidate cannot also select right: select and qualify a
+separate scroll gesture before release. Existing explicit scroll mode remains
+separate. Detail rest/small-target/drawing/edges and held-action changes still
+need focused acceptance. [Separate controller Escape delivery](ESCAPE.md) is source work;
+no new Escape gesture is selected on the receiving host.
 
 Pi tests remain serialized with realtime-conversation work. Continue off-Pi
-source/replay work and obtain a coordinated, freshly acknowledged physical window
-when the selected increment is ready. No camera or uinput was opened here.
+source/replay work between freshly acknowledged finite physical trials. No camera
+or input session starts from reading or updating these records.

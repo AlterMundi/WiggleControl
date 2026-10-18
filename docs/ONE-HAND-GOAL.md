@@ -70,7 +70,10 @@ existing power/fan policy. Build away from the Pi when supported; reuse existing
 checkout/caches and infrastructure capabilities. Do not infer current screen or
 camera availability from an old Farscape restriction or an old ready message.
 Coordinate new desktop injection with owned scratch tasks, never human files.
-Camera acquisition requires fresh human readiness/manual Start and the established
+Nicolás reports concurrent realtime-conversation tests on the Pi: continue
+camera-free development/replay off-Pi and leave receiving tests/deployment to a
+coordinated window; do not pause the whole goal or interrupt the other project.
+Serialize resource/performance tests even when sensors differ. Camera acquisition requires fresh human readiness/manual Start and the established
 private trial recording; research/replay stays camera-free. Do not leave a sensor
 session running after its requested scope or install automatic capture/restarts.
 

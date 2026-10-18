@@ -1,5 +1,23 @@
 # Project context — 2026-10-13
 
+## Shared Pi testing —2026-10-18
+
+Nicolás reports concurrent work on the realtime integrating conversation, also
+using Cuevanico for tests. This WiggleControl goal continues with development,
+simulation and replay off-Pi; defer receiving deployment, camera/input/GUI/audio
+activation and performance/load tests until a coordinated window is available.
+Give the realtime tests the Pi meanwhile. No Pi operation was started in this
+new goal before this report. The native goal remains active, not paused.
+
+Before the next receiving trial, identify its owner and resources (camera,
+microphone, audio output, desktop/input and CPU/GPU), verify the existing session
+is finished and perform only the selected owned test/cleanup. Do not stop or
+restart the other project's units or infer availability from old idle evidence.
+Serialize performance trials even if their sensors differ. Existing conversation
+profile ownership does not establish a cross-project resource reservation; no
+shared Pi lease or inter-session notification is installed by this note. This
+records our track's behavior, not an acknowledgment from the other conversation.
+
 Current delivery plan — 2026-10-18: [the one-hand Linux public preview](LINUX-PREVIEW.md)
 and [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1) own the
 next release. Detail should be independent of button state when natural; switching

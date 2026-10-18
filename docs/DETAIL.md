@@ -123,4 +123,13 @@ UI is prepared; unlocking never requests acquisition. Source tests cover these
 states and the no-image/manual-Start boundary. Local native-feature suite:207
 passed, zero failed, one existing opt-in benchmark ignored; native all-target
 Clippy, format, separate-control and preview recovery/timer checks pass. Receiving
-adoption and the physical detail trial remain pending.
+standby preparation and the physical detail trial are tracked below.
+
+Receiving follow-up: exact-source258d53e / CI39174893219 passed all three jobs. A
+separate manual90s Pi trial is prepared with detail enabled, matching accepted
+workspace and private recording; normal beta/profile/power settings are preserved.
+Actual1600x950 controls/task content fits within1600x881. Start stayed locked until
+the complete task UI was checked; final source state confirms camera/input off,
+no preparation and no acquisition countdown. The first task is three extended ↔
+ring/little-curled cycles without pinching, checking observed mode and visible
+cursor continuity. No physical detail result is claimed by standby preparation.

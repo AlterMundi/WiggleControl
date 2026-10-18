@@ -480,3 +480,8 @@ countdown was corrected during the trial. Continuous feedback metadata preparati
 also remained active, so this is not complete timed-protocol or performance
 acceptance. Detail, gesture scroll/Escape, complete tasks and independent packaging
 remain pending. This separate candidate is not a beta-default update or release.
+
+Human feedback after this trial: Nicolás reports that both left and right clicks
+seem to work well. This is first positive usability feedback, without per-gesture
+intent labels or a measured success rate; remaining tasks are tracked in
+[ACCEPTANCE.md](ACCEPTANCE.md#first-leftright-human-feedback--2026-10-18).

@@ -6,6 +6,17 @@ screen/detail and basic-action requirements are not yet accepted. Latest physica
 feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
 and [CONTEXT.md](CONTEXT.md).
 
+## First left/right human feedback — 2026-10-18
+
+After the separate right-button trial, Nicolás reports that left and right clicks
+seem to work well. This is positive first-use feedback for the two gesture
+bindings, alongside the actual delivery evidence in BETA-1.md. It does not label
+each recorded press as intended or establish a measured success/false-activation
+rate. Natural double click, held detail, longer drag/loss tasks, relaxed no-action
+and sustained comfort acceptance remain open. Gesture scroll/Escape still require
+implementation before their human trials. The resolved sticky-folder incident
+is not reopened by these ordinary drag-qualification tasks.
+
 ## Historical six-milestone baseline
 
 The table and finite trial protocol below retain the original broader

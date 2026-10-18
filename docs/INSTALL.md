@@ -57,6 +57,19 @@ not a measured comfort profile. Older installed binaries reject this new field:
 deploy the updated binary before adding it, and remove the field before reverting
 to an older binary. The receiving config is preserved by installation/rollback.
 
+## Escape keyboard source extension —2026-10-18
+
+The controller writer source now creates a separate fixed-key Escape device.
+Its classification rule travels in `packaging/80-wigglecontrol-keyboard.rules`;
+keep this directory alongside `tools` when using the existing preparation scripts.
+Installation and `prepare_input.sh` enroll/restore this path in the initial
+rollback, including older manifests; the rule grants no additional access and
+creates no device. Prepare before starting the candidate writer. Exact receiving
+keyboard classification/application delivery and the actual gesture remain
+unqualified; see [ESCAPE.md](ESCAPE.md). This extension does not publish or install
+the independently packaged GPU preview. No selected host configuration changes
+from a source update alone.
+
 ## Manual use
 
 The2026-10-15 source adds optional experimental `adaptive_smoothing`:

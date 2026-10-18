@@ -42,7 +42,7 @@ if [ ! -e "$backup/manifest" ]; then
  stage=$(mktemp -d /var/lib/wigglecontrol/rollback.new.XXXXXX)
  trap 'rm -rf "$stage"' EXIT HUP INT TERM
  : > "$stage/manifest"
- for path in /usr/local/bin/wigglecontrol /usr/local/share/wigglecontrol /usr/local/lib/wigglecontrol /etc/wigglecontrol/config.json /etc/udev/rules.d/80-wigglecontrol-uinput.rules /etc/modules-load.d/wigglecontrol.conf; do
+ for path in /usr/local/bin/wigglecontrol /usr/local/share/wigglecontrol /usr/local/lib/wigglecontrol /etc/wigglecontrol/config.json /etc/udev/rules.d/80-wigglecontrol-uinput.rules /etc/udev/rules.d/80-wigglecontrol-keyboard.rules /etc/modules-load.d/wigglecontrol.conf; do
   if [ -e "$path" ] || [ -L "$path" ]; then
    mkdir -p "$stage/files$(dirname "$path")"
    cp -a "$path" "$stage/files$(dirname "$path")/"

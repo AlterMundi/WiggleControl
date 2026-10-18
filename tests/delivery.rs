@@ -41,6 +41,97 @@ fn button(batch: &Batch, value: i32) -> bool {
         .iter()
         .any(|e| e.code() == KeyCode::BTN_LEFT.0 && e.value() == value)
 }
+
+#[test]
+fn escape_releases_all_owned_buttons_and_contacts_without_moving_or_repeating() {
+    for mode in [Mode::Pointer, Mode::TwoContacts] {
+        let mut s = State::default();
+        apply(&mut s, 1, transition(1, 1, mode));
+        let mouse = if mode == Mode::Pointer {
+            [MouseButton::Left, MouseButton::Right, MouseButton::Middle]
+                .map(|button| Event::NamedButton { button, down: true })
+                .to_vec()
+        } else {
+            vec![]
+        };
+        let contacts = if mode == Mode::TwoContacts {
+            vec![
+                Contact {
+                    id: 1,
+                    x: 0.3,
+                    y: 0.4,
+                },
+                Contact {
+                    id: 2,
+                    x: 0.6,
+                    y: 0.7,
+                },
+            ]
+        } else {
+            vec![]
+        };
+        apply(&mut s, 2, packet(2, 2, mode, mouse, contacts));
+        let escaped = apply(
+            &mut s,
+            3,
+            Packet::Escape {
+                sequence: 3,
+                issued_us: 3,
+                source_us: 3,
+                mode,
+            },
+        );
+        assert!(escaped.escape);
+        if mode == Mode::Pointer {
+            assert_eq!(escaped.mouse.len(), 3);
+            assert!(escaped.mouse.iter().all(|e| e.value() == 0));
+        } else {
+            assert!(escaped.touch.iter().any(|e| e.value() == -1));
+        }
+        assert!(!s.tick(4, 150_000).unwrap().escape);
+        assert!(!s.release().escape);
+    }
+}
+
+#[test]
+fn escape_rejects_unarmed_stale_future_duplicate_and_wrong_mode_input() {
+    for case in 0..6 {
+        let mut s = State::default();
+        if case != 0 {
+            apply(&mut s, 1, transition(1, 1, Mode::Pointer));
+            apply(&mut s, 2, packet(2, 2, Mode::Pointer, vec![], vec![]));
+        }
+        let sequence = if case == 4 { 2 } else { 3 };
+        let source_us = match case {
+            1 => 2,
+            2 => 4,
+            3 => 2,
+            _ => 3,
+        };
+        let mode = if case == 5 {
+            Mode::Scroll
+        } else {
+            Mode::Pointer
+        };
+        let now = if case == 1 { 150_003 } else { 3 };
+        assert!(
+            s.apply(
+                now,
+                Packet::Escape {
+                    sequence,
+                    issued_us: now,
+                    source_us,
+                    mode
+                },
+                2000.0,
+                150_000
+            )
+            .is_err(),
+            "case{case}"
+        );
+        assert!(!s.release().escape);
+    }
+}
 fn hand(id: u64, closed: bool) -> Hand {
     Hand {
         id,

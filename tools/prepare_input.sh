@@ -9,26 +9,34 @@ rule=$(printf 'KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:
 grep -Fxq "$rule" /etc/udev/rules.d/80-wigglecontrol-uinput.rules || { echo 'The matching installed named-operator udev rule is required' >&2; exit 1; }
 backup=/var/lib/wigglecontrol/rollback
 boot=/etc/modules-load.d/wigglecontrol.conf
+keyboard=/etc/udev/rules.d/80-wigglecontrol-keyboard.rules
+keyboard_rule_source="$(dirname "$0")/../packaging/80-wigglecontrol-keyboard.rules"
+[ -f "$keyboard_rule_source" ] || { echo "Keyboard classification rule is missing" >&2; exit 1; }
 [ -f "$backup/manifest" ] && [ -f "$backup/uinput.acl" ] || { echo 'Run the full installer first; an original rollback is required' >&2; exit 1; }
 
-# An upgrade must enroll this new path before replacing an existing boot file.
-# Preserve the first baseline on retries, including an interrupted extension.
-if grep -Fxq "restore $boot" "$backup/manifest"; then
- [ -e "$backup/files$boot" ] || [ -L "$backup/files$boot" ] || { echo 'Boot rollback snapshot incomplete' >&2; exit 1; }
-elif ! grep -Fxq "remove $boot" "$backup/manifest"; then
- next=$(mktemp "$backup/manifest.new.XXXXXX")
- trap 'rm -f "$next"' EXIT HUP INT TERM
- cp "$backup/manifest" "$next"
- if [ -e "$boot" ] || [ -L "$boot" ]; then
-  mkdir -p "$backup/files/etc/modules-load.d"
-  cp -a "$boot" "$backup/files$boot"
-  printf 'restore %s\n' "$boot" >> "$next"
- else
-  printf 'remove %s\n' "$boot" >> "$next"
+# Enroll each managed path before replacement, preserving the initial baseline.
+# Older installations may have neither entry in their retained manifest.
+for prepared_path in "$boot" "$keyboard"; do
+ if grep -Fxq "restore $prepared_path" "$backup/manifest"; then
+  [ -e "$backup/files$prepared_path" ] || [ -L "$backup/files$prepared_path" ] || { echo 'Input preparation rollback snapshot incomplete' >&2; exit 1; }
+ elif ! grep -Fxq "remove $prepared_path" "$backup/manifest"; then
+  next=$(mktemp "$backup/manifest.new.XXXXXX")
+  trap 'rm -f "$next"' EXIT HUP INT TERM
+  cp "$backup/manifest" "$next"
+  if [ -e "$prepared_path" ] || [ -L "$prepared_path" ]; then
+   mkdir -p "$backup/files$(dirname "$prepared_path")"
+   cp -a "$prepared_path" "$backup/files$prepared_path"
+   printf 'restore %s\n' "$prepared_path" >> "$next"
+  else
+   printf 'remove %s\n' "$prepared_path" >> "$next"
+  fi
+  mv "$next" "$backup/manifest"
+  trap - EXIT HUP INT TERM
  fi
- mv "$next" "$backup/manifest"
- trap - EXIT HUP INT TERM
-fi
+done
+
+install -m 644 "$keyboard_rule_source" "$keyboard.new"
+mv "$keyboard.new" "$keyboard"
 
 # The driver must register before a boot-time udev rule can grant access to it.
 udevadm control --reload-rules

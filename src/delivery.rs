@@ -48,6 +48,13 @@ pub enum Packet {
         mode: Mode,
         absolute: crate::Point,
     },
+    /// Fresh explicit one-shot cancellation: release owned input, then tap Esc.
+    Escape {
+        sequence: u64,
+        issued_us: u64,
+        source_us: u64,
+        mode: Mode,
+    },
     Stop,
 }
 #[derive(Default)]
@@ -260,6 +267,7 @@ impl Publisher {
 pub struct Batch {
     pub mouse: Vec<InputEvent>,
     pub touch: Vec<InputEvent>,
+    pub escape: bool,
 }
 #[derive(Default)]
 pub struct State {
@@ -285,6 +293,7 @@ impl State {
         Batch {
             mouse: self.mouse.release(),
             touch: self.touch.release(),
+            escape: false,
         }
     }
     pub fn tick(&mut self, now: u64, watchdog_us: u64) -> io::Result<Batch> {
@@ -352,6 +361,11 @@ impl State {
                 sequence,
                 issued_us,
                 ..
+            }
+            | Packet::Escape {
+                sequence,
+                issued_us,
+                ..
             } => (*sequence, *issued_us),
             Packet::Stop => return Ok(self.release()),
         };
@@ -364,6 +378,25 @@ impl State {
         self.sequence = Some(sequence);
         self.received = Some(now);
         match packet {
+            Packet::Escape {
+                source_us, mode, ..
+            } => {
+                if !self.ready
+                    || self.mode != Some(mode)
+                    || source_us > issued
+                    || now.saturating_sub(source_us) >= watchdog_us
+                    || self.source.is_some_and(|previous| source_us <= previous)
+                {
+                    return Err(invalid(
+                        "Escape requires fresh increasing source and an armed mode",
+                    ));
+                }
+                let mut batch = self.release();
+                self.ready = true;
+                self.source = Some(source_us);
+                batch.escape = true;
+                Ok(batch)
+            }
             Packet::Cursor {
                 source_us,
                 mode,
@@ -390,6 +423,7 @@ impl State {
                         gain,
                     )?,
                     touch: Vec::new(),
+                    escape: false,
                 })
             }
             Packet::Hold {
@@ -553,6 +587,9 @@ fn stream_mode(
         return Err(invalid("invalid delivery duration/gain/watchdog"));
     }
     let mut mouse = crate::input::create(absolute)?;
+    // Create before gesture acquisition so the compositor can discover it.
+    // Receiving installation must classify this fixed-key device as a keyboard.
+    let mut keyboard = crate::keyboard::create()?;
     let mut touch = if absolute {
         None
     } else {
@@ -564,7 +601,8 @@ fn stream_mode(
     let limit = seconds.map(Duration::from_secs).unwrap_or(Duration::MAX);
     let emit = |batch: Batch,
                 mouse: &mut evdev::uinput::VirtualDevice,
-                touch: &mut Option<evdev::uinput::VirtualDevice>|
+                touch: &mut Option<evdev::uinput::VirtualDevice>,
+                keyboard: &mut evdev::uinput::VirtualDevice|
      -> io::Result<()> {
         if !batch.mouse.is_empty() {
             mouse.emit(&batch.mouse)?;
@@ -574,6 +612,9 @@ fn stream_mode(
                 .as_mut()
                 .ok_or_else(|| invalid("touch output in absolute mouse session"))?
                 .emit(&batch.touch)?;
+        }
+        if batch.escape {
+            crate::keyboard::tap(|events| keyboard.emit(events))?;
         }
         Ok(())
     };
@@ -586,7 +627,8 @@ fn stream_mode(
                     if let Packet::Transition { mode, .. }
                     | Packet::Frame { mode, .. }
                     | Packet::Hold { mode, .. }
-                    | Packet::Cursor { mode, .. } = &packet
+                    | Packet::Cursor { mode, .. }
+                    | Packet::Escape { mode, .. } = &packet
                     {
                         if absolute && !matches!(mode, Mode::Pointer | Mode::Scroll) {
                             return Err(invalid("unsupported absolute mouse mode"));
@@ -614,6 +656,7 @@ fn stream_mode(
                         )?,
                         &mut mouse,
                         &mut touch,
+                        &mut keyboard,
                     )?;
                     if stop {
                         break;
@@ -625,15 +668,18 @@ fn stream_mode(
                     state.tick(crate::intent::monotonic_us()?, watchdog_ms * 1000)?,
                     &mut mouse,
                     &mut touch,
+                    &mut keyboard,
                 )?,
             }
         }
         Ok(())
     })();
-    let release = emit(state.release(), &mut mouse, &mut touch);
+    let release = emit(state.release(), &mut mouse, &mut touch, &mut keyboard);
+    let key_release = keyboard.emit(&[crate::keyboard::escape_events()[1]]);
     drop(mouse);
     drop(touch);
-    result.and(release)
+    drop(keyboard);
+    result.and(release).and(key_release)
 }
 
 /// Device-free protocol verification with independent synthetic consumer time.
@@ -653,7 +699,8 @@ pub fn replay_stdin(gain: f64, watchdog_ms: u64) -> io::Result<()> {
         writeln!(
             out,
             "{}",
-            serde_json::json!({"schema":"wigglecontrol.delivery-output/v1","camera_opened":false,"system_input":false,"mouse":values(batch.mouse),"touch":values(batch.touch)})
+            serde_json::json!({"schema":"wigglecontrol.delivery-output/v1","camera_opened":false,"system_input":false,"mouse":values(batch.mouse),"touch":values(batch.touch),
+                "keyboard":if batch.escape {values(crate::keyboard::escape_events().to_vec())} else {Vec::new()}})
         )?;
         out.flush()
     };
@@ -729,7 +776,8 @@ fn pipeline_replay(
             out,
             "{}",
             serde_json::json!({"schema":"wigglecontrol.pipeline-output/v1","camera_opened":false,"system_input":false,"absolute_pointer":absolute,
-            "controller":output,"packet":packet,"mouse":values(batch.mouse),"touch":values(batch.touch)})
+            "controller":output,"packet":packet,"mouse":values(batch.mouse),"touch":values(batch.touch),
+            "keyboard":if batch.escape {values(crate::keyboard::escape_events().to_vec())} else {Vec::new()}})
         )?;
         out.flush()
     };

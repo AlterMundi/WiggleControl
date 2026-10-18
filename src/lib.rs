@@ -17,6 +17,9 @@ pub mod delivery;
 pub mod input;
 
 #[cfg(target_os = "linux")]
+pub mod keyboard;
+
+#[cfg(target_os = "linux")]
 pub mod recording;
 #[cfg(target_os = "linux")]
 pub mod review;

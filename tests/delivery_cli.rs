@@ -7,6 +7,51 @@ use std::{
 };
 
 #[test]
+fn serialized_escape_taps_once_and_eof_cannot_repeat_it() {
+    let input = [
+        json!({"type":"packet","now_us":1,"packet":{"type":"transition","sequence":1,"issued_us":1,"mode":"pointer","enabled":true}}),
+        json!({"type":"packet","now_us":2,"packet":{"type":"frame","sequence":2,"issued_us":2,"source_us":2,"mode":"pointer","mouse":[{"type":"named_button","button":"right","down":true}],"contacts":[]}}),
+        json!({"type":"packet","now_us":3,"packet":{"type":"escape","sequence":3,"issued_us":3,"source_us":3,"mode":"pointer"}}),
+    ].map(|v| v.to_string()).join("\n") + "\n";
+    let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .args(["delivery-replay", "2000", "150"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let rows: Vec<Value> = String::from_utf8(result.stdout)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(
+        rows[2]["mouse"],
+        json!([{"kind":1,"code":KeyCode::BTN_RIGHT.0,"value":0}])
+    );
+    assert_eq!(
+        rows[2]["keyboard"],
+        json!([{"kind":1,"code":KeyCode::KEY_ESC.0,"value":1},{"kind":1,"code":KeyCode::KEY_ESC.0,"value":0}])
+    );
+    assert!(rows[3]["keyboard"].as_array().unwrap().is_empty());
+    assert!(rows
+        .iter()
+        .all(|r| r["camera_opened"] == false && r["system_input"] == false));
+}
+
+#[test]
 fn serialized_middle_only_gesture_runs_through_absolute_pipeline_and_eof_releases_right() {
     let path = std::env::temp_dir().join(format!(
         "wigglecontrol-middle-pipeline-{}.json",

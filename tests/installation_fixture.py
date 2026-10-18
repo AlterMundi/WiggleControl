@@ -65,6 +65,7 @@ def main():
         paths=['usr-local/bin/wigglecontrol','usr-local/share/wigglecontrol/models/old-model',
                'usr-local/lib/wigglecontrol/old-library','etc/wigglecontrol/config.json',
                'etc/udev/rules.d/80-wigglecontrol-uinput.rules',
+               'etc/udev/rules.d/80-wigglecontrol-keyboard.rules',
                'etc/modules-load.d/wigglecontrol.conf']
         originals={}
         for i,name in enumerate(paths):
@@ -80,6 +81,7 @@ def main():
         for _ in range(2):
             result=invoke(root,install); assert result.returncode==0,result.stderr
             assert (root/'etc/modules-load.d/wigglecontrol.conf').read_text().splitlines()[-1]=='uinput'
+            assert (root/'etc/udev/rules.d/80-wigglecontrol-keyboard.rules').read_bytes()==(SOURCE/'packaging/80-wigglecontrol-keyboard.rules').read_bytes()
         rolled=invoke(root,'/src/tools/rollback.sh; getfacl -p /dev/uinput > /var/restored.acl')
         assert rolled.returncode==0,rolled.stderr
         assert (root/'var/original.acl').read_bytes()==(root/'var/restored.acl').read_bytes()
@@ -87,13 +89,15 @@ def main():
         assert (root/'etc/ssh/sshd_config').read_text()=='ADMIN_SENTINEL\n'
         print('Interrupted snapshot, retry, content/mode rollback and explicit original uinput ACL restoration passed')
 
-    # A previously installed package has no boot-path entry in its rollback.
-    # Its upgrade must retain pre-existing contents/mode or remove an added file.
+    # Older rollback manifests lack boot and keyboard-classification entries.
+    # Upgrades preserve existing contents/mode or remove each newly added path.
     for existing in (False, True):
         with tempfile.TemporaryDirectory(prefix='upgrade-',dir=scratch) as temp:
             root=Path(temp); setup(root)
             boot=root/'etc/modules-load.d/wigglecontrol.conf'
+            keyboard=root/'etc/udev/rules.d/80-wigglecontrol-keyboard.rules'
             if existing:
+                keyboard.write_text('PRE_EXISTING_KEYBOARD_RULE\n'); keyboard.chmod(0o640)
                 boot.write_text('PRE_EXISTING_BOOT_POLICY\n'); boot.chmod(0o640)
             (root/'etc/udev/rules.d/80-wigglecontrol-uinput.rules').write_text('KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:tester:rw /dev/uinput"\n')
             backup=root/'var/lib/wigglecontrol/rollback'; backup.mkdir(parents=True)
@@ -109,16 +113,19 @@ def main():
             for _ in range(2):
                 result=invoke(root,prepare); assert result.returncode==0,result.stderr
                 lines=(backup/'manifest').read_text().splitlines()
-                assert len(lines)==2 and lines[0]==original.strip()
+                assert len(lines)==3 and lines[0]==original.strip()
+                assert keyboard.read_bytes()==(SOURCE/'packaging/80-wigglecontrol-keyboard.rules').read_bytes()
                 assert boot.read_text().splitlines()[-1]=='uinput'
             rolled=invoke(root,'/src/tools/rollback.sh')
             assert rolled.returncode==0,rolled.stderr
             if existing:
                 assert boot.read_text()=='PRE_EXISTING_BOOT_POLICY\n' and boot.stat().st_mode&0o777==0o640
+                assert keyboard.read_text()=='PRE_EXISTING_KEYBOARD_RULE\n' and keyboard.stat().st_mode&0o777==0o640
             else:
                 assert not boot.exists()
+                assert not keyboard.exists()
             assert (root/'etc/ssh/sshd_config').read_text()=='ADMIN_SENTINEL\n'
-    print('Legacy manifest upgrade preserves/removes boot policy, interruption, retry and rollback passed')
+    print('Legacy manifest upgrade preserves/removes boot and keyboard classification, interruption, retry and rollback passed')
 
 
 if __name__=='__main__': main()

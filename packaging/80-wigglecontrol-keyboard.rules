@@ -1,0 +1,3 @@
+# A single-key device does not satisfy udev's full-keyboard capability heuristic.
+# Classification only; this grants no device access and starts no input session.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="WiggleControl Escape Keyboard", ENV{ID_INPUT}="1", ENV{ID_INPUT_KEY}="1", ENV{ID_INPUT_KEYBOARD}="1"

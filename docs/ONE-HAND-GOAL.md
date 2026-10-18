@@ -8,6 +8,16 @@ Iterate autonomously through recorded trials, simulation, mathematical models,
 implementation and measured receiving experiments. Complete human/application
 acceptance before declaring the controller finished.
 
+## Sticky desktop drag resolved by human acceptance —2026-10-18
+
+Nicolás reports that the folder has not remained attached again and explicitly
+asks to consider issue[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
+resolved; he will report any recurrence. Close this incident on that basis.
+The original cause was not identified and no specific corrective change is
+proven. Earlier pending-reproduction statements below are historical and no
+longer block the one-hand beta. Premature drag release, double-click comfort and
+other one-hand acceptance remain separate work. Reopen the incident if it recurs.
+
 ## Human feedback motivating this goal — 2026-10-16
 
 Nicolás reports that the current beta generally works reasonably well: hand
@@ -36,11 +46,12 @@ Keep observed evidence, estimated interaction state and actual delivered effects
 distinct and inspectable. Reuse supported configuration and behavior before
 adding code; avoid rewriting already working perception without evidence.
 
-1. Establish trustworthy end-to-end button delivery first. Reproduce issue #8
-   using empty owned test folders without camera acquisition. Compare semantic
-   decisions, the writer's actual kernel events and real application drag/drop.
-   Qualify press, release, Stop and device/producer failure. Fix terminal receipt
-   fields that currently retain historical camera/input acquisition flags.
+1. Preserve trustworthy end-to-end button delivery and the existing camera-free
+   release/Stop/process-failure qualification. Issue #8 is resolved by the human
+   as of2026-10-18; further reproduction is not a prerequisite. If it recurs,
+   compare semantic decisions, actual kernel events and application drag/drop
+   using owned empty fixtures. Keep terminal receipts distinct from historical
+   acquisition flags.
 2. Make click, double-click and drag deliberate and consistent. Measure the
    actual application's timing and spatial requirements, pinch confirmation and
    rearm, and cursor movement during pinches. Preserve normal click/drag behavior

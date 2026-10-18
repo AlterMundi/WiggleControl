@@ -1,5 +1,11 @@
 # Project context — 2026-10-13
 
+Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
+recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
+resolved. It no longer blocks the beta; the original cause remains unknown.
+This supersedes pending-reproduction statements below. See
+[the goal update](ONE-HAND-GOAL.md#sticky-desktop-drag-resolved-by-human-acceptance-2026-10-18).
+
 ## One-hand interaction priority —2026-10-16
 
 Current software-only increment —2026-10-18: source2c533e5 is qualified camera-free

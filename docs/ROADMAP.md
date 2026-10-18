@@ -11,6 +11,12 @@ six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receivin
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.
 
+Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
+recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
+resolved. It no longer blocks the beta; the original cause remains unknown.
+This supersedes pending-reproduction statements below. See
+[the goal update](ONE-HAND-GOAL.md#sticky-desktop-drag-resolved-by-human-acceptance-2026-10-18).
+
 Current software-only result: source2c533e5 is selected for next manual Start.
 Coalesced writes, on-demand feedback and bounded timing pass camera-free checks.
 A separate browser quota200% comparison reduces simulated whole-chain p95

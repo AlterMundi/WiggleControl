@@ -1,5 +1,11 @@
 # Camera-free absolute drag trace
 
+Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
+recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
+resolved. It no longer blocks the beta; the original cause remains unknown.
+This supersedes pending-reproduction statements below. See
+[the goal update](ONE-HAND-GOAL.md#sticky-desktop-drag-resolved-by-human-acceptance-2026-10-18).
+
 `tools/trace_absolute_drag.py` prepares issue#8 qualification using the existing
 finite `controller-absolute-stream` writer. It requires no writer changes, model,
 camera, browser, window automation or compositor restart. Python handles fixture

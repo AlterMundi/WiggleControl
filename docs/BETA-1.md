@@ -1,5 +1,11 @@
 # Beta 1 — one-hand desktop control
 
+Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
+recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
+resolved. It no longer blocks the beta; the original cause remains unknown.
+This supersedes pending-reproduction statements below. See
+[the goal update](ONE-HAND-GOAL.md#sticky-desktop-drag-resolved-by-human-acceptance-2026-10-18).
+
 Nicolás selected a usable one-hand beta before resuming open multipoint research
 on2026-10-16. The active priority is now to improve this one-hand controller;
 the wider touchscreen roadmap remains preserved for later. This beta is an

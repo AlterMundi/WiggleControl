@@ -1,10 +1,18 @@
 # Camera controller roadmap
 
-Current human priority: evolve the [one-hand Beta1](BETA-1.md) into a fluent,
-responsive everyday controller before resuming multipoint exploration. The
-replacement [goal specification](ONE-HAND-GOAL.md) preserves the human's physical
-feedback, temporal-continuity proposal and completion criteria. It does not edit
-or resume the harness goal automatically. The full touchscreen scope below remains.
+Current agreed delivery: the [one-hand Linux public preview](LINUX-PREVIEW.md),
+tracked by [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).
+Complete left/right/double click, gesture scroll and Escape; add a held detail
+modifier selected before an action; package and qualify independent Linux use.
+Pi 5/labwc is the initial receiving environment; Nicolás offers the ThinkPad for
+Linux x86-64 testing. Changing detail during a drag/stroke, second-hand modifiers,
+multitouch and Windows/macOS ports are later work.
+
+The preview plan owns the current delivery scope and issue order. The existing
+[goal specification](ONE-HAND-GOAL.md) and native goal state remain unchanged until
+the separate human-selected goal replacement. The broader touchscreen roadmap
+and dated implementation/receiving checkpoints below remain historical evidence,
+not additional gates on this Linux preview.
 
 Updated 2026-10-18. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving

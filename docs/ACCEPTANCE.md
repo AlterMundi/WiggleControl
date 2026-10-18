@@ -1,10 +1,17 @@
 # End-to-end acceptance checkpoint
 
-The goal remains the complete six-milestone DEVELOPMENT.md plan. The installed
-prototype is not yet an accepted camera-driven mouse/touchscreen replacement.
-QUALIFICATION.md holds dated observations; INSTALL.md and TOUCH.md hold supported
-commands/contracts. This checkpoint distinguishes implemented behavior from the
-real hand evidence needed to finish, without reducing the original scope.
+Current delivery acceptance is scoped by [LINUX-PREVIEW.md](LINUX-PREVIEW.md)
+and [#13](https://github.com/AlterMundi/WiggleControl/issues/13). Its planned
+screen/detail and basic-action requirements are not yet accepted. Latest physical
+feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
+and [CONTEXT.md](CONTEXT.md).
+
+## Historical six-milestone baseline
+
+The table and finite trial protocol below retain the original broader
+DEVELOPMENT.md checkpoint. They do not select the current beta/runtime, describe
+current test counts or require multitouch before the one-hand Linux preview.
+QUALIFICATION.md preserves dated observations.
 
 | Plan requirement | Current evidence | Remaining acceptance |
 | --- | --- | --- |

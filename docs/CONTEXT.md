@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Current delivery plan — 2026-10-18: [the one-hand Linux public preview](LINUX-PREVIEW.md)
+and [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1) own the
+next release. Screen/detail are selected before actions; switching during a held
+drag is deferred. Basic mouse actions, Escape, standalone Linux packaging and
+physical qualification are tracked in #10–#13, with #4/#9 reused. The ThinkPad is
+the offered Linux x86-64 test target; Windows/macOS remain later ports. Existing
+native goal state and receiving deployment are unchanged by this planning update.
+
 Update2026-10-18: Nicolás confirms that the stuck-folder incident has not
 recurred and asks to consider[#8](https://github.com/AlterMundi/WiggleControl/issues/8)
 resolved. It no longer blocks the beta; the original cause remains unknown.

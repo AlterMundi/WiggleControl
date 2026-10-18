@@ -4,13 +4,19 @@ WiggleControl turns camera-observed hand gestures into operating-system input.
 Existing applications receive mouse events and, later, direct multitouch contacts;
 they do not need a WiggleControl integration.
 
-**Status: Rust gesture engine, native CPU perception and finite Linux mouse sessions implemented; physical hand accuracy and multitouch pending qualification.**
+**Status: experimental one-hand Linux mouse in human use; no packaged release yet.**
+The selected beta uses headless GPU hand inference, Rust gesture interpretation
+and Linux virtual input; a native CPU backend also exists. The next delivery is
+the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
+Right-click, gesture Escape and absolute detail mode remain planned work;
+multitouch and other operating systems remain later qualification/ports.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need
 a specific technical justification; low resource use must be measured.
 
 Start here:
 
+- [Linux public preview milestone](https://github.com/AlterMundi/WiggleControl/milestone/1): scoped features, packaging and acceptance.
 - [Current roadmap](docs/ROADMAP.md): iteration goal, realistic mode/model expansion and evidence gates.
 - [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.
 - [Direct-touch intent](docs/TOUCH.md), separate from camera hand engagement.

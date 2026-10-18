@@ -389,6 +389,28 @@ control remains pending and the controller candidate is not the everyday runtime
    Update the installed profile only from relevant evidence. Publish what works
    and its limits; keep incomplete branches explicit.
 
+## Future inference backend without Chromium
+
+Human decision — 2026-10-18: retain the working headless Chromium/MediaPipe GPU
+backend for the current Linux preview, and explicitly pursue a Chromium-free
+alternative with equivalent tracking quality and equal or better performance.
+This is later work under [#3](https://github.com/AlterMundi/WiggleControl/issues/3),
+not a prerequisite for milestone1 or authorization to replace the accepted runtime.
+
+Reuse the timestamped observation seam, native Rust/ONNX implementation and
+retained fixtures. Compare real model/runtime/GPU availability on the Pi and
+actual x86 target rather than assuming a native implementation is faster. Measure
+the whole frame-to-input path, initialization, CPU/RSS and sustained thermal
+behavior under matched camera/scene, hand count and power policy. Include image
+transport/decode overhead and detection/tracking quality, loss recovery, false
+actions and operator comfort; model inference time alone cannot decide adoption.
+
+A candidate must preserve source freshness, ownership, calibration, gesture
+semantics, writer/watchdog cleanup and manual sensor lifecycle. Pin distributable
+assets/licenses and demonstrate independent installation before selecting it.
+Keep Chromium and rollback available until a matched source/device/human comparison
+supports migration. No particular replacement runtime is selected by this decision.
+
 ## Interaction modes
 
 These are a product roadmap, not claims that all modes are implemented.

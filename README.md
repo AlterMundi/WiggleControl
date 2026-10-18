@@ -5,11 +5,12 @@ Existing applications receive mouse events and, later, direct multitouch contact
 they do not need a WiggleControl integration.
 
 **Status: experimental one-hand Linux mouse in human use; no packaged release yet.**
-The selected beta uses headless GPU hand inference, Rust gesture interpretation
+The selected beta uses headless Chromium GPU hand inference, Rust gesture interpretation
 and Linux virtual input; a native CPU backend also exists. The next delivery is
 the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
-Right-click has an [opt-in source candidate](docs/MOUSE-ACTIONS.md), not yet
-physically accepted. Gesture Escape and absolute detail remain planned;
+Left/right gestures have [first positive human feedback](docs/ACCEPTANCE.md);
+[held absolute detail](docs/DETAIL.md) is implemented in source and awaits physical
+qualification. Gesture scroll and Escape remain unfinished;
 multitouch and other operating systems remain later qualification/ports.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need
@@ -31,6 +32,27 @@ Start here:
 - [Implementation tracking](https://github.com/AlterMundi/WiggleControl/issues/1).
 - [Project context](docs/CONTEXT.md): decisions and current limits.
 - [Agent instructions](AGENTS.md): contribution and device-test workflow.
+
+## Current runtime architecture
+
+Rust acquires camera frames, interprets hand observations, applies calibration and
+cursor filtering, and delivers Linux virtual input. The selected perception
+backend runs pinned MediaPipe Tasks in a headless Chromium worker using the Pi's
+qualified WebGL GPU route. Camera/skeleton display is optional and separate.
+The existing native Rust/ONNX CPU backend remains available for comparison.
+
+Chromium currently provides a working model/runtime/GPU combination, with extra
+process, memory, startup and image-transport/decode costs. The dated
+[matched Tasks CPU/GPU comparison](docs/research/palm-correspondence-gpu-2026-10.md)
+is evidence for this route, not a matched claim against the native ONNX backend
+or current camera-to-pointer latency.
+
+Nicolás's decision on 2026-10-18: retain Chromium for this preview and pursue a
+future Chromium-free backend with equivalent tracking quality and equal or better
+end-to-end performance. The observation seam allows replacing inference while
+retaining gesture meaning, calibration and OS delivery. See
+[the future backend track](docs/ROADMAP.md#future-inference-backend-without-chromium).
+This exploration is not a new release prerequisite or an immediate backend rewrite.
 
 ## First useful outcome
 

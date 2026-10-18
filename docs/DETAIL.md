@@ -110,3 +110,17 @@ was found. This supports compatibility on those takes, not deliberate detail
 recognition or a measured physical false-activation rate. Original data, derived
 outputs and input/binary/source hashes remain private. The replay does not include
 intermediate writer ticks or application effects; simulation covers mapping.
+
+## Lightweight control status follow-up — 2026-10-18
+
+Source `/provider/config` now reports confirmed detail selection, configured
+bindings and the producer's finite acquisition countdown without reading `/state`
+or camera images. The normal mouse controls use this route for SCREEN/DETAIL and
+finite/until-Stop feedback; preparation has no acquisition countdown. Opening
+camera/input and teardown-unknown states remain distinct from confirmed closure.
+Optional `#setup` keeps a scratch task's manual Start disabled until its complete
+UI is prepared; unlocking never requests acquisition. Source tests cover these
+states and the no-image/manual-Start boundary. Local native-feature suite:207
+passed, zero failed, one existing opt-in benchmark ignored; native all-target
+Clippy, format, separate-control and preview recovery/timer checks pass. Receiving
+adoption and the physical detail trial remain pending.

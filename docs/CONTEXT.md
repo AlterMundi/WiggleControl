@@ -1,5 +1,12 @@
 # Project context — 2026-10-13
 
+Source-only detail trial preparation —2026-10-18: cheap provider configuration
+now exposes mode/detail and the producer countdown to the mouse-only controls,
+without requesting image/metadata snapshots. Scratch setup can lock manual Start
+until the UI is complete; ending/unknown device state remains distinct from
+confirmed closure.207 native-feature tests and relevant JS/Clippy checks pass.
+Not yet deployed; no new sensor or input session started. See DETAIL.md.
+
 Source-only held-detail candidate —2026-10-18: [detail precision](DETAIL.md)
 connects ring/little flexion evidence to calibrated absolute motion, independent
 of button state, with visible-position anchors and continuous screen return.

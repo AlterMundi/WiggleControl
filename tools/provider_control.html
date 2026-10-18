@@ -7,25 +7,35 @@
 <header><h1>WIGGLECONTROL // MOUSE</h1></header>
 <main>
 <p id="state" role="status">Checking camera and mouse state…</p>
+<p id="operation" role="status">Waiting for source state</p>
 <button id="start" disabled>START MOUSE</button><button id="stop" disabled>STOP SESSION</button>
 <p id="message" role="status"></p>
-<p>Open thumb/index to begin. Pinch to click; hold and move to drag.</p>
-<p>You can close this window. The mouse keeps running until Stop.</p>
+<p id="gesture-help">Open thumb/index to begin. Pinch to click; hold and move to drag.</p>
+<p id="lifetime-help">You can close this window. The mouse keeps running until Stop.</p>
 <p><a href="/provider/feedback" target="_blank" rel="noopener">Open camera feedback</a></p>
 <p>Camera recording stays local. Closing feedback stops only its display.</p>
 </main>
 <script>
 let runId=null,busy=false,ended=false;
+// A prepared scratch task can explicitly unlock its own Start after layout checks.
+// The hash never reaches the server and cannot itself request acquisition.
+globalThis.wiggleControlSetupReady=typeof location==='undefined'||location.hash!=='#setup';
 const get=id=>document.getElementById(id);
 async function poll(){try{
  const r=await fetch('/provider/config',{cache:'no-store',signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error('State unavailable');const c=await r.json();
- if(runId&&runId!==c.run_id)throw Error('Session changed. Reopen the mouse controls.');runId=c.run_id;ended=!c.active;
- get('state').textContent=ended?(c.error?'Session ended: '+c.error:'Session ended · Camera off · Mouse off'):c.camera_opened?`Camera active · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'} · Recording locally · Until Stop`:c.prepared?'Preparing detector · Camera off · Mouse off':'Ready · Camera off · Mouse off';
- get('start').disabled=busy||ended||c.prepared;get('stop').disabled=busy||ended;
- }catch(e){get('state').textContent='State unavailable · Check the activity panel';get('message').textContent=e.message;get('start').disabled=true;get('stop').disabled=!runId||busy;}
+ if(runId&&runId!==c.run_id)throw Error('Session changed. Reopen the mouse controls.');runId=c.run_id;const sourceEnded=!c.active;ended=sourceEnded&&!c.camera_opened&&c.system_input===false;
+ get('state').textContent=ended?(c.error?'Session ended: '+c.error:'Session ended · Camera off · Mouse off'):sourceEnded?`Session ending · Camera ${c.camera_opened?'active':'off'} · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'}`:c.camera_opened?`Camera active · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'} · Recording locally`:c.prepared?(c.system_input===true?'Opening camera · Mouse enabled · Recording locally':'Preparing detector · Camera off · Mouse off'):'Ready · Camera off · Mouse off';
+ const finite=Number.isFinite(c.trial_seconds)&&c.trial_seconds>0;
+ const duration=finite?(Number.isFinite(c.remaining_ms)?`${Math.ceil(c.remaining_ms/1000)} seconds remaining`:'Waiting for acquisition clock'):'Until Stop';
+ const mode=c.detail_active?'DETAIL':c.mode==='scroll'?'SCROLL':'SCREEN';
+ get('operation').textContent=ended?'Session ended':sourceEnded?'Ending · Waiting for camera/input closure':c.camera_opened?`${mode} · ${duration}`:c.prepared?(finite&&Number.isFinite(c.remaining_ms)?`Opening camera · ${duration}`:'Preparing detector · Clock not started'):globalThis.wiggleControlSetupReady?'Ready for manual Start':'Preparing test · Start locked';
+ get('gesture-help').textContent=(c.right_click?'Open both thumb/index and thumb/middle pinches to begin. Index pinch: left; middle pinch: right.':'Open thumb/index to begin. Pinch to click; hold and move to drag.')+(c.detail_configured?' Fold ring and little fingers for Detail; extend both for Screen.':'');
+ get('lifetime-help').textContent=finite?`This session ends after ${c.trial_seconds} seconds of acquisition. Closing this window does not stop it.`:'You can close this window. The mouse keeps running until Stop.';
+ get('start').disabled=busy||sourceEnded||c.prepared||!globalThis.wiggleControlSetupReady;get('stop').disabled=busy||ended;
+ }catch(e){get('operation').textContent='Mode / time unavailable';get('state').textContent='State unavailable · Check the activity panel';get('message').textContent=e.message;get('start').disabled=true;get('stop').disabled=!runId||busy;}
  if(!ended)setTimeout(poll,1000);
 }
-async function command(action){if(!runId||busy)return;busy=true;get('start').disabled=true;get('stop').disabled=true;try{
+async function command(action){if(!runId||busy||(action==='prepare'&&!globalThis.wiggleControlSetupReady))return;busy=true;get('start').disabled=true;get('stop').disabled=true;try{
  const r=await fetch('/provider/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId}),signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error(await r.text());get('message').textContent=action==='stop'?'Stop requested. Waiting for camera and mouse closure.':'Start requested. Preparing the detector.';
  }catch(e){get('message').textContent=e.message;}finally{busy=false;}}
 get('start').onclick=()=>command('prepare');get('stop').onclick=()=>command('stop');poll();

@@ -61,8 +61,27 @@ struct State {
     submission: Option<Submission>,
     receipt: Option<(u64, Value)>,
     worker_last_seen: Option<Instant>,
+    acquisition_started: Option<Instant>,
+    control_mode: Option<controller::Mode>,
+    controller_running: bool,
+    detail_active: bool,
 }
 impl State {
+    fn remaining_ms(&self, seconds: Option<u64>, now: Instant) -> Option<u64> {
+        let (seconds, started) = (seconds?, self.acquisition_started?);
+        Some(if self.eof {
+            0
+        } else {
+            Duration::from_secs(seconds)
+                .saturating_sub(now.saturating_duration_since(started))
+                .as_millis() as u64
+        })
+    }
+    fn control_output(&mut self, output: &controller::Output) {
+        self.control_mode = Some(output.mode);
+        self.controller_running = output.running;
+        self.detail_active = output.detail.is_some();
+    }
     fn worker_expired(&self, now: Instant) -> bool {
         self.ready
             && !self.eof
@@ -92,6 +111,8 @@ struct Bridge {
     presence_scores: bool,
     absolute_pointer: bool,
     cursor_output: Option<crate::cursor::Config>,
+    detail_configured: bool,
+    right_click: bool,
     manual_start: bool,
     trial_seconds: Option<u64>,
     run_id: String,
@@ -137,6 +158,8 @@ impl Bridge {
             presence_scores: false,
             absolute_pointer: false,
             cursor_output: None,
+            detail_configured: false,
+            right_click: false,
             manual_start: false,
             trial_seconds: None,
             run_id,
@@ -270,7 +293,11 @@ impl Extension for Bridge {
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
-                "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error}),
+                "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
+                "remaining_ms":state.remaining_ms(self.trial_seconds,Instant::now()),
+                "mode":state.control_mode,"controller_running":state.controller_running&&!state.eof,
+                "detail_configured":self.detail_configured,"detail_active":state.detail_active&&!state.eof,
+                "right_click":self.right_click}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -797,6 +824,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     bridge.presence_scores = config.provider_presence_scores;
     bridge.absolute_pointer = config.provider_absolute_pointer;
     bridge.cursor_output = config.pointer_cursor_output;
+    bridge.detail_configured = controller.detail_config().is_some();
+    bridge.right_click = controller.right_click_enabled();
     bridge.manual_start = manual_start;
     bridge.trial_seconds = (camera_source && !until_stop).then_some(duration / 1_000_000);
     bridge.camera_source = camera_source;
@@ -901,6 +930,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     None
                 };
                 started = Some(Instant::now());
+                bridge.state.lock().unwrap().acquisition_started = started;
                 let initial = controller.start_at(monotonic_us()?);
                 crate::session::write_controller_mapped(
                     &mut writer_output,
@@ -1121,6 +1151,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             }
             {
                 let mut s = bridge.state.lock().unwrap();
+                s.control_output(&output);
                 if s.lease
                     .as_ref()
                     .is_some_and(|l| now.saturating_sub(l.frame.source_us) > bridge.stale_us)
@@ -1420,6 +1451,52 @@ mod tests {
         assert_eq!(value["system_input"], false);
         assert_eq!(value["camera_opened"], false);
     }
+    #[test]
+    fn lightweight_control_status_has_no_preparation_countdown_and_retains_terminal_truth() {
+        let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "control".into(), 1);
+        bridge.manual_start = true;
+        bridge.trial_seconds = Some(90);
+        bridge.detail_configured = true;
+        bridge.right_click = true;
+        let now = Instant::now();
+        {
+            let mut s = bridge.state.lock().unwrap();
+            s.preparing = Some(now - Duration::from_secs(10));
+            assert_eq!(s.remaining_ms(Some(90), now), None);
+            s.acquisition_started = Some(now - Duration::from_secs(2));
+            assert_eq!(s.remaining_ms(Some(90), now), Some(88_000));
+            assert_eq!(s.remaining_ms(None, now), None);
+            assert_eq!(
+                s.remaining_ms(Some(90), now + Duration::from_secs(100)),
+                Some(0)
+            );
+            s.detail_active = true;
+            s.controller_running = true;
+            s.control_mode = Some(controller::Mode::Pointer);
+        }
+        let response = bridge.respond("GET", "/provider/config", b"").unwrap();
+        let live: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(live["detail_configured"], true);
+        assert_eq!(live["detail_active"], true);
+        assert_eq!(live["right_click"], true);
+        assert_eq!(live["mode"], "pointer");
+        assert_eq!(live["controller_running"], true);
+        assert!(live["remaining_ms"].as_u64().unwrap() <= 88_000);
+        assert_eq!(live["camera_opened"], false);
+        assert_eq!(live["system_input"], false);
+        {
+            let mut s = bridge.state.lock().unwrap();
+            s.eof = true;
+            assert_eq!(s.remaining_ms(Some(90), now), Some(0));
+        }
+        let end: Value =
+            serde_json::from_slice(&bridge.respond("GET", "/provider/config", b"").unwrap().body)
+                .unwrap();
+        assert_eq!(end["detail_active"], false);
+        assert_eq!(end["controller_running"], false);
+        assert_eq!(end["remaining_ms"], 0);
+    }
+
     #[test]
     fn manual_standby_requires_start_before_ready_and_preserves_run_identity() {
         let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "beta".into(), 1);

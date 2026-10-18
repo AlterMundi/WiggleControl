@@ -756,6 +756,16 @@ pub(crate) fn write_controller_mapped(
     workspace: Option<crate::touch_gestures::Workspace>,
 ) -> io::Result<u64> {
     let now = monotonic_us()?;
+    write_controller_mapped_at(output, publisher, frame, source, workspace, now)
+}
+pub(crate) fn write_controller_mapped_at(
+    output: &mut Option<std::process::ChildStdin>,
+    publisher: &mut crate::delivery::Publisher,
+    frame: &crate::controller::Output,
+    source: Option<u64>,
+    workspace: Option<crate::touch_gestures::Workspace>,
+    now: u64,
+) -> io::Result<u64> {
     let packet = match workspace {
         Some(workspace) => publisher.absolute_packet(frame, now, source, workspace)?,
         None => publisher.packet(frame, now, source)?,

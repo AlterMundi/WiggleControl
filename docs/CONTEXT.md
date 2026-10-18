@@ -1,5 +1,12 @@
 # Project context — 2026-10-13
 
+Detail retry —2026-10-18: the first physical take entered and exited detail once,
+then stopped because a delivered observation was336251us old (300000us limit).
+Camera/input closure and child cleanup are retained. Add pre-publication age
+recheck/neutral rearm, preserving the strict device deadline and loss-hold rules.
+Next task poses are1.5s at Nicolás's request; recognition remains100ms and cheap
+status refresh becomes250ms. See [DETAIL.md](DETAIL.md) for evidence and limits.
+
 Source-only detail trial preparation —2026-10-18: cheap provider configuration
 now exposes mode/detail and the producer countdown to the mouse-only controls,
 without requesting image/metadata snapshots. Scratch setup can lock manual Start

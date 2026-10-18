@@ -411,6 +411,31 @@ impl Controller {
         output.action = Some(ActionResult { action, handled });
         output
     }
+    /// Recheck observation age immediately before publishing to the device writer.
+    /// Interpretation and recording can consume the remaining freshness budget.
+    /// A late frame must rearm through neutral rather than terminate the session
+    /// or deliver a stale press. Existing bounded loss holds keep their deadline.
+    pub fn guard_delivery(
+        &mut self,
+        output: Output,
+        now: u64,
+        source: Option<u64>,
+    ) -> (Output, bool) {
+        let reserve = 20_000.min(self.config.stale_us / 4);
+        if output.running
+            && !output.transition
+            && !output.drag_hold.is_some_and(|hold| hold.in_grace)
+            && source.is_some_and(|t| {
+                now.saturating_sub(t) >= self.config.stale_us.saturating_sub(reserve)
+            })
+        {
+            // Do not advance the observation watermark to wall time: a later
+            // queued, still-fresh open observation may legitimately rearm.
+            self.last_now = Some(self.last_now.unwrap_or(now).max(now));
+            return (self.neutralize("delivery_source_expired"), true);
+        }
+        (output, false)
+    }
     pub fn tick(&mut self, now: u64) -> Output {
         if self.last_now.is_some_and(|t| now < t) {
             return self.neutralize("consumer_clock_regression");

@@ -33,7 +33,7 @@ async function poll(){try{
  get('lifetime-help').textContent=finite?`This session ends after ${c.trial_seconds} seconds of acquisition. Closing this window does not stop it.`:'You can close this window. The mouse keeps running until Stop.';
  get('start').disabled=busy||sourceEnded||c.prepared||!globalThis.wiggleControlSetupReady;get('stop').disabled=busy||ended;
  }catch(e){get('operation').textContent='Mode / time unavailable';get('state').textContent='State unavailable · Check the activity panel';get('message').textContent=e.message;get('start').disabled=true;get('stop').disabled=!runId||busy;}
- if(!ended)setTimeout(poll,1000);
+ if(!ended)setTimeout(poll,250);
 }
 async function command(action){if(!runId||busy||(action==='prepare'&&!globalThis.wiggleControlSetupReady))return;busy=true;get('start').disabled=true;get('stop').disabled=true;try{
  const r=await fetch('/provider/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId}),signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error(await r.text());get('message').textContent=action==='stop'?'Stop requested. Waiting for camera and mouse closure.':'Start requested. Preparing the detector.';

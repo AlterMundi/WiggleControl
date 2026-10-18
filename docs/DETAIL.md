@@ -133,3 +133,30 @@ the complete task UI was checked; final source state confirms camera/input off,
 no preparation and no acquisition countdown. The first task is three extended ↔
 ring/little-curled cycles without pinching, checking observed mode and visible
 cursor continuity. No physical detail result is claimed by standby preparation.
+
+## First physical attempt and retry — 2026-10-18
+
+The separate source258d53e trial acquired 330 interpreted observations, including
+138 with confirmed detail. It entered detail once and returned to screen once;
+this is prediction evidence, not human acceptance of precision or comfort. No
+image/metadata feedback snapshots were prepared. The trial ended early when the
+strict device writer rejected an observation 336251us old against its 300000us
+freshness limit (packet transit84us). The retained final report confirms camera
+and system input closed, writer reaped and detector closed. This establishes the
+cause of this take's early termination; the earlier unrelated failure in issue9
+remains undiagnosed.
+
+The provider now checks observation age again immediately before publication.
+An ordinary observation with less than20ms of freshness remaining is replaced
+with a neutral/rearm transition; no stale press/position is delivered. The
+existing device deadline is unchanged, and fresh open evidence is required to
+resume. Tick-only output and existing bounded loss holds retain their separate
+contracts. This addresses expiry before publication, not arbitrarily long
+post-publication scheduling stalls. A distinct discard receipt separates actual
+neutral delivery from the earlier interpreted observation record.
+
+Nicolás requested shorter practice poses: hold each pose for1.5seconds instead
+of3seconds. This is the task instruction; recognition confirmation stays100ms.
+Mouse-only status now polls lightweight configuration every250ms instead of1s
+so displayed SCREEN/DETAIL follows selection more promptly without image reads.
+The next finite trial retains manual Start, private recording and scoped Stop.

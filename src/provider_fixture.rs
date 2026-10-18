@@ -1131,13 +1131,22 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             } else {
                 controller.tick(now)
             };
-            crate::session::write_controller_mapped(
+            let handoff_us = monotonic_us()?;
+            let (output, discarded) =
+                controller.guard_delivery(output, handoff_us, delivery_source);
+            crate::session::write_controller_mapped_at(
                 &mut writer_output,
                 &mut publisher,
                 &output,
                 delivery_source,
                 absolute_workspace,
+                handoff_us,
             )?;
+            if discarded {
+                journal.emit(json!({"event":"delivery_source_discarded",
+                    "sequence":feedback.sequence,"source_us":delivery_source,
+                    "now_us":handoff_us,"controller":output}))?;
+            }
             let active = (
                 output.contacts.iter().map(|c| c.id).collect::<Vec<_>>(),
                 output.button_down,

@@ -88,6 +88,97 @@ fn press(c: &mut Controller) {
 }
 
 #[test]
+fn delivery_guard_discards_an_observation_that_expired_after_interpretation() {
+    use wigglecontrol::delivery::{Publisher, State};
+    let mut c = Controller::new(Settings {
+        gestures: Config {
+            stale_us: 300_000,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .unwrap();
+    let mut publisher = Publisher::default();
+    let mut receiver = State::default();
+    let start = publisher.packet(&c.start(), 0, None).unwrap().unwrap();
+    receiver.apply(0, start, 2000.0, 300_000).unwrap();
+    observe(&mut c, 1, false);
+    observe(&mut c, 20_001, true);
+    let late = observe(&mut c, 60_001, true);
+    assert!(down(&late));
+    // Actual retained failure: source 336251us old, publication 84us old.
+    let handoff = 60_001 + 336_251 - 84;
+    let unsafe_packet = publisher
+        .packet(&late, handoff, Some(60_001))
+        .unwrap()
+        .unwrap();
+    let error = receiver
+        .apply(handoff + 84, unsafe_packet, 2000.0, 300_000)
+        .err()
+        .expect("expired source must still be rejected");
+    assert!(error.to_string().contains("source_expired"));
+    let (neutral, discarded) = c.guard_delivery(late, handoff, Some(60_001));
+    assert!(discarded && neutral.transition && neutral.running);
+    assert_eq!(neutral.reason, Some("delivery_source_expired"));
+    assert!(!neutral.button_down && !neutral.pointer_ready);
+    assert!(!down(&neutral));
+    let packet = publisher
+        .packet(&neutral, handoff, Some(60_001))
+        .unwrap()
+        .unwrap();
+    receiver
+        .apply(handoff + 84, packet, 2000.0, 300_000)
+        .unwrap();
+    // Closed reacquisition cannot invent the discarded click.
+    assert!(!down(&observe(&mut c, handoff + 100, true)));
+    // Queued but fresh open evidence need not be newer than the wall-clock guard.
+    let opened = c.observe(
+        handoff + 200,
+        frame(handoff - 1, vec![hand(7, false, 0.5, 0.5)]),
+        None,
+    );
+    assert!(opened.pointer_ready);
+    observe(&mut c, handoff + 20_000, true);
+    let pressed = observe(&mut c, handoff + 60_000, true);
+    assert!(down(&pressed));
+    let packet = publisher
+        .packet(&pressed, handoff + 60_000, Some(handoff + 60_000))
+        .unwrap()
+        .unwrap();
+    receiver
+        .apply(handoff + 60_084, packet, 2000.0, 300_000)
+        .unwrap();
+}
+
+#[test]
+fn delivery_guard_keeps_fresh_frames_ticks_and_bounded_drag_grace() {
+    let mut c = Controller::new(Settings {
+        gestures: Config {
+            stale_us: 300_000,
+            drag_grace_us: 1_000_000,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .unwrap();
+    c.start();
+    let fresh = observe(&mut c, 1, false);
+    let (fresh, discarded) = c.guard_delivery(fresh, 80_001, Some(1));
+    assert!(!discarded && fresh.pointer_ready);
+    observe(&mut c, 100_001, true);
+    let held = observe(&mut c, 140_001, true);
+    assert!(held.button_down);
+    let tick = c.tick(150_001);
+    assert!(!c.guard_delivery(tick, 150_001, None).1);
+    let lost = c.observe(160_001, frame(160_001, vec![]), None);
+    let deadline = lost.drag_hold.unwrap().until_us;
+    assert!(lost.drag_hold.unwrap().in_grace);
+    let (hold, discarded) = c.guard_delivery(lost, 500_001, Some(160_001));
+    assert!(!discarded && hold.button_down);
+    assert_eq!(hold.drag_hold.unwrap().until_us, deadline);
+}
+
+#[test]
 fn pointer_drag_switch_releases_and_closed_hand_cannot_move_or_press_until_open() {
     let mut c = controller(Mode::Pointer);
     press(&mut c);

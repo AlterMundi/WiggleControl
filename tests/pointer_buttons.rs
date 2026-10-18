@@ -171,6 +171,29 @@ mod linux {
     }
 
     #[test]
+    fn late_delivery_releases_either_button_and_closed_reacquisition_cannot_press() {
+        for button in [MouseButton::Left, MouseButton::Right] {
+            let mut p = Pipeline::new(true, false);
+            p.sample(1, false, button);
+            p.sample(20_001, true, button);
+            let (held, batch) = p.sample(60_001, true, button);
+            let code = if button == MouseButton::Left {
+                KeyCode::BTN_LEFT.0
+            } else {
+                KeyCode::BTN_RIGHT.0
+            };
+            assert_eq!(edges(&batch), vec![(code, 1)]);
+            let (neutral, discarded) = p.controller.guard_delivery(held, 396_168, Some(60_001));
+            assert!(discarded);
+            assert_eq!(edges(&p.deliver(396_168, None, &neutral)), vec![(code, 0)]);
+            assert!(edges(&p.sample(400_001, true, button).1).is_empty());
+            p.sample(420_001, false, button);
+            p.sample(440_001, true, button);
+            assert_eq!(edges(&p.sample(480_001, true, button).1), vec![(code, 1)]);
+        }
+    }
+
+    #[test]
     fn clearly_dominant_finger_does_not_wait_for_a_nearby_estimate_to_open() {
         for (index, middle, code) in [
             (0.1, 0.37, KeyCode::BTN_LEFT),

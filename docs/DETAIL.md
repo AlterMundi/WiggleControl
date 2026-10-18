@@ -160,3 +160,13 @@ of3seconds. This is the task instruction; recognition confirmation stays100ms.
 Mouse-only status now polls lightweight configuration every250ms instead of1s
 so displayed SCREEN/DETAIL follows selection more promptly without image reads.
 The next finite trial retains manual Start, private recording and scoped Stop.
+
+
+Retry receiving standby: sourcef21a48b / CI39176422738 passed all three jobs;
+210 local native-feature tests pass (one existing opt-in benchmark ignored),
+Clippy and control-page checks pass. The exact ARM64 artifact is staged in a
+separate manual90s trial, with source/observer standby and camera/input off.
+Start was locked through task preparation; the1.5s instructions and1600x857
+content fit the1600x950 viewport. Accepted baseline/profile hashes match the
+prior take. No retry acquisition or physical acceptance is claimed by this
+preparation. Private recordings and all original failed-take evidence remain.

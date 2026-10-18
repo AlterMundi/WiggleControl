@@ -2,6 +2,16 @@
 
 ## One-hand interaction priority —2026-10-16
 
+Current software-only increment —2026-10-18: the human authorized work with retained
+inputs while camera/lighting setup is deferred. No sensor/input/display/power
+activation is required. Source coalesces observation/index/native-writer JSON
+writes without changing bytes or delaying flush, publishes feedback only after
+an image/state consumer requests it (500ms interest expiry), and bounds the
+browser's recent timing trace to1024 entries. Native/JS tests pass; receiving
+replay/deployment and physical acceptance remain separate. Model, gestures,
+calibration, cursor tuning and camera controls are unchanged.
+
+
 Latest human feedback —2026-10-17: mouse-only mode works better than ever, though
 not completely fluid. Retained final400 observations have93.48ms median source→
 meaning age and67.67ms update intervals. Consecutive capture timestamps show

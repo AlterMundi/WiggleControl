@@ -729,10 +729,11 @@ struct Journal<'a> {
 }
 impl Journal<'_> {
     fn emit(&mut self, value: Value) -> io::Result<()> {
+        let line = crate::recording::json_line(&value)?;
         if let Some(file) = &mut self.recording {
-            writeln!(file, "{value}")?;
+            file.write_all(&line)?;
         }
-        writeln!(self.stdout, "{value}")?;
+        self.stdout.write_all(&line)?;
         self.stdout.flush()
     }
 }
@@ -855,6 +856,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let mut ended = None;
     let mut producer = None;
     let mut last_publish = Instant::now() - Duration::from_secs(1);
+    let mut feedback_snapshots = 0_u64;
     let outcome = (|| -> Result<(), Box<dyn Error>> {
         while !stop.load(Ordering::Relaxed) {
             if bridge.state.lock().unwrap().cancelled {
@@ -1131,7 +1133,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     ended = Some(Instant::now());
                 }
             }
-            if last_publish.elapsed() > Duration::from_millis(40) {
+            if last_publish.elapsed() > Duration::from_millis(40) && preview.requested_recently() {
                 let remain = started.map_or(30000, |s| {
                     (duration / 1000 + if camera_source { 0 } else { 2000 })
                         .saturating_sub(s.elapsed().as_millis() as u64)
@@ -1157,6 +1159,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     data["cursor_output"] = serde_json::to_value(cursor)?;
                 }
                 preview.publish(feedback.jpeg.clone(), data)?;
+                feedback_snapshots += 1;
                 last_publish = Instant::now();
             }
             if ended.is_some_and(|s| s.elapsed() > Duration::from_secs(1)) {
@@ -1277,7 +1280,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
         "source_kind":camera.source_kind,"system_input":s.system_input(),
         "camera_was_opened":camera.opened,"input_was_started":s.input_started,
-        "writer_reaped":s.writer_reaped}),
+        "writer_reaped":s.writer_reaped,"feedback_snapshots":feedback_snapshots}),
     )?;
     outcome
 }

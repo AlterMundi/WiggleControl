@@ -35,6 +35,21 @@ struct Snapshot {
     guided_expires: Option<Instant>,
     published_at: Instant,
 }
+#[derive(Default)]
+struct Slot {
+    frame: Option<Arc<Snapshot>>,
+    requested: Option<Instant>,
+}
+impl Slot {
+    fn read(&mut self) -> Option<Arc<Snapshot>> {
+        self.requested = Some(Instant::now());
+        self.frame.clone()
+    }
+    fn requested_recently(&self) -> bool {
+        self.requested
+            .is_some_and(|t| t.elapsed() < Duration::from_millis(500))
+    }
+}
 /// Optional same-origin endpoint owned by an explicitly selected session.
 pub(crate) trait Extension: Send + Sync {
     fn handles(&self, path: &str) -> bool;
@@ -77,7 +92,7 @@ impl Snapshot {
     }
 }
 pub struct Preview {
-    slot: Arc<Mutex<Option<Arc<Snapshot>>>>,
+    slot: Arc<Mutex<Slot>>,
     stop: Arc<AtomicBool>,
     worker: Option<thread::JoinHandle<()>>,
     ready: Arc<AtomicBool>,
@@ -90,7 +105,7 @@ impl Preview {
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))?;
         listener.set_nonblocking(true)?;
         let port = listener.local_addr()?.port();
-        let slot = Arc::new(Mutex::new(None));
+        let slot = Arc::new(Mutex::new(Slot::default()));
         let shared = slot.clone();
         let stopped = stop.clone();
         let ready = Arc::new(AtomicBool::new(false));
@@ -123,7 +138,7 @@ impl Preview {
                     Err(_) => break,
                 }
             }
-            *shared.lock().unwrap() = None;
+            shared.lock().unwrap().frame = None;
         });
         Ok(Self {
             slot,
@@ -159,6 +174,11 @@ impl Preview {
     pub fn view_ready(&self) -> bool {
         self.ready.load(Ordering::Relaxed)
     }
+    /// Independent of inference/controls: only actual image/state consumers
+    /// request the expensive feedback snapshot, including after reopening a view.
+    pub(crate) fn requested_recently(&self) -> bool {
+        self.slot.lock().unwrap().requested_recently()
+    }
     pub fn publish(&self, jpeg: Vec<u8>, data: Value) -> io::Result<()> {
         if jpeg.len() > 2 * 1024 * 1024 {
             return Err(io::Error::other("preview frame too large"));
@@ -171,7 +191,7 @@ impl Preview {
         if metadata.len() > 8192 || metadata.contains(['\r', '\n']) {
             return Err(io::Error::other("preview metadata too large or invalid"));
         }
-        *self.slot.lock().unwrap() = Some(Arc::new(Snapshot {
+        self.slot.lock().unwrap().frame = Some(Arc::new(Snapshot {
             jpeg,
             metadata,
             expires,
@@ -191,7 +211,7 @@ impl Drop for Preview {
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
-        *self.slot.lock().unwrap() = None;
+        self.slot.lock().unwrap().frame = None;
     }
 }
 fn respond(
@@ -206,7 +226,7 @@ fn respond(
 }
 fn serve(
     stream: &mut TcpStream,
-    slot: &Mutex<Option<Arc<Snapshot>>>,
+    slot: &Mutex<Slot>,
     stop: &AtomicBool,
     ready: &AtomicBool,
     controls: &Mutex<Controls>,
@@ -392,7 +412,7 @@ fn serve(
             "",
         ),
         "GET /state HTTP/1.1" => {
-            let frame = slot.lock().unwrap().clone();
+            let frame = slot.lock().unwrap().read();
             if let Some(frame) = frame {
                 respond(
                     stream,
@@ -406,7 +426,7 @@ fn serve(
             }
         }
         "GET /frame HTTP/1.1" => {
-            let frame = slot.lock().unwrap().clone();
+            let frame = slot.lock().unwrap().read();
             if let Some(frame) = frame.as_ref() {
                 respond(
                     stream,
@@ -528,7 +548,7 @@ fn serve(
                     .unwrap()
                     .parse()
                     .map_err(io::Error::other)?;
-                let snapshot = slot.lock().unwrap().clone();
+                let snapshot = slot.lock().unwrap().frame.clone();
                 let matches = snapshot
                     .as_ref()
                     .and_then(|s| serde_json::from_str::<Value>(&s.metadata).ok())
@@ -607,6 +627,29 @@ fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feedback_demand_starts_from_a_read_expires_and_recovers_without_capture() {
+        let preview = Preview::start(0, Arc::new(AtomicBool::new(false))).unwrap();
+        assert!(!preview.requested_recently());
+        let _ = request(preview.port, "GET /", false);
+        assert!(!preview.requested_recently());
+        // Even an empty first image request must enable the next publication.
+        let response = request(preview.port, "GET /frame", false);
+        assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 204"));
+        assert!(preview.requested_recently());
+        preview
+            .publish(
+                b"retained image".to_vec(),
+                serde_json::json!({"active":true}),
+            )
+            .unwrap();
+        preview.slot.lock().unwrap().requested = Some(Instant::now() - Duration::from_secs(1));
+        assert!(!preview.requested_recently());
+        let response = request(preview.port, "GET /state", false);
+        assert!(String::from_utf8_lossy(&response).contains("\"active\":true"));
+        assert!(preview.requested_recently());
+    }
     struct Echo;
     impl Extension for Echo {
         fn handles(&self, path: &str) -> bool {
@@ -818,7 +861,7 @@ mod tests {
         let owned_slot = preview.slot.clone();
         drop(preview);
         assert!(stop.load(Ordering::Relaxed));
-        assert!(owned_slot.lock().unwrap().is_none());
+        assert!(owned_slot.lock().unwrap().frame.is_none());
         // Other parallel previews may reuse a released ephemeral port. Verify
         // this preview's worker/owner clones are gone, not global port ownership.
         assert_eq!(Arc::strong_count(&owned_slot), 1);

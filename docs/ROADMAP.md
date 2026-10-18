@@ -6,10 +6,19 @@ replacement [goal specification](ONE-HAND-GOAL.md) preserves the human's physica
 feedback, temporal-continuity proposal and completion criteria. It does not edit
 or resume the harness goal automatically. The full touchscreen scope below remains.
 
-Updated 2026-10-17. This is the current development entry point. The original
+Updated 2026-10-18. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.
+
+Current authorized track: software-only optimization while camera/lighting setup
+is deferred. Coalesce JSON writes on recording/input paths, skip unused feedback
+preparation, bound diagnostic state, and qualify identical retained/synthetic
+inputs before selecting a receiving candidate. Keep the accepted calibration,
+model, gestures and power profile unchanged. Next isolate JPEG transfer/decode/
+worker costs with retained timing evidence; adaptive cursor retuning remains a
+separate measured tradeoff. Physical camera/input trials wait for fresh manual
+Start. See [the current increment](BETA-1.md#software-only-hot-path-work-2026-10-18).
 
 Implementation tracking: [#3](https://github.com/AlterMundi/WiggleControl/issues/3),
 with existing runtime acceptance [#1](https://github.com/AlterMundi/WiggleControl/issues/1)

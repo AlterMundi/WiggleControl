@@ -4,6 +4,13 @@ const base = location.origin+'/';
 const text = (id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
 let model,runId;
 const post=(path,fields={})=>fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({run_id:runId,...fields}),signal:AbortSignal.timeout(2000)});
+function appendTiming(sample){
+  // Until-Stop sessions must not retain an unbounded per-frame browser trace.
+  // Full observations/video remain in the Rust-owned private recording.
+  const trace=window.wiggleProviderTrace;
+  if(trace.length>=1024){trace.splice(0,128);window.wiggleProviderTraceDiscarded+=128;}
+  trace.push(sample);
+}
 const run = async()=>{
   const config = await (await fetch('/provider/config')).json();
   runId=config.run_id;
@@ -47,6 +54,7 @@ const run = async()=>{
   }
   const warmup_ms=performance.now()-warmStart;
   window.wiggleProviderTrace=[];
+  window.wiggleProviderTraceDiscarded=0;
   const ready=await post('/provider/ready');
   if(!ready.ok)throw Error('Worker readiness was rejected');
   let received=0,dropped=0;
@@ -76,7 +84,7 @@ const run = async()=>{
         right_probability:c.categoryName==='Right'?c.score:1-c.score};
     });
     const returned=await post('/provider/result',{sequence:ticket.sequence,hands});
-    window.wiggleProviderTrace.push({sequence:ticket.sequence,fetch_ms:fetched-began,
+    appendTiming({sequence:ticket.sequence,fetch_ms:fetched-began,
       decode_ms:decoded-fetched,worker_roundtrip_ms:completed-decoded,
       worker_inference_ms:inferred.inference_ms,presence_reason:inferred.presence_reason,post_ms:performance.now()-completed,
       status:returned.status});

@@ -7,6 +7,14 @@ use std::{
     path::{Path, PathBuf},
 };
 pub const MAX_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Encode before touching an unbuffered file/pipe: serde's streaming serializer
+/// otherwise turns the JSON fields into many separate writes on the hot path.
+pub(crate) fn json_line(value: &impl Serialize) -> io::Result<Vec<u8>> {
+    let mut line = serde_json::to_vec(value)?;
+    line.push(b'\n');
+    Ok(line)
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct FrameIndex {
     #[serde(default)]
@@ -162,17 +170,13 @@ impl Frames {
             self.offset = 0;
         }
         self.video.write_all(bytes)?;
-        serde_json::to_writer(
-            &mut self.index,
-            &FrameIndex {
-                segment: self.segment,
-                source_us,
-                sequence,
-                offset: self.offset,
-                length: bytes.len(),
-            },
-        )?;
-        writeln!(self.index)?;
+        self.index.write_all(&json_line(&FrameIndex {
+            segment: self.segment,
+            source_us,
+            sequence,
+            offset: self.offset,
+            length: bytes.len(),
+        })?)?;
         self.offset += bytes.len() as u64;
         self.last = Some(source_us);
         Ok(())
@@ -181,6 +185,89 @@ impl Frames {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct Counting<W> {
+        inner: W,
+        writes: usize,
+    }
+    impl<W: Write> Write for Counting<W> {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.writes += 1;
+            self.inner.write(bytes)
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            self.inner.flush()
+        }
+    }
+    fn sample() -> serde_json::Value {
+        serde_json::json!({"event":"frame","source_us":1000001,"now_us":1100001,
+            "controller":{"button_down":true,"cursor":{"x":0.23456789,"y":0.87654321}},
+            "perception":[{"landmarks":vec![[0.1234,0.5678];21],"world_landmarks":vec![[0.01,-0.02,0.03];21]}],
+            "message":"unicode → and escaped\ntext"})
+    }
+    #[test]
+    fn json_lines_preserve_wire_bytes_and_coalesce_unbuffered_writes() {
+        let value = sample();
+        let mut previous = Counting {
+            inner: Vec::new(),
+            writes: 0,
+        };
+        writeln!(previous, "{value}").unwrap();
+        let mut current = Counting {
+            inner: Vec::new(),
+            writes: 0,
+        };
+        current.write_all(&json_line(&value).unwrap()).unwrap();
+        assert_eq!(previous.inner, current.inner);
+        assert!(previous.writes > 100);
+        assert_eq!(current.writes, 1);
+        let row = FrameIndex {
+            segment: 3,
+            source_us: 123456,
+            sequence: 4,
+            offset: 1024,
+            length: 2048,
+        };
+        let mut previous = Counting {
+            inner: Vec::new(),
+            writes: 0,
+        };
+        serde_json::to_writer(&mut previous, &row).unwrap();
+        writeln!(previous).unwrap();
+        assert_eq!(previous.inner, json_line(&row).unwrap());
+        assert!(previous.writes > 1);
+    }
+
+    #[test]
+    #[ignore = "explicit finite camera-free serialization/write-call benchmark"]
+    fn write_call_benchmark() {
+        let value = sample();
+        let events = 1000;
+        for paired_run in 0..3 {
+            for coalesced in if paired_run % 2 == 0 {
+                [false, true]
+            } else {
+                [true, false]
+            } {
+                let mut sink = Counting {
+                    inner: OpenOptions::new().write(true).open("/dev/null").unwrap(),
+                    writes: 0,
+                };
+                let began = std::time::Instant::now();
+                for _ in 0..events {
+                    if coalesced {
+                        let line = json_line(&value).unwrap();
+                        sink.write_all(&line).unwrap();
+                        sink.write_all(&line).unwrap();
+                    } else {
+                        writeln!(sink, "{value}").unwrap();
+                        writeln!(sink, "{value}").unwrap();
+                    }
+                }
+                println!("{{\"paired_run\":{paired_run},\"coalesced\":{coalesced},\"events\":{events},\"writes\":{},\"elapsed_us\":{}}}",sink.writes,began.elapsed().as_micros());
+            }
+        }
+    }
     #[test]
     fn indexed_reader_preserves_rotated_bytes_timestamps_and_kernel_sequences() {
         let base = std::env::temp_dir().join(format!("wiggle-reader-{}", std::process::id()));

@@ -711,8 +711,7 @@ pub(crate) fn write_controller_mapped(
         0
     };
     if let (Some(out), Some(packet)) = (output, packet) {
-        serde_json::to_writer(&mut *out, &packet)?;
-        writeln!(out)?;
+        out.write_all(&crate::recording::json_line(&packet)?)?;
         out.flush()?;
     }
     Ok(presses)

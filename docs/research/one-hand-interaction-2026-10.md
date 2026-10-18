@@ -621,3 +621,22 @@ but cannot remove a camera exposure/sampling limit by itself. A matched retained
 video benchmark on a faster host can isolate compute headroom without new camera
 capture or changed real-hand gestures. The previous136.9ms trial is not a paired
 A/B comparison, so no causal speedup percentage is claimed.
+
+
+## Camera-free software write benchmark —2026-10-18
+
+A synthetic event with21 image/world landmark triples, cursor state and escaped
+Unicode text is serialized to two `/dev/null` destinations,1000 events per case,
+three pairs with alternating order. This exercises unbuffered writes, not camera,
+GPU, real storage durability or pointer latency. The explicit test command is:
+
+```
+cargo test --locked --features native-vision --lib recording::tests::write_call_benchmark -- --ignored --nocapture
+```
+
+The local debug-build result is752000 writes before versus2000 coalesced writes
+per1000 two-destination events. Elapsed times before:919960/946163/861431µs;
+after:158588/161796/145156µs. Do not generalize that microbenchmark ratio to whole-
+controller speed. Production stdout already has its own line buffering; the
+unbuffered recording file/index/native child pipe are different sinks. Exact-byte
+regressions and receiving runtime measurements are the relevant adoption gates.

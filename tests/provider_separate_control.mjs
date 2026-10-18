@@ -5,6 +5,16 @@ import vm from 'node:vm';
 const source=fs.readFileSync('tools/synthetic/provider_fixture_client.mjs','utf8')
  .replace("import {workerSource} from '/provider/worker-tools.mjs';",'');
 const script=source.slice(0,source.indexOf('void(async()=>'))+'globalThis.runForTest=run;';
+{
+ const context=vm.createContext({location:{origin:'http://127.0.0.1:8876'},window:{wiggleProviderTrace:[],wiggleProviderTraceDiscarded:0}});
+ vm.runInContext(script,context);
+ vm.runInContext('for(let sequence=0;sequence<12000;sequence++)appendTiming({sequence});',context);
+ const trace=context.window.wiggleProviderTrace;
+ assert(trace.length<=1024&&trace.length>=896);
+ assert.equal(trace.length+context.window.wiggleProviderTraceDiscarded,12000);
+ assert.equal(trace.at(-1).sequence,11999);
+ assert.equal(trace[0].sequence,context.window.wiggleProviderTraceDiscarded);
+}
 for(const changedRun of [false,true]){
  const calls=[],timers=[];let prepared=false;
  const context=vm.createContext({

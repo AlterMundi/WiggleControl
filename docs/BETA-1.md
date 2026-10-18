@@ -402,3 +402,25 @@ without camera video or skeleton. Camera capture and private recording remain
 active, as required for hand control. This hides the feedback window; it does not
 remove the browser inference dependency or prove a performance improvement.
 The task-local STOP desktop entry remains available. WG1 rollback is unchanged.
+
+
+## Software-only hot-path work —2026-10-18
+
+The human deferred camera/lighting changes and authorized software optimization.
+The first increment encodes each journal event once, reuses its exact newline-
+terminated bytes for both destinations, coalesces frame-index writes, and sends
+each native-writer packet with one `write_all`. No batching timer or deferred
+flush is introduced. Regression checks compare previous bytes, including floats,
+Unicode/escaping and recording-index rows; existing release/freshness tests remain.
+
+The no-preview worker now also avoids server-side snapshot preparation unless
+`/frame` or `/state` was requested within500ms. Empty first requests register
+interest; views can reopen and resume without restarting inference. Calibration
+publication is unchanged, and terminal feedback is always published. The terminal
+`feedback_snapshots` counter counts live feedback publications, excluding terminal.
+
+Recent browser timing is bounded to1024 entries with batched eviction and an
+explicit discarded count. Private video/observation journals retain full evidence.
+This removes unbounded diagnostic growth, not input samples. Source/native tests,
+receiving replay and human comfort must be reported separately; write-call or CPU
+savings alone do not demonstrate lower camera-to-screen latency.

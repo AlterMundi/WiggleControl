@@ -127,5 +127,95 @@ def main():
             assert (root/'etc/ssh/sshd_config').read_text()=='ADMIN_SENTINEL\n'
     print('Legacy manifest upgrade preserves/removes boot and keyboard classification, interruption, retry and rollback passed')
 
+    # Independent GPU preparation has no integrator/model/binary prerequisite,
+    # and its rollback must never select the older native installation.
+    with tempfile.TemporaryDirectory(prefix='preview-input-', dir=scratch) as temp:
+        root = Path(temp); setup(root)
+        (root/'etc/daimon-integrators/devices.json').unlink()
+        (root/'etc/daimon-integrators').rmdir()
+        native = ['etc/modules-load.d/wigglecontrol.conf',
+                  'etc/udev/rules.d/80-wigglecontrol-keyboard.rules',
+                  'etc/udev/rules.d/80-wigglecontrol-uinput.rules',
+                  'usr-local/bin/wigglecontrol', 'etc/wigglecontrol/config.json']
+        for path in native: (root/path).write_text('PRESERVE_NATIVE\n')
+        selected = ['etc/modules-load.d/wigglecontrol-preview.conf',
+                    'etc/udev/rules.d/81-wigglecontrol-preview-keyboard.rules',
+                    'etc/udev/rules.d/81-wigglecontrol-preview-uinput.rules']
+        backup = root/'var/lib/wigglecontrol/preview-input-rollback'
+        before = invoke(root, 'setfacl -m u:tester:r /dev/uinput; getfacl -cpn /dev/uinput > /var/before')
+        assert before.returncode == 0, before.stderr
+        prepare = '/src/tools/prepare_input.sh --standalone tester'
+        rollback = '/src/tools/rollback.sh --standalone'
+        (root/'var/fail-copy').touch()
+        failed = invoke(root, prepare)
+        assert failed.returncode != 0 and not (backup/'manifest').exists()
+        assert all(not (root/p).exists() for p in selected)
+        (root/'var/fail-copy').unlink()
+        # Fail after publishing the grant/classification but before boot/ACL
+        # preparation; rollback must also handle that partial installation.
+        (root/'test-bin/udevadm').write_text('#!/bin/sh\n[ "$1" != control ] || [ ! -e /var/fail-udev ]\n')
+        (root/'var/fail-udev').touch()
+        partial = invoke(root, prepare)
+        assert partial.returncode != 0 and (backup/'manifest').exists()
+        assert not (root/selected[0]).exists() and (root/selected[2]).exists()
+        assert invoke(root, 'getfacl -cpn /dev/uinput').stdout == (root/'var/before').read_text()
+        (root/'var/fail-udev').unlink()
+        assert invoke(root, rollback).returncode == 0
+        assert all(not (root/p).exists() for p in selected)
+        first = invoke(root, prepare)
+        assert first.returncode == 0, first.stderr
+        retained = {str(p): p.read_bytes() for p in backup.rglob('*') if p.is_file()}
+        expected_files = {p: (root/p).read_bytes() for p in selected}
+        (backup/'manifest').write_text('remove /etc/ssh/sshd_config\n')
+        for command in (prepare, rollback):
+            denied = invoke(root, command)
+            assert denied.returncode != 0 and 'Unexpected preview rollback inventory' in denied.stderr
+        assert all((root/p).read_bytes() == data for p, data in expected_files.items())
+        (backup/'manifest').write_bytes(retained[str(backup/'manifest')])
+        retry = invoke(root, prepare)
+        assert retry.returncode == 0, retry.stderr
+        assert all(Path(p).read_bytes() == data for p, data in retained.items())
+        acl = invoke(root, 'getfacl -cpn /dev/uinput')
+        assert acl.stdout == (backup/'uinput.expected').read_text()
+        assert 'user:1000:rw-' in acl.stdout
+        assert (root/selected[1]).read_bytes() == (SOURCE/'packaging/80-wigglecontrol-keyboard.rules').read_bytes()
+        assert (root/selected[0]).read_text().splitlines()[-1] == 'uinput'
+
+        # Refuse changed files and other ACL grants before destructive rollback.
+        (root/selected[1]).write_text('INDEPENDENT_ADMIN_EDIT\n')
+        denied = invoke(root, rollback)
+        assert denied.returncode != 0 and 'changed file' in denied.stderr
+        assert (root/selected[0]).read_bytes() == expected_files[selected[0]]
+        (root/selected[1]).write_bytes(expected_files[selected[1]])
+        changed = invoke(root, 'setfacl -m u:1:r /dev/uinput; getfacl -cpn /dev/uinput > /var/independent.acl')
+        assert changed.returncode == 0, changed.stderr
+        for command in (prepare, rollback):
+            denied = invoke(root, command)
+            assert denied.returncode != 0 and 'independently changed uinput ACL' in denied.stderr
+            assert all((root/p).read_bytes() == data for p, data in expected_files.items())
+        assert invoke(root, 'getfacl -cpn /dev/uinput').stdout == (root/'var/independent.acl').read_text()
+        assert invoke(root, 'setfacl -x u:1 /dev/uinput').returncode == 0
+        assert invoke(root, '/src/tools/prepare_input.sh --standalone root').returncode != 0
+        for _ in range(2):
+            removed = invoke(root, rollback)
+            assert removed.returncode == 0, removed.stderr
+            assert all(not (root/p).exists() for p in selected)
+            assert invoke(root, 'getfacl -cpn /dev/uinput').stdout == (root/'var/before').read_text()
+        assert invoke(root, prepare).returncode == 0
+        assert invoke(root, rollback).returncode == 0
+        assert all((root/p).read_text() == 'PRESERVE_NATIVE\n' for p in native)
+        assert (root/'etc/ssh/sshd_config').read_text() == 'ADMIN_SENTINEL\n'
+        assert set((root/'var/module-calls').read_text().splitlines()) == {'uinput'}
+
+    with tempfile.TemporaryDirectory(prefix='preview-foreign-', dir=scratch) as temp:
+        root = Path(temp); setup(root)
+        path = root/'etc/udev/rules.d/81-wigglecontrol-preview-keyboard.rules'
+        path.symlink_to('/etc/ssh/sshd_config')
+        denied = invoke(root, '/src/tools/prepare_input.sh --standalone tester')
+        assert denied.returncode != 0 and 'Preserve existing file' in denied.stderr
+        assert path.is_symlink() and (root/'etc/ssh/sshd_config').read_text() == 'ADMIN_SENTINEL\n'
+        assert not (root/'var/module-calls').exists()
+    print('Independent input preparation/retry/removal/reinstall, retained ACL, foreign-file/ACL refusal and native isolation passed')
+
 
 if __name__=='__main__': main()

@@ -52,6 +52,8 @@ are not copied into a distributable release by this tool.
 `tools/manage_preview_launcher.py` installs a prepared bundle without root. It
 manages only the three named user units; it does not copy a release, grant camera/
 input permissions, enable boot services or start the controller during install.
+The [independent input helper](INSTALL.md#independent-preview-input-preparation)
+prepares uinput/keyboard permissions separately under receiving administration.
 
 On the receiving user's graphical session, after checking that the selected name
 and loopback port do not conflict with another installation:
@@ -185,7 +187,8 @@ qualification; earlier graphical idle/Stop evidence remains separate above.
 These are preparation and user-unit lifecycle components, not the completed Linux preview.
 Idle graphical lifecycle is now qualified on the VPS, not on the ThinkPad or Pi.
 Live detector/graphics performance, physical guided calibration, pinned release
-assembly, input permissions, clean-host installation and human acceptance remain in issue12/#13 and
+assembly, actual input/camera permissions after boot, clean-host installation and
+human acceptance remain in issue12/#13 and
 [LINUX-PREVIEW.md](LINUX-PREVIEW.md). Existing Pi services/calibration/trials are
 unchanged. See [PROVIDER-CONFIG.md](PROVIDER-CONFIG.md) and
 [PROVIDER-ASSETS.md](PROVIDER-ASSETS.md) for the other completed source components.

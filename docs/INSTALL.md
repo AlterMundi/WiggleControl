@@ -24,9 +24,67 @@ the existing launch helper. The separate non-root manager supports scoped
 install/update/rollback/removal, preserving bundles/configuration/profiles and
 recordings; changing versions leaves input off. Actual VPS user-unit lifecycle
 and interrupted-update recovery are qualified with zero capture/input. These
-components do not yet assemble a release or grant kernel/camera permissions;
-clean-host and physical receiving qualification remain open. Do not use the
+components do not yet assemble a release. The independent input preparation
+below supplies kernel access separately; camera permissions and clean-host/
+physical receiving qualification remain open. Do not use the
 older native installer below as if it installed the independent GPU preview.
+
+## Independent preview input preparation
+
+With Python3, ACL utilities, kmod, udev and `flock` installed, the receiving
+administrator can prepare input access without models, a binary, calibration or
+any integrator/Matrix configuration:
+
+```sh
+sudo tools/prepare_input.sh --standalone RECEIVING_OPERATOR
+```
+
+Keep `packaging/80-wigglecontrol-keyboard.rules` alongside `tools` in the selected
+source tree. This mode loads only the `uinput` kernel interface, registers its
+boot module and grants the explicitly named existing account read/write access
+to `/dev/uinput`. It also classifies the fixed-key Escape device for libinput.
+It does not start a userspace input device, inference, camera, controller or
+service. Normal desktop camera access must be available separately; this helper
+does not add a user to broad input/video groups or run inference as root.
+
+Independent mode owns only these new paths:
+
+- `/etc/modules-load.d/wigglecontrol-preview.conf`
+- `/etc/udev/rules.d/81-wigglecontrol-preview-uinput.rules`
+- `/etc/udev/rules.d/81-wigglecontrol-preview-keyboard.rules`
+
+Existing files/symlinks at these paths are refused on first preparation. The
+older native installation's files, configuration and rollback are preserved.
+The first device ACL, numeric normalized ACL, expected grant, operator/name UID
+and exact selected inventory remain in the root-private
+`/var/lib/wigglecontrol/preview-input-rollback`. Retries preserve that baseline;
+one retained operator is supported per host. Rule updates/operator changes need
+explicit reconciliation of that retained installation, not silent adoption.
+
+After stopping/removing the selected controller with the user manager and
+confirming its input/camera are closed, remove the independent grant:
+
+```sh
+sudo tools/rollback.sh --standalone
+```
+
+This validates all three selected files and the current ACL before mutation,
+removes only those files and restores the original ACL entries. Device ownership
+and other administration changes are not restored from historical metadata.
+An independently changed file/ACL is preserved and reported for reconciliation;
+removal is not complete in that case. The rollback retains its private baseline,
+supports a repeated removal/reinstall with the same baseline and leaves the
+kernel module loaded because another client may use it. It neither deletes
+user configurations/recordings nor stops unrelated sessions.
+
+Isolated root/bubblewrap qualification uses a regular fake device and stubbed
+module/udev calls. Fresh preparation without integrator configuration, interrupted
+snapshot and partial-apply recovery, retry, original read-only ACL restoration,
+removal/reinstall, foreign-file/ACL refusal and preservation of an existing native
+installation pass. Existing native installation/rollback regressions still pass.
+This proves file/ACL behavior, not actual udev execution, a reboot, real device
+classification or receiving normal-user access. Those remain #4/#12 checks on
+a coordinated host; no permission changes were made on the Pi by this increment.
 
 ## Build and artifacts
 

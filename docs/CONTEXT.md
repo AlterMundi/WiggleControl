@@ -1,5 +1,14 @@
 # Project context — 2026-10-13
 
+Independent input preparation —2026-10-19: existing preparation/rollback helpers
+now support `--standalone` without binary/models or integrator configuration.
+Three separate preview paths register uinput, a named-operator ACL and Escape
+classification; the root-private input-only rollback preserves its first
+baseline and refuses later independent file/ACL edits. Isolated fake-device
+fresh/retry/interrupted/partial-apply/removal/reinstall and native-preservation
+checks pass, alongside older installation regressions. No real module/udev/device,
+Pi or post-boot qualification is implied. See [INSTALL.md](INSTALL.md#independent-preview-input-preparation).
+
 Independent user-unit installation —2026-10-19: a non-root manager selects
 prepared versioned bundles, stops only its three units on update/rollback, and
 leaves the selected version off. Hash-checked bindings, foreign-unit refusal,

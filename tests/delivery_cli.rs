@@ -341,3 +341,90 @@ fn absolute_beta_pipeline_preserves_calibration_button_order_and_eof_release_wit
     }
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn pipeline_replay_matches_live_prepublication_discard_and_requires_open_rearm() {
+    let path = std::env::temp_dir().join(format!(
+        "wigglecontrol-pipeline-guard-{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&path, r#"{"gestures":{"stale_us":300000}}"#).unwrap();
+    let frame = |source, now, closed| {
+        json!({"type":"frame","now_us":now,"observation":{
+        "version":1,"source_us":source,"ambiguous":false,"hands":[{
+            "id":7,"confidence":0.99,"engaged":true,"pinch_eligible":true,
+            "cursor":{"x":0.3,"y":0.6},"thumb_tip":{"x":0.4,"y":0.5},
+            "index_tip":{"x":0.5,"y":0.5},"palm_width":0.2,
+            "pinch_distance_ratio":if closed {0.1} else {0.6}
+        }]}})
+    };
+    let input = [
+        json!({"type":"start"}),
+        frame(1, 1, false),
+        frame(20_001, 20_001, true),
+        frame(60_001, 60_001, true),
+        // Still within the strict 300ms deadline, but beyond the live guard's
+        // 280ms cutoff. This is constructed timing, not original trial evidence.
+        frame(61_001, 346_001, true),
+        frame(350_001, 350_001, true),
+        frame(370_001, 370_001, false),
+        frame(390_001, 390_001, true),
+        frame(430_001, 430_001, true),
+    ]
+    .iter()
+    .map(Value::to_string)
+    .collect::<Vec<_>>()
+    .join("\n")
+        + "\n";
+    for absolute in [false, true] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"));
+        command
+            .arg("pipeline-replay")
+            .arg(&path)
+            .args(["2000", "300"]);
+        if absolute {
+            command.arg("--absolute");
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        let result = child.wait_with_output().unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let rows: Vec<Value> = String::from_utf8(result.stdout)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(rows[3]["controller"]["button_down"], true);
+        assert_eq!(rows[4]["controller"]["reason"], "delivery_source_expired");
+        assert_eq!(rows[4]["controller"]["button_down"], false);
+        assert!(rows[4]["mouse"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["kind"] == 1 && e["code"] == KeyCode::BTN_LEFT.0 && e["value"] == 0));
+        assert_eq!(
+            rows[5]["controller"]["button_down"], false,
+            "Fresh closed evidence cannot re-press after delivery discard"
+        );
+        assert_eq!(rows[8]["controller"]["button_down"], true);
+        assert_eq!(rows.last().unwrap()["controller"]["running"], false);
+        assert!(rows
+            .iter()
+            .all(|r| r["camera_opened"] == false && r["system_input"] == false));
+    }
+    std::fs::remove_file(path).unwrap();
+}

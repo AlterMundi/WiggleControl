@@ -1,5 +1,14 @@
 # Project context — 2026-10-13
 
+Offline delivery parity —2026-10-19: serialized pipeline replay now calls the
+live provider's final publication-age guard. A constructed 285ms-old held sample
+under 300ms freshness previously stayed pressed in both replay routes; matching
+live guard behavior releases and requires open rearm. Relative/absolute CLI
+regression passes; all180 default tests, native-feature all-target Clippy and
+format checks pass, with no camera/input. No live controller or writer deadline
+changed, and the original issue9 failure remains unclassified. See
+[CONTROLLER-NATIVE.md](CONTROLLER-NATIVE.md#cameradevice-free-qualification).
+
 Cata calibration deployment —2026-10-19: source3092347 passed all four
 CI39207545887 jobs; its complete x86-64 package passed all249 file/mode checks
 on Cata and replaced the selected manual launcher with configuration hashes
@@ -18,7 +27,9 @@ tracking frame reaches calibration, distinguish an open device from active
 tracking, and retain startup/interruption errors with confirmed closure and
 unchanged-profile guidance. JS lifecycle regressions and an isolated1366×712
 browser presentation fixture pass; this increment is not yet deployed. Diagnostic
-source3cffb0c separately passed all four CI39209268610 jobs; Cata remains on3092347.
+source3cffb0c passed all four CI39209268610 jobs. Followup55e7f71 passed all four
+CI39209705971 jobs; its downloaded x86 archive passes all249 file/mode checks.
+Cata remains on3092347; the pending camera-only diagnostic needs fresh human ready.
 
 Cata x86-64 preparation —2026-10-19: human-identified dedicated-VPN enrollment,
 controller read-back and fresh normal-user SSH passed. Observed DMI identifies

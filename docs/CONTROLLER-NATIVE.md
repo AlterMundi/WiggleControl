@@ -174,6 +174,16 @@ consumer contract and emits actual Linux event codes using the existing state
 encoders. Its clocks are explicitly supplied by replay commands. It opens no
 sensor or uinput descriptor and reports `system_input:false`.
 
+The pipeline now applies the same final `guard_delivery` freshness check as the
+live provider before publishing a packet. Its supplied `now_us` is also the
+logical handoff time; it does not simulate processing time or measure transport
+latency. A constructed 285ms-old held observation with 300ms freshness reproduces
+the prior replay mismatch: the old replay retained the press, while the live
+280ms publication cutoff requires neutral/rearm. Relative and absolute replay
+now release there and reject fresh closed evidence until open rearm. This makes
+offline delivery comparisons faithful to that fence; it does not diagnose the
+original physical interruption in issue9 or alter the live provider/writer.
+
 The optional one-hand drag candidate uses `gestures.drag_grace_us` (default0;
 when enabled, source freshness..2000000us). Matching camera-worker sessions use
 `pointer_drag_grace_ms` with explicit absolute-provider selection. A `hold` packet

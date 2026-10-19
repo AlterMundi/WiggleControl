@@ -886,6 +886,9 @@ fn pipeline_replay(
             _ => None,
         };
         let output = controller.command(command);
+        // Match the live provider's final freshness fence before publication.
+        // Replay's supplied clock is logical; this is not measured IPC latency.
+        let (output, _) = controller.guard_delivery(output, now, source);
         let mut batch = match state.tick(now, watchdog_ms * 1000) {
             Ok(batch) => batch,
             Err(error) => {

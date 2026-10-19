@@ -706,3 +706,80 @@ cursor settings, recording requirement and WG1 rollback are preserved. Native
 camera-free until-Stop preflight confirms no acquisition/input. No production
 source, model, sensor, UI or input was started for this delivery. Physical perceived
 smoothness remains to compare when the human returns to the setup.
+
+## Preview double-click timing and retained physical cadence —2026-10-19
+
+The current x86-64 candidate at source7aed4ef (binary SHA256
+`1beeaffb112cadd8b8397628aac525baed90bcb19ca9af421ab04cf3f71bf86b`)
+was replayed with the complete `packaging/preview-settings.json`, including
+right click, cursor reconstruction/stabilization, detail, Escape and scroll.
+The synthetic index closures receive same-hand/frame positive middle-open evidence;
+no detail/Escape/scroll gesture evidence is supplied. This covers the selected
+option combination, not recognition of those modifier gestures.
+
+The existing `tools/score_click_timing.py` now accepts `--settings` and
+`--pinch-drift`, preserves loaded confirmation unless explicitly overridden,
+and records press spacing and within-held movement at an explicitly assumed
+1920×1080 output. Its default timing envelope still reproduces the earlier
+`0/0/7/17/17/10` complete-pair counts. To reproduce the selected combination:
+
+```sh
+python3 tools/score_click_timing.py \
+  --binary /absolute/native-candidate/wigglecontrol \
+  --settings packaging/preview-settings.json --pinch-drift .004 \
+  --period-ms 68 --output-dir /absolute/new-double-click-results
+```
+
+Three102-case sweeps use17 phases per closure/open interval, supplied65ms delay,
+and source periods33.333/68/100ms. Known stationary intent has opposite0.004
+normalized observation offsets during the two closures. All306 cases end neutral.
+Complete pairs out of17 phases are:
+
+| Closed/open intervals(ms) |33.333ms source period |68ms |100ms |
+| --- | ---: | ---: | ---: |
+|60/80 |0 |0 |0 |
+|80/80 |3 |0 |0 |
+|100/100 |17 |7 |0 |
+|140/100 |17 |17 |0 |
+|200/100 |17 |17 |17 |
+|140/40 |17 |10 |0 |
+
+For the140/100 case at68ms spacing, emitted press intervals are204..272ms,
+maximum press separation is0.674px and within-held travel is0px. The200/100
+case at100ms spacing emits300ms-separated presses, with0.234px maximum separation
+and0px within-held travel. An additional612 constructed cases spanning source
+x=0.21/0.5/0.79 reproduce the temporal pattern for the80/80,100/100,140/100 and
+200/100 waves; successful pair separation stays below1px. These are declared
+synthetic offsets, not measured hand jitter or an application's accepted double
+click. Missed opening samples can merge two closures into one held action; the
+140/40 case reaches7.65px held travel in this fixture. No missing opening or click
+is invented to improve the score.
+
+The timing envelope motivates checking actual delivered observations. Offline
+inspection of the retained, accepted53caf00 physical scroll trial found1206
+accepted meaning frames with1205 strictly increasing intervals:
+
+| Actual retained measurement |Median(ms) |p95(ms) |
+| --- | ---: | ---: |
+| Accepted frame source timestamp spacing |67.982 |199.999 |
+| Rust meaning timestamp spacing |66.516 |169.781 |
+| Source timestamp → Rust meaning publication |89.774 |125.981 |
+| Lease issue → browser result receipt |48.407 |64.892 |
+| Browser result receipt → Rust meaning publication |2.493 |4.772 |
+
+Accepted meaning cadence is13.504Hz over the observed interval. This is neither
+raw camera FPS nor a new performance run. Lease roundtrip includes transport,
+decode/scheduling/inference/posting; it is not isolated model compute. Source-to-
+meaning excludes subsequent writer/compositor/display response and is not
+exposure-to-photon latency. This physical take was a scroll exercise, with no
+independently labelled double-click intent. Its private journal/video stay private.
+
+The current stabilizer handles the specified synthetic lateral offset well; it
+cannot recover unsampled opening/closure evidence. Faster useful observations
+remain a concrete hypothesis for more natural brief pinches, alongside physical
+intent/false-action checks. Preserve40ms confirmation and immediate positive
+opening: the earlier single-false-closure counterexample still argues against
+adopting0ms confirmation from timing success alone. Next qualify natural double
+pinch and actual application effects on the prepared receiving host, record its
+cadence, and compare stage costs before selecting another optimization. This
+adds no camera use, desktop injection, setting adoption or release acceptance.

@@ -165,3 +165,20 @@ actions remain unqualified; normal beta/calibration are preserved.
 Pi tests remain serialized with realtime-conversation work. Continue off-Pi
 source/replay work between freshly acknowledged finite physical trials. No camera
 or input session starts from reading or updating these records.
+
+## Double-click source envelope —2026-10-19
+
+The selected full preview settings now have constructed temporal/spatial replay
+coverage: at68ms observation spacing,140ms closures/100ms openings yield two
+complete pairs in17/17 phases with under1px press separation for the specified
+opposite pinch offsets. At100ms spacing, these140ms closures fail to yield two
+pairs in all17 phases;200ms closures/100ms openings produce both pairs. No missing
+opening/closure is synthesized. All306 central phase cases and612 multi-target
+cases end neutral. The earlier gesture-only timing envelope is unchanged.
+
+The accepted physical scroll take supplies13.5Hz accepted meaning cadence with
+66.5ms median/169.8ms p95 spacing, but no labelled double-click intent. Thus natural
+physical double-pinch and actual application acceptance remain open. Keep the
+selected confirmation/release defaults; timing success alone does not resolve the
+known false-closure tradeoff. See the exact settings, metric definitions, source
+and reproduction command in the [interaction comparison](research/one-hand-interaction-2026-10.md#preview-double-click-timing-and-retained-physical-cadence-2026-10-19).

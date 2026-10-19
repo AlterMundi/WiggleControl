@@ -1,5 +1,16 @@
 # Project context — 2026-10-13
 
+Double-click envelope —2026-10-19: selected preview options pass306 constructed
+phase cases with neutral EOF; a further612 cases cover three target positions.
+Timing coverage, rather than the tested lateral offset, limits brief closures:
+140ms closed/100ms open succeeds17/17 phases at68ms sample spacing, while100ms
+spacing needs200ms closures in this fixture. The accepted scroll journal supplies
+actual13.5Hz meaning cadence,66.5/169.8ms median/p95 spacing and89.8/126.0ms
+source-to-meaning age; these are not physical double-click intent/accuracy or
+exposure-to-display latency. Existing timing tool now accepts selected settings
+and drift, with unchanged legacy results. No controller setting or receiving
+state changed. See [interaction comparison](research/one-hand-interaction-2026-10.md#preview-double-click-timing-and-retained-physical-cadence-2026-10-19).
+
 Preview package assembly —2026-10-19: source now assembles source-bound ARM64/
 x86-64 candidates with selected tools/docs, pinned GPU assets, original blank
 warmup, locked Rust dependency notices and an exact integrity/mode inventory.

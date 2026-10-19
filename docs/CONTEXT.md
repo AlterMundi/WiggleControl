@@ -7,6 +7,12 @@ on closure; no second capture or mouse-only rendering is introduced. Corner
 markers use the entire viewport; step acknowledgment waits for fullscreen.
 The receiving c1e94ff trial reached step2 after both diagonals, then was cancelled
 without saving. New visual presentation and physical acceptance remain separate.
+Final source80cf8a5 passes all four CI39236188821 jobs. Cata independently
+verified250 package files/modes, prepared and installed the packaged camera/
+fullscreen calibration bundle and opened it in manual idle: camera/input off,
+error=null, configuration hashes unchanged, no profile or new capture. Native
+accessibility observes the owned fullscreen window at0,0 and1366x768. Live-image
+framing and all four corners/Save still need the human's fresh manual Start.
 
 Calibration continuity correction —2026-10-19: after improved illumination the
 human's latest attempt detected one hand in all215 processed frames, yet only one

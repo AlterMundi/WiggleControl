@@ -10,6 +10,13 @@ while stale delivered sources still cannot calibrate. Capture closure also wakes
 an in-flight result as expired instead of an eventual fatal503. See
 [GPU-CALIBRATION.md](GPU-CALIBRATION.md#interframe-calibration-continuity-2026-10-19).
 Source validation/deployment and fresh physical acceptance remain separate.
+Source c1e94ff passes254 local native-feature tests (one ignored benchmark),
+native all-target Clippy, calibration-control JS and all four CI39227620055 jobs.
+Cata verified all250 files of the matching x86 package and installed/opened its
+actual minimized calibration bundle in manual idle, camera/input off, error=null;
+session/settings hashes unchanged, previous versions retained, no profile saved
+or new capture. The owned window is visible. Next is fresh manual Start to verify
+physical diagonal progression and all four corners/Save.
 
 Superseding Cata startup check —2026-10-19: selected5f502eb's manual Start
 failed before camera acquisition because the headless detector could not create

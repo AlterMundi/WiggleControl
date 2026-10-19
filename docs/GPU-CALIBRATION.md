@@ -143,3 +143,16 @@ frame. Raw private recording files remain empty. Non-streaming Rust setup and
 both QBUF operations pass. This narrows the failing phase but does not yet
 establish whether STREAMON or dequeue fails, nor its driver/hardware cause.
 No new physical calibration was started after that probe.
+
+### Startup feedback followup
+
+Controls now display preparation until a tracking frame reaches calibration;
+opening a video device alone does not start an instruction or its timer. Startup
+and interrupted-session errors retain their reason, distinguish closing from
+confirmed closure, and preserve the saved-profile guidance. `has_frame` proves a
+tracking observation reached calibration, not that no raw camera bytes existed.
+Existing JS lifecycle tests now cover these distinctions, alongside painted-step
+acknowledgments and closure-gated Save. An isolated Chromium presentation fixture
+fits preparing, startup-error and interrupted states at1366×712 without scrolling;
+this is source/UI evidence, not a new Cata deployment or acquisition. The earlier
+diagnostic source3cffb0c passed all four CI39209268610 jobs.

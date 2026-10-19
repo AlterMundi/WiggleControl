@@ -13,6 +13,13 @@ streaming; the failing operation remains under investigation. All four corners,
 Save, active Cancel/Retry and mouse/performance acceptance remain unqualified. See
 [GPU-CALIBRATION.md](GPU-CALIBRATION.md).
 
+Calibration startup feedback —2026-10-19: controls now show preparation until a
+tracking frame reaches calibration, distinguish an open device from active
+tracking, and retain startup/interruption errors with confirmed closure and
+unchanged-profile guidance. JS lifecycle regressions and an isolated1366×712
+browser presentation fixture pass; this increment is not yet deployed. Diagnostic
+source3cffb0c separately passed all four CI39209268610 jobs; Cata remains on3092347.
+
 Cata x86-64 preparation —2026-10-19: human-identified dedicated-VPN enrollment,
 controller read-back and fresh normal-user SSH passed. Observed DMI identifies
 ThinkPad X230 (superseding older reported X220), Debian13/trixie, GNOME/Wayland,

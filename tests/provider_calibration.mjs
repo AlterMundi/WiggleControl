@@ -18,8 +18,18 @@ assert.equal(el('start').disabled,false);assert.equal(el('save').disabled,true);
 await el('start').onclick();assert.equal(calls.at(-1).path,'/provider/prepare');
 calibration.phase='waiting';calibration.camera_closed=false;calibration.guide={phase:'waiting',step:0,remaining_ms:null,instruction:'Upper left'};
 await vm.runInContext('poll()',context);assert(!calls.some(c=>c.path.endsWith('/step')),'No step clock before a source frame');
+assert.equal(el('instruction').textContent,'Preparing calibration');
+assert.match(el('clock').textContent,/Waiting for first tracking frame/);
+assert.match(el('progress').textContent,/timer starts when/);
+assert.match(el('message').textContent,/Wait for tracking to begin/);
+assert.equal(el('cancel').disabled,false);
+config.camera_opened=true;
+await vm.runInContext('poll()',context);
+assert.match(el('state').textContent,/Camera open.*Waiting for tracking/);
+assert(!calls.some(c=>c.path.endsWith('/step')),'An open device is not a captured frame');
 calibration.has_frame=true;config.camera_opened=true;
 await vm.runInContext('poll()',context);
+assert.equal(el('instruction').textContent,'Upper left');
 assert.equal(calls.at(-1).path,'/provider/calibration/step');assert.equal(calls.at(-1).body.step,0);assert.equal(paints,2);
 await vm.runInContext('poll()',context);assert.equal(calls.filter(c=>c.path.endsWith('/step')).length,1,'Do not repeat a step acknowledgment');
 calibration.guide.step=2;calibration.review.corner_target=[1,0];calibration.target=[.9,.1];
@@ -47,3 +57,29 @@ assert.match(el('message').textContent,/Saved.*off/);assert.equal(el('start').di
 const count=calls.length;await vm.runInContext('poll()',context);assert.equal(calls.length,count,'Retain final state after listener closes');
 assert(calls.every(c=>c.path.startsWith('/provider/config')||c.path.startsWith('/provider/calibration/')||['/provider/prepare','/provider/terminal-visible'].includes(c.path)));
 console.log('Calibration controls: explicit Start, painted steps, closure-gated Save, manual Retry and retained result');
+
+// A startup failure must retain actionable status after its listener goes away.
+config.active=false;config.error='camera stream next: Invalid argument (os error 22)';
+calibration.phase='waiting';calibration.saved=false;calibration.has_frame=false;
+calibration.camera_closed=true;config.camera_opened=false;
+vm.runInContext('render('+JSON.stringify(config)+')',context);
+assert.equal(el('instruction').textContent,'Calibration could not start');
+assert.equal(el('clock').textContent,'Stopped');
+assert.match(el('state').textContent,/camera stream next/);
+assert.match(el('message').textContent,/Camera is closed.*No tracking frame reached calibration.*profile is unchanged/);
+assert.equal(el('start').disabled,true);assert.equal(el('save').disabled,true);
+calibration.has_frame=true;
+vm.runInContext('render('+JSON.stringify(config)+')',context);
+assert.equal(el('instruction').textContent,'Calibration interrupted');
+assert.doesNotMatch(el('message').textContent,/No tracking frame/);
+config.active=true;calibration.camera_closed=false;config.camera_opened=true;
+vm.runInContext('render('+JSON.stringify(config)+')',context);
+assert.match(el('message').textContent,/Closing camera/);
+assert.doesNotMatch(el('message').textContent,/Camera is closed/);
+console.log('Startup waiting and errors distinguish open device, actual frames and confirmed closure');
+
+calibration.saved=true;calibration.camera_closed=true;config.active=false;config.camera_opened=false;
+vm.runInContext('render('+JSON.stringify(config)+')',context);
+assert.equal(el('instruction').textContent,'Calibration saved');
+assert.equal(el('clock').textContent,'Finished');
+assert.match(el('message').textContent,/Saved.*off/);

@@ -20,19 +20,22 @@ async function post(action,fields={}){const r=await fetch('/provider/'+action,{m
 function dot(id,point){const node=el(id);node.toggleAttribute('hidden',!point);if(point){node.setAttribute('cx',point[0]*100);node.setAttribute('cy',point[1]*100);}}
 function render(c){const s=c.calibration;if(!s)throw Error('This source is not a calibration session');last=c;
  const g=s.guide,closed=s.camera_closed&&c.camera_opened===false,ended=!c.active;
- el('state').textContent=(c.error?'Session error: '+c.error:c.camera_opened?'Camera active · Recording locally':closed?'Camera off':'Preparing or closing camera')+' · Mouse off';
- el('instruction').textContent=s.saved?'Calibration saved':s.phase==='cancelled'?'Calibration cancelled':ended?'Calibration ended without saving':g?.instruction||'Prepare your comfortable hand range';
- el('clock').textContent=ended||s.saved||s.phase==='cancelled'?'Finished':s.phase==='complete'?'All four corners verified':s.phase==='retry'?'Retry when ready':g?.remaining_ms!=null?`${Math.ceil(g.remaining_ms/1000)} seconds · ${g.phase==='hold'?'HOLD':'MOVE'}`:g?'Waiting for this instruction to appear':'Not started';
- el('progress').textContent=g?`Step ${Math.min(g.step+1,6)} of 6 · ${g.step<2?'Comfortable range':'Four-corner review'}`:'Two comfortable diagonal positions, then all four corners.';
+ const awaitingFrame=c.active&&s.phase==='waiting'&&!s.has_frame;
+ el('state').textContent=(c.error?'Session error: '+c.error:awaitingFrame?(c.camera_opened?'Camera open · Waiting for tracking':'Preparing camera and hand tracking'):c.camera_opened?'Camera active · Recording locally':closed?'Camera off':'Preparing or closing camera')+' · Mouse off';
+ el('instruction').textContent=s.saved?'Calibration saved':c.error?(s.has_frame?'Calibration interrupted':'Calibration could not start'):s.phase==='cancelled'?'Calibration cancelled':ended?'Calibration ended without saving':awaitingFrame?'Preparing calibration':g?.instruction||'Prepare your comfortable hand range';
+ el('clock').textContent=s.saved?'Finished':c.error?'Stopped':ended||s.phase==='cancelled'?'Finished':awaitingFrame?'Waiting for first tracking frame':s.phase==='complete'?'All four corners verified':s.phase==='retry'?'Retry when ready':g?.remaining_ms!=null?`${Math.ceil(g.remaining_ms/1000)} seconds · ${g.phase==='hold'?'HOLD':'MOVE'}`:g?'Waiting for this instruction to appear':'Not started';
+ el('progress').textContent=awaitingFrame?'The timer starts when tracking frames reach calibration.':g?`Step ${Math.min(g.step+1,6)} of 6 · ${g.step<2?'Comfortable range':'Four-corner review'}`:'Two comfortable diagonal positions, then all four corners.';
  dot('corner',g?.step>=2?s.review.corner_target:null);dot('point',s.target);
  el('start').disabled=busy||ended||s.phase!=='idle';el('save').disabled=busy||ended||s.phase!=='complete'||!closed;
  el('retry').disabled=busy||ended||!['complete','retry'].includes(s.phase)||!closed;el('cancel').disabled=busy||ended||s.saved||s.phase==='cancelled';
  if(s.saved)el('message').textContent='Saved. Camera and mouse are off. You can close this window.';
+ else if(c.error)el('message').textContent=(closed?'Camera is closed. ':'Closing camera. ')+(s.has_frame?'Calibration could not finish. ':'No tracking frame reached calibration. ')+'Your saved profile is unchanged. Reopen calibration after resolving the error.';
  else if(s.phase==='cancelled')el('message').textContent='Cancelled. The previous saved profile is unchanged.';
  else if(ended)el('message').textContent='The previous saved profile is unchanged. Reopen calibration to try again.';
  else if(s.phase==='complete')el('message').textContent=closed?'Review complete. Choose Save, Retry or Cancel.':'Review complete. Waiting for camera closure before Save.';
  else if(s.phase==='retry')el('message').textContent=closed?'The previous saved profile is unchanged. Choose Retry, then Start when ready.':'Waiting for camera closure.';
 
+ else if(awaitingFrame)el('message').textContent='Wait for tracking to begin. The timer starts automatically; Cancel remains available.';
  else if(!busy)el('message').textContent=s.phase==='idle'?'Start opens the camera. It does not enable the mouse.':'Follow the instruction above. Cancel remains available.';
 }
 async function poll(){if(terminal)return;try{

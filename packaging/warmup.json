@@ -1,0 +1,16 @@
+{
+  "schema": "wigglecontrol.synthetic-warmup/v1",
+  "file": "warmup.jpg",
+  "sha256": "7b67c54ab1f92ccebcdb47c3943337a6ee1f6f254a6508054184ed72de5d03d5",
+  "width": 640,
+  "height": 480,
+  "kind": "solid_color",
+  "rgb": [
+    18,
+    22,
+    33
+  ],
+  "source": "Original programmatically generated constant image; no camera, person or reconstructed rig.",
+  "license": "MIT",
+  "limits": "Initial detector inference only. No detected hand, finger-graph warmup, tracking accuracy or performance qualification is implied."
+}

@@ -29,6 +29,8 @@ Start here:
 - [Installation, manual use and rollback](docs/INSTALL.md).
 - [Connected preview setup from source](docs/PREVIEW-QUICKSTART.md): explicit resources,
   fresh configuration, guided calibration and independent manual launch.
+- [Full preview candidate assembly](docs/PREVIEW-PACKAGE.md): source-bound binary,
+  tools, pinned GPU assets, dependency notices and integrity verification.
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [End-to-end acceptance checkpoint](docs/ACCEPTANCE.md): evidence and remaining human trial.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native

@@ -6,6 +6,12 @@ see QUALIFICATION.md for what is proved. No boot camera/inference session exists
 
 ## GPU-preview asset preparation
 
+The [full candidate package](PREVIEW-PACKAGE.md) assembles the native binary,
+manual tools, pinned provider assets and licenses for ARM64/x86-64. Candidate
+assembly/CI integrity checks remain distinct from clean-host or physical receiving
+qualification and tagged delivery. Its START-HERE leads to the connected setup
+guide; the source component paths below remain available independently.
+
 The selected GPU preview now has a reproducible, non-root asset preparation path:
 [PROVIDER-ASSETS.md](PROVIDER-ASSETS.md). It verifies the pinned SDK/archive/WASM
 and task bundle, retains license/metadata and supports offline verified reuse.

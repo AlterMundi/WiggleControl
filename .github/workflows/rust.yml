@@ -35,6 +35,7 @@ jobs:
       - run: python3 tools/test_fetch_provider_assets.py
       - run: python3 tools/test_prepare_preview_launcher.py
       - run: python3 tools/test_manage_preview_launcher.py
+      - run: python3 tools/test_package_preview.py
       - run: python3 tools/test_one_hand_trial.py
       - run: python3 tools/test_trace_absolute_drag.py --binary target/debug/wigglecontrol
       - run: cargo clippy --locked --all-targets -- -D warnings
@@ -51,9 +52,23 @@ jobs:
       - run: cargo clippy --locked --all-targets --features native-vision -- -D warnings
       - run: sudo python3 tests/installation_fixture.py --scratch "$PWD/target/installation-fixtures"
 
-  arm64-candidate:
-    runs-on: ubuntu-24.04-arm
+  linux-candidate:
+    name: ${{ matrix.label }}-candidate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: arm64
+            architecture: aarch64
+            runner: ubuntu-24.04-arm
+          - label: x86_64
+            architecture: x86_64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    env:
+      CANDIDATE_LABEL: ${{ matrix.label }}
+      CANDIDATE_ARCHITECTURE: ${{ matrix.architecture }}
     permissions:
       contents: read
     steps:
@@ -66,13 +81,13 @@ jobs:
       - run: cargo build --locked --release --features native-vision --bin wigglecontrol
       - name: Retain source-bound candidate without models or receiving configuration
         run: |
-          mkdir -p target/arm64-candidate
-          install -m755 target/release/wigglecontrol target/arm64-candidate/wigglecontrol
-          cp LICENSE NOTICE target/arm64-candidate/
-          cp models/handpose_estimation_mediapipe-LICENSE target/arm64-candidate/APACHE-2.0-LICENSE
+          mkdir -p "target/${CANDIDATE_LABEL}-candidate"
+          install -m755 target/release/wigglecontrol "target/${CANDIDATE_LABEL}-candidate/wigglecontrol"
+          cp LICENSE NOTICE "target/${CANDIDATE_LABEL}-candidate/"
+          cp models/handpose_estimation_mediapipe-LICENSE "target/${CANDIDATE_LABEL}-candidate/APACHE-2.0-LICENSE"
           python3 - <<'PYTHON'
           import hashlib, json, os, pathlib, platform, subprocess
-          root = pathlib.Path("target/arm64-candidate")
+          root = pathlib.Path("target") / (os.environ["CANDIDATE_LABEL"] + "-candidate")
           manifest = {
               "schema": "wigglecontrol.candidate/v1",
               "source_commit": os.environ["GITHUB_SHA"],
@@ -81,15 +96,46 @@ jobs:
               "features": ["native-vision"],
               "sha256": hashlib.sha256((root / "wigglecontrol").read_bytes()).hexdigest(),
               "receiving_qualified": False,
+              "build_os": platform.freedesktop_os_release()["PRETTY_NAME"],
+              "build_libc": platform.libc_ver(),
           }
-          if manifest["architecture"] != "aarch64":
-              raise SystemExit("Expected native ARM64 builder")
+          if manifest["architecture"] != os.environ["CANDIDATE_ARCHITECTURE"]:
+              raise SystemExit("Native builder architecture differs from candidate")
           (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
           PYTHON
-          tar -C target/arm64-candidate -czf target/wigglecontrol-arm64-candidate.tar.gz wigglecontrol manifest.json LICENSE NOTICE APACHE-2.0-LICENSE
+          tar -C "target/${CANDIDATE_LABEL}-candidate" -czf "target/wigglecontrol-${CANDIDATE_LABEL}-candidate.tar.gz" wigglecontrol manifest.json LICENSE NOTICE APACHE-2.0-LICENSE
       - uses: actions/upload-artifact@v4
         with:
-          name: wigglecontrol-arm64-candidate
-          path: target/wigglecontrol-arm64-candidate.tar.gz
+          name: wigglecontrol-${{ matrix.label }}-candidate
+          path: target/wigglecontrol-${{ matrix.label }}-candidate.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Assemble independent preview with pinned assets and licenses
+        run: |
+          python3 tools/fetch_provider_assets.py --output target/provider-assets --cache target/provider-cache
+          python3 tools/package_preview.py --candidate "target/${CANDIDATE_LABEL}-candidate" --assets target/provider-assets --output "target/wigglecontrol-linux-${CANDIDATE_LABEL}-preview-candidate.tar.gz"
+          python3 - <<'PYTHON'
+          import hashlib, os, pathlib
+          archive = pathlib.Path("target") / ("wigglecontrol-linux-" + os.environ["CANDIDATE_LABEL"] + "-preview-candidate.tar.gz")
+          with archive.open("rb") as stream:
+              digest = hashlib.file_digest(stream, "sha256").hexdigest()
+          archive.with_suffix(archive.suffix + ".sha256").write_text(digest + "  " + archive.name + "\n")
+          PYTHON
+      - name: Verify extracted package and no-acquisition configuration/launcher
+        run: |
+          mkdir target/preview-check
+          tar -xzf "target/wigglecontrol-linux-${CANDIDATE_LABEL}-preview-candidate.tar.gz" -C target/preview-check
+          preview_check_root="$PWD/target/preview-check/wigglecontrol-linux-${CANDIDATE_LABEL}-${GITHUB_SHA:0:12}"
+          python3 "$preview_check_root/tools/verify_preview.py"
+          "$preview_check_root/bin/wigglecontrol" prepare-preview-config /fictional/never-acquired-camera 1920 1080 "$PWD/target/preview-no-recordings" "$PWD/target/preview-check-config"
+          python3 "$preview_check_root/tools/prepare_preview_launcher.py" --binary "$preview_check_root/bin/wigglecontrol" --browser /usr/bin/false --session "$PWD/target/preview-check-config/session.json" --settings "$PWD/target/preview-check-config/settings.json" --assets "$preview_check_root/provider-assets" --warmup "$preview_check_root/packaging/warmup.jpg" --calibration-profile "$PWD/target/preview-check-profile.json" --output "$PWD/target/preview-check-launcher" --port 18877 --name package-check
+          test ! -e target/preview-no-recordings
+          test ! -e target/preview-check-profile.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wigglecontrol-linux-${{ matrix.label }}-preview-candidate
+          path: |
+            target/wigglecontrol-linux-${{ matrix.label }}-preview-candidate.tar.gz
+            target/wigglecontrol-linux-${{ matrix.label }}-preview-candidate.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14

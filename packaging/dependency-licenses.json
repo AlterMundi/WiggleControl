@@ -1,0 +1,24 @@
+{
+  "schema": "wigglecontrol.dependency-license-supplements/v1",
+  "reason": "Published crates omit standalone license texts; retain original upstream text at their own cargo VCS revisions.",
+  "crates": {
+    "v4l2-sys-mit@0.3.0": {
+      "vcs_revision": "cf6d4125d3f37f24d18c325fd369f503d9f12a88",
+      "file": "dependency-licenses/v4l2-sys-mit-0.3.0/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/raymanfx/libv4l-rs/cf6d4125d3f37f24d18c325fd369f503d9f12a88/LICENSE.txt",
+      "sha256": "72fe16a8dceb87e834b7841d10581f544bb7345e6f8e471ac34fde37317b04a6"
+    },
+    "zune-core@0.4.12": {
+      "vcs_revision": "f8fbb123d5ed04441e8324a555bfcda0cb1bd28f",
+      "file": "dependency-licenses/zune-core-0.4.12/LICENSE-ZLIB",
+      "url": "https://raw.githubusercontent.com/etemesi254/zune-image/f8fbb123d5ed04441e8324a555bfcda0cb1bd28f/LICENSE-ZLIB",
+      "sha256": "7fa429541e55b1509909e058f2d21a37467e4958ec713b357f6e0cf9dc4ee352"
+    },
+    "zune-jpeg@0.4.21": {
+      "vcs_revision": "fa2c767a01d7d9373911d0bf63e0588553d67e0e",
+      "file": "dependency-licenses/zune-jpeg-0.4.21/LICENSE-ZLIB",
+      "url": "https://raw.githubusercontent.com/etemesi254/zune-image/fa2c767a01d7d9373911d0bf63e0588553d67e0e/LICENSE-ZLIB",
+      "sha256": "7fa429541e55b1509909e058f2d21a37467e4958ec713b357f6e0cf9dc4ee352"
+    }
+  }
+}

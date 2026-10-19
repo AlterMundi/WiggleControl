@@ -1,13 +1,23 @@
 # Connected preview setup from source
 
-This is the source preparation flow, not a published release or a clean-host
-qualification claim. Use it with an existing compatible Linux build, Chromium,
-prepared pinned assets and an explicitly selected public synthetic warmup JPEG.
-The [asset guide](PROVIDER-ASSETS.md) prepares/verifies the SDK/model without npm
-scripts. Full downloadable release assembly and ThinkPad qualification remain
-open. Preserve an existing installation/profile; use new private directories.
+This is the connected preparation flow, not a published release or a clean-host
+qualification claim. A [full candidate archive](PREVIEW-PACKAGE.md) supplies the
+binary/tools/pinned assets and original synthetic warmup; start with its
+START-HERE and verifier. From its extracted root, select:
 
-Run helpers from this source checkout. The receiving desktop needs its ordinary
+```sh
+preview_binary="$PWD/bin/wigglecontrol"
+preview_assets="$PWD/provider-assets"
+preview_warmup="$PWD/packaging/warmup.jpg"
+```
+
+Alternatively, use a source checkout with an existing compatible Linux build,
+Chromium, prepared pinned assets and an explicitly selected synthetic warmup JPEG.
+The [asset guide](PROVIDER-ASSETS.md) prepares/verifies the SDK/model without npm
+scripts. Tagged delivery and clean-host/ThinkPad qualification remain open.
+Preserve an existing installation/profile; use new private directories.
+
+Run helpers from the extracted package or source checkout. The receiving desktop needs its ordinary
 user systemd manager, Chromium/GPU support, Python3.12+, normal camera permissions
 and a physical input fallback. [Input preparation](INSTALL.md#independent-preview-input-preparation)
 also uses ACL utilities, kmod, udev and `flock`. None of the preparation commands
@@ -20,9 +30,7 @@ are examples; they are not another user's calibration or hardware discovery.
 Use stable absolute artifact locations and unused names/loopback ports.
 
 ```sh
-preview_binary=/absolute/path/wigglecontrol
-preview_assets=/absolute/path/prepared-provider-assets
-preview_warmup=/absolute/path/public-synthetic-warmup.jpg
+# Source-checkout users choose equivalent absolute artifact paths first.
 preview_browser=/usr/bin/chromium
 preview_root="$HOME/.local/share/wigglecontrol/preview-01"
 mkdir -m 700 -p "$preview_root"

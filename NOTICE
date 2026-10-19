@@ -24,3 +24,10 @@ installed WiLoR-mini implementation pinned in wilor-assets.json. WiLoR model
 artifacts retain their CC-BY-NC-ND-4.0 terms; MANO has its separate license.
 Those upstream sources, model weights and MANO assets are not bundled or
 relicensed by this repository's original-source grant.
+
+Independent preview archives include the pinned MediaPipe Tasks SDK/WASM/Hand
+Landmarker bundle under its retained Apache-2.0 terms and original metadata.
+The original constant-color synthetic startup JPEG is MIT; it contains no person,
+camera frame or reconstruction asset. Rust dependency notices are collected from
+the locked target graph; exact upstream supplements/provenance are retained for
+crates that omit standalone license texts. See packaging/dependency-licenses.json.

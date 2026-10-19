@@ -1,5 +1,19 @@
 # Project context — 2026-10-13
 
+Preview package assembly —2026-10-19: source now assembles source-bound ARM64/
+x86-64 candidates with the selected tools/docs, pinned GPU assets, original blank
+warmup, locked Rust dependency notices and an exact integrity/mode inventory.
+Four fictional packaging regressions and actual80-dependency notice collection
+pass; real native package builds/extraction/preparation are assigned to the CI
+matrix and still need their observed result. Existing ARM bare artifact naming
+is preserved. No tagged prerelease or new receiving acceptance is implied. See
+[PREVIEW-PACKAGE.md](PREVIEW-PACKAGE.md).
+
+This thread currently uses only VPS resources and reserves no Pi trial/window.
+Its last acknowledged manual scroll trial completed; old pending-Start descriptions
+below are historical. Current live Pi sensor/application state was not inspected
+by these packaging increments, and no receiving process was started here.
+
 Fresh preview setup —2026-10-19: `prepare-preview-config` publishes a private
 uncalibrated pair from portable templates and explicit camera/output/recording
 choices. It uses the selected beta's 2D ratio, drag grace and cursor stabilization,

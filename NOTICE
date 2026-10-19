@@ -31,3 +31,7 @@ The original constant-color synthetic startup JPEG is MIT; it contains no person
 camera frame or reconstruction asset. Rust dependency notices are collected from
 the locked target graph; exact upstream supplements/provenance are retained for
 crates that omit standalone license texts. See packaging/dependency-licenses.json.
+
+The statically linked Rust standard library retains Rust 1.85.1 MIT/Apache
+licenses and COPYRIGHT notices, pinned to its compiler source revision in
+packaging/rust-standard-library.json and included separately from Cargo crates.

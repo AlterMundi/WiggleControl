@@ -144,6 +144,20 @@ def assemble(candidate, assets, output, source=ROOT):
         (root / 'binary-manifest.json').write_text(json.dumps(candidate_manifest, indent=2) + '\n')
         license_root = root / 'licenses/rust'; license_root.mkdir(parents=True)
         count = licenses(root, license_root, metadata(source, architecture))
+        # Cargo's graph excludes the Rust standard library linked into the
+        # executable. Retain its own version-pinned notices as well.
+        standard = json.loads((root / 'packaging/rust-standard-library.json').read_text())
+        compiler = 'rustc ' + standard['version'] + ' (' + standard['source_revision'][:9] + ' '
+        if not candidate_manifest['rustc'].startswith(compiler):
+            raise ValueError('Candidate compiler differs from pinned standard-library notices')
+        standard_root = root / 'licenses/rust-standard-library'; standard_root.mkdir()
+        if set(standard['files']) != {'LICENSE-MIT', 'LICENSE-APACHE', 'COPYRIGHT'}:
+            raise ValueError('Standard-library notice inventory differs')
+        for name, entry in standard['files'].items():
+            path = root / 'packaging/rust-standard-library' / name
+            if digest(path) != entry['sha256']:
+                raise ValueError('Standard-library notice digest differs')
+            shutil.copyfile(path, standard_root / name)
         warmup = json.loads((root / 'packaging/warmup.json').read_text())
         if warmup['file'] != 'warmup.jpg' or digest(root / 'packaging/warmup.jpg') != warmup['sha256']:
             raise ValueError('Synthetic warmup differs from source metadata')
@@ -160,6 +174,7 @@ def assemble(candidate, assets, output, source=ROOT):
                     'source_url': 'https://github.com/AlterMundi/WiggleControl/tree/' + commit,
                     'architecture': architecture, 'receiving_qualified': False,
                     'release': False, 'rust_dependencies': count, 'files': files,
+                    'rust_standard_library': standard['version'],
                     'provider_lock_sha256': digest(root / 'packaging/provider-assets.lock.json'),
                     'warmup': warmup}
         (root / 'preview.json').write_text(json.dumps(manifest, indent=2) + '\n')

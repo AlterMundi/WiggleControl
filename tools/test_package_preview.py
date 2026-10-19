@@ -44,7 +44,8 @@ class PackageTests(unittest.TestCase):
         (self.candidate / 'wigglecontrol').write_bytes(binary)
         self.manifest = {'schema': 'wigglecontrol.candidate/v1', 'source_commit': self.commit,
             'architecture': 'x86_64', 'features': ['native-vision'], 'receiving_qualified': False,
-            'sha256': hashlib.sha256(binary).hexdigest(), 'rustc': 'fictional'}
+            'sha256': hashlib.sha256(binary).hexdigest(),
+            'rustc': 'rustc 1.85.1 (4eb161250 2025-03-15)'}
         self.write_manifest()
         crate = self.root / 'crate'; crate.mkdir()
         (crate / 'LICENSE-MIT').write_text('FICTIONAL_LICENSE_NOT_A_REAL_DEPENDENCY\n')
@@ -78,6 +79,7 @@ class PackageTests(unittest.TestCase):
         self.assertTrue((root/'tools/prepare_input.sh').is_file())
         self.assertTrue((root/'provider-assets/APACHE-2.0-LICENSE').is_file())
         self.assertTrue((root/'licenses/rust/fixture-1.0/LICENSE-MIT').is_file())
+        self.assertTrue((root/'licenses/rust-standard-library/COPYRIGHT').is_file())
         self.assertFalse(any(p.name == 'private-recording' for p in root.rglob('*')))
         previous = os.umask(0o077)
         try: repeated = self.assemble('repeated.tar.gz')
@@ -93,7 +95,8 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'inventory differs'): verify(root)
 
     def test_wrong_source_architecture_digest_and_existing_destination_never_publish(self):
-        for key, changed in [('source_commit', '0'*40), ('architecture', 'aarch64'), ('sha256', '0'*64)]:
+        for key, changed in [('source_commit', '0'*40), ('architecture', 'aarch64'),
+                             ('sha256', '0'*64), ('rustc', 'rustc 0.0.0')]:
             original = self.manifest[key]; self.manifest[key] = changed; self.write_manifest()
             with self.assertRaises(ValueError): self.assemble()
             self.assertFalse((self.root/'preview.tar.gz').exists())

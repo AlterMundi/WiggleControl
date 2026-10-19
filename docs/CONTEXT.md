@@ -1,13 +1,17 @@
 # Project context — 2026-10-13
 
 Preview package assembly —2026-10-19: source now assembles source-bound ARM64/
-x86-64 candidates with the selected tools/docs, pinned GPU assets, original blank
+x86-64 candidates with selected tools/docs, pinned GPU assets, original blank
 warmup, locked Rust dependency notices and an exact integrity/mode inventory.
-Four fictional packaging regressions and actual80-dependency notice collection
-pass; real native package builds/extraction/preparation are assigned to the CI
-matrix and still need their observed result. Existing ARM bare artifact naming
-is preserved. No tagged prerelease or new receiving acceptance is implied. See
-[PREVIEW-PACKAGE.md](PREVIEW-PACKAGE.md).
+Initial source c0b4428 passed all four CI39194630016 jobs, including real native
+package builds/extraction/preparation. Both downloaded archives passed external
+SHA256 and all242 file/mode checks; the actual extracted x86-64 binary also passed
+configuration/calibration-launcher preflight on the development host. No browser,
+model, camera/input or receiving installation was exercised. A followup retains
+separate Rust1.85.1 standard-library notices and refuses a different compiler;
+four packaging regressions pass, while matching followup CI remains pending.
+Existing ARM bare artifact naming is preserved. No tagged prerelease or new
+receiving acceptance is implied. See [PREVIEW-PACKAGE.md](PREVIEW-PACKAGE.md).
 
 This thread currently uses only VPS resources and reserves no Pi trial/window.
 Its last acknowledged manual scroll trial completed; old pending-Start descriptions

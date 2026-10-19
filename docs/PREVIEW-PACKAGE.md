@@ -44,7 +44,12 @@ are retained. Three published crates omit standalone license texts; pinned
 [supplements](../packaging/dependency-licenses.json) retain upstream originals at
 each crate's own `.cargo_vcs_info.json` revision. The collector requires revision
 and hash agreement and refuses undeclared/missing/unreviewed notices. This records
-declared upstream terms and selected texts, not a new license grant.
+declared upstream terms and selected texts, not a new license grant. Cargo does
+not list the linked standard library: its separate Rust1.85.1 MIT/Apache/COPYRIGHT
+originals are pinned by source revision and hash in
+[standard-library metadata](../packaging/rust-standard-library.json). Assembly
+refuses a different candidate compiler version/revision; updating the compiler
+requires updating these notices too.
 
 The synthetic JPEG decodes to640×480 RGB(18,22,33), with no person, camera frame
 or private metadata. It provides an explicit initial inference reference. It
@@ -82,3 +87,25 @@ corrupt assets/missing licenses, supplement revision binding and extracted
 digest/mode/unlisted-file refusal. Actual current x86 metadata retains notices
 for80 dependencies; this is a license-collection check, not a runtime benchmark.
 See [LINUX-PREVIEW.md](LINUX-PREVIEW.md) for the remaining release requirements.
+
+## Observed first complete candidates —2026-10-19
+
+Source `c0b442828fa84ad2f30b60e670b2e37b8c29d09b` passed all four jobs in
+[CI39194630016](https://github.com/AlterMundi/WiggleControl/actions/runs/39194630016),
+including actual native ARM64/x86-64 package assembly, extraction, verification
+and configuration/calibration-launcher preparation on matching runners.
+Both downloaded archives independently passed their external SHA256 and all242
+file/mode checks on the development host. The extracted x86-64 binary also
+prepared configuration and a calibration launcher there; ARM64 was not executed
+on x86-64. Browser placeholders were never invoked; no camera/input/model or
+receiving installation was exercised.
+
+| Initial archive | Bytes | SHA256 |
+| --- | ---: | --- |
+| ARM64 | 19770526 | `4cf8a3b77b13a9e800dc3b8e47ed0310c442b9df059608b60ed95ccd13d828e4` |
+| x86-64 | 19805619 | `56facb89eea940ede5105cf420aaff7ec54f78ffb134ca1ba42fd27dd1b254bf` |
+
+These immutable initial candidates precede the separate standard-library-notice
+addition above. Their hashes are retained evidence, not hashes for a subsequent
+source revision or a qualified release. Physical/clean-host acceptance and the
+tagged prerelease remain open.

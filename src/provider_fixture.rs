@@ -42,6 +42,7 @@ struct State {
     preparing: Option<Instant>,
     ready: bool,
     cancelled: bool,
+    stop_requested: bool,
     closed: bool,
     finishing: bool,
     terminal_visible: bool,
@@ -302,6 +303,7 @@ impl Extension for Bridge {
                 "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
                 "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
+                "terminal_ready":state.finishing,
                 "remaining_ms":state.remaining_ms(self.trial_seconds,Instant::now()),
                 "mode":state.control_mode,"controller_running":state.controller_running&&!state.eof,
                 "detail_configured":self.detail_configured,"detail_active":state.detail_active&&!state.eof,
@@ -324,6 +326,8 @@ impl Extension for Bridge {
                 #[serde(deny_unknown_fields)]
                 struct Run {
                     run_id: String,
+                    #[serde(default)]
+                    graceful: bool,
                 }
                 let run: Run = match serde_json::from_slice(body) {
                     Ok(v) => v,
@@ -335,6 +339,12 @@ impl Extension for Bridge {
                     return Ok(reply(
                         "409 Conflict",
                         json!({"error":"different provider run"}),
+                    ));
+                }
+                if run.graceful && path != "/provider/stop" {
+                    return Ok(reply(
+                        "400 Bad Request",
+                        json!({"error":"graceful applies only to Stop"}),
                     ));
                 }
                 if path == "/provider/prepare" {
@@ -365,6 +375,8 @@ impl Extension for Bridge {
                         ));
                     }
                     state.terminal_visible = true;
+                } else if run.graceful {
+                    self.state.lock().unwrap().stop_requested = true;
                 } else {
                     self.state.lock().unwrap().cancelled = true;
                 }
@@ -900,8 +912,14 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let mut feedback_snapshots = 0_u64;
     let outcome = (|| -> Result<(), Box<dyn Error>> {
         while !stop.load(Ordering::Relaxed) {
-            if bridge.state.lock().unwrap().cancelled {
-                return Err("provider worker requested cancellation".into());
+            {
+                let state = bridge.state.lock().unwrap();
+                if state.cancelled {
+                    return Err("provider worker requested cancellation".into());
+                }
+                if state.stop_requested {
+                    break;
+                }
             }
             let mut now = monotonic_us()?;
             if bridge.state.lock().unwrap().ready && started.is_none() {
@@ -1336,7 +1354,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     journal.emit(
         json!({"event":"stop","controller":final_state,"captured":s.captured,
         "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,"terminal_visible":s.terminal_visible,
-        "error":outcome.as_ref().err().map(ToString::to_string),"camera_opened":s.camera_opened,
+        "error":outcome.as_ref().err().map(ToString::to_string),"stop_requested":s.stop_requested,"camera_opened":s.camera_opened,
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
         "source_kind":camera.source_kind,"system_input":s.system_input(),
         "camera_was_opened":camera.opened,"input_was_started":s.input_started,
@@ -1473,6 +1491,50 @@ mod tests {
         assert_eq!(value["camera_opened"], false);
     }
     #[test]
+    fn graceful_control_stop_is_distinct_from_worker_failure_and_cannot_prepare() {
+        let b = Bridge::new(BTreeMap::new(), 300_000, "selected".into(), 1);
+        for (path, body, status) in [
+            (
+                "/provider/stop",
+                br#"{"run_id":"other","graceful":true}"#.as_slice(),
+                "409 Conflict",
+            ),
+            (
+                "/provider/prepare",
+                br#"{"run_id":"selected","graceful":true}"#.as_slice(),
+                "400 Bad Request",
+            ),
+        ] {
+            assert_eq!(b.respond("POST", path, body).unwrap().status, status);
+            let s = b.state.lock().unwrap();
+            assert!(!s.stop_requested && !s.cancelled && s.preparing.is_none() && !s.ready);
+        }
+        assert_eq!(
+            b.respond(
+                "POST",
+                "/provider/stop",
+                br#"{"run_id":"selected","graceful":true}"#
+            )
+            .unwrap()
+            .status,
+            "200 OK"
+        );
+        {
+            let s = b.state.lock().unwrap();
+            assert!(s.stop_requested && !s.cancelled && s.preparing.is_none() && !s.ready);
+        }
+        let failed = Bridge::new(BTreeMap::new(), 300_000, "worker".into(), 1);
+        assert_eq!(
+            failed
+                .respond("POST", "/provider/stop", br#"{"run_id":"worker"}"#)
+                .unwrap()
+                .status,
+            "200 OK"
+        );
+        let s = failed.state.lock().unwrap();
+        assert!(s.cancelled && !s.stop_requested);
+    }
+    #[test]
     fn lightweight_control_status_has_no_preparation_countdown_and_retains_terminal_truth() {
         let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "control".into(), 1);
         bridge.manual_start = true;
@@ -1519,6 +1581,7 @@ mod tests {
         assert!(live["remaining_ms"].as_u64().unwrap() <= 88_000);
         assert_eq!(live["camera_opened"], false);
         assert_eq!(live["system_input"], false);
+        assert_eq!(live["terminal_ready"], false);
         {
             let mut s = bridge.state.lock().unwrap();
             s.eof = true;
@@ -1532,6 +1595,12 @@ mod tests {
         assert!(end["escape_feedback"].is_null());
         assert!(end["scroll_feedback"].is_null());
         assert_eq!(end["remaining_ms"], 0);
+        assert_eq!(end["terminal_ready"], false);
+        bridge.state.lock().unwrap().finishing = true;
+        let ready: Value =
+            serde_json::from_slice(&bridge.respond("GET", "/provider/config", b"").unwrap().body)
+                .unwrap();
+        assert_eq!(ready["terminal_ready"], true);
     }
 
     #[test]

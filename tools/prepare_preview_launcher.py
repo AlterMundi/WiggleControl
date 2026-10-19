@@ -93,7 +93,10 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
         (stage / 'units').mkdir()
         (stage / 'units' / units['source']).write_text(source)
         for role, args in [('worker', worker), ('control', control)]:
-            text = ('[Unit]\nDescription=WiggleControl ' + role + '\nBindsTo=' + units['source'] +
+            # The detector follows the source; the image-free controls retain
+            # its terminal result until explicitly closed/reopened/stopped.
+            binding = '\nBindsTo=' + units['source'] if role == 'worker' else ''
+            text = ('[Unit]\nDescription=WiggleControl ' + role + binding +
                     '\nAfter=' + units['source'] + '\n[Service]\nType=simple\nExecStart=' +
                     ' '.join(map(unit_arg, args)) + '\n' + common)
             (stage / 'units' / units[role]).write_text(text)

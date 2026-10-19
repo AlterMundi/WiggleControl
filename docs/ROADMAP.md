@@ -25,8 +25,12 @@ rearm and ordinary-use false-action qualification remain.
 source, with direct content direction, anchored pointer return and optional
 acceleration/release inertia. The user-selected behavior is page grabbing while
 closed, coasting only after opening in motion, and no inertia after resting.
-Receiving direction, gesture recognition and pleasant physical use remain to
-qualify. No new camera session or default-beta change is implied.
+Camera-free receiving checks verify all four diagonal content directions. The
+separate90-second recorded physical trial completed without error; Nicolás
+reports that it worked quite well. Basic first use is accepted. He prefers a
+full page over the small exercise pane for later usability work and defers fine
+scroll polish. Labelled release/inertia cases and sustained comfort remain open.
+No new camera session or default-beta change is implied.
 
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into

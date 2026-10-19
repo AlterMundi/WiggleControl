@@ -53,8 +53,11 @@ class LauncherTests(unittest.TestCase):
                     self.assertNotIn('daimon', unit)
                     self.assertNotIn('--remote-debugging', unit)
                     self.assertNotIn('--no-sandbox', unit)
-                    if role != 'source':
+                    if role == 'worker':
                         self.assertIn('BindsTo=' + manifest['units']['source'], unit)
+                    if role == 'control':
+                        self.assertNotIn('BindsTo=', unit, 'Controls retain the terminal result after source exit')
+                        self.assertIn('After=' + manifest['units']['source'], unit)
                     if role == 'worker':
                         self.assertIn('/provider/worker', unit)
                         self.assertNotIn('/provider/feedback', unit)

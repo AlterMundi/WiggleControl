@@ -64,9 +64,21 @@ Only the human's Start requests detector preparation/acquisition. Closing contro
 or feedback does not close the detector. Reopening controls rebinds to the current
 source; the existing helper does not restart an already running source/worker.
 `stop.sh` stops only the selected three units. Each has `Restart=no` and
-`KillMode=control-group`; worker/control bind to the source's lifetime. There is
-no boot target, automatic restart, remote-debugging port or disabled browser
+`KillMode=control-group`; the detector binds to the source's lifetime. Controls
+remain open after source completion to retain its final result, without inference
+or images; reopening through `open.sh` binds a fresh page to the current source.
+There is no boot target, automatic restart, remote-debugging port or disabled browser
 sandbox. No Matrix or daimon-integrators service/configuration is used.
+
+The control page requests normal Stop with `graceful:true` on the existing
+run-bound `/provider/stop` endpoint. Worker error cancellation remains distinct;
+cleanup/join/writer errors still fail the session. Cheap configuration exposes
+`terminal_ready` only after final publication. Controls wait for observed camera/
+input closure and that publication, paint the final result, then acknowledge the
+existing terminal-display endpoint. A failed receipt or later network failure
+does not overwrite already observed closure. Old sources without `terminal_ready`
+retain their prior compatibility behavior; new sources do not equate an early
+EOF sample with completed final publication.
 
 Before changing/removing linked units, end only this installation with `stop.sh`
 and confirm its source/worker are terminal. Remove the three selected links with
@@ -84,13 +96,30 @@ and actual launcher refusal before browser launch on a different source PID.
 Actual pinned assets and the Rust GPU configuration without ONNX paths pass real
 preflight. The generated units pass the installed `systemd-analyze --user verify`,
 including spaces, dollar and percent characters in the bundle path; wrapper
-scripts pass `sh -n`. No unit was linked/started and no browser, camera, inference
-or input ran. The test used a synthetic blank JPEG only for dimensional/preflight
-validation; it does not qualify hand-model warmup.
+scripts pass `sh -n`. That initial preparation linked/started no unit and ran no
+browser, camera, inference or input. It used a synthetic blank JPEG only for
+dimensional/preflight validation; it does not qualify hand-model warmup.
+
+Subsequent isolated VPS qualification linked uniquely named test units and used
+an owned Chromium/Xvfb display under the ordinary user. Actual `open.sh` reached
+idle controls with camera/input off and no preparation. Closing/reopening controls
+preserved the running source/worker and run ID. The first fixture reproduced a
+normal Stop reported as worker cancellation and controls disappearing with the
+source; these findings motivated the graceful Stop and dependency correction.
+
+The corrected fixture's actual Stop leaves source/worker inactive with exit0,
+zero capture and no input start. Controls remain open with the final camera-off/
+mouse-off result and a successful terminal-display receipt after the listener
+exits.239 native-feature tests, all-target Clippy, the control JS regressions and
+six launcher tests pass. Fixtures, selected links and displays were removed.
+The retained control browser eventually reached the fixture's300-second resource
+limit; this test-only limit is absent from generated product units. No Start was
+clicked, model initialized, camera opened or input emitted in either fixture.
 
 This is a launcher-preparation component, not the completed Linux preview.
-End-to-end graphical/browser behavior of this independent bundle, setup/guided
-calibration, pinned release assembly, input permissions, clean-host installation,
+Idle graphical lifecycle is now qualified on the VPS, not on the ThinkPad or Pi.
+Live detector/graphics performance, setup/guided calibration, pinned release
+assembly, input permissions, clean-host installation,
 update/removal/rollback and human acceptance remain in issue12/#13 and
 [LINUX-PREVIEW.md](LINUX-PREVIEW.md). Existing Pi services/calibration/trials are
 unchanged. See [PROVIDER-CONFIG.md](PROVIDER-CONFIG.md) and

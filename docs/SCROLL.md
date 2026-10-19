@@ -3,8 +3,10 @@
 Nicolás selected this interaction on2026-10-19: a closed fist grabs the page;
 vertical, horizontal and diagonal hand motion moves its content in the same
 screen direction. Opening while moving releases a short decelerating glide.
-Opening after stopping has no inertia. The matching candidate now has camera-free receiving direction/fine-wheel evidence;
-physical fist recognition, gesture comfort and phone-like fluency remain unqualified.
+Opening after stopping has no inertia. The matching candidate has camera-free
+receiving direction/fine-wheel evidence and positive first physical use below.
+Labelled release/inertia cases, sustained comfort and phone-like fluency remain
+unqualified; Nicolás defers fine polish and prefers a full-page task next time.
 
 ## Recognition and ownership
 
@@ -147,3 +149,28 @@ scoped Stop. The complete task fits its actual1600x950 viewport, with Start lock
 through qualification, then unlocked with camera/input/preparation off. Human
 fist recognition, pleasant grip/release/rest/regrab and sustained comfort remain
 pending. No acquisition was started by preparation.
+
+## First physical scroll acceptance —2026-10-19
+
+The same53caf00 candidate completed the manually started90-second recorded trial
+with acceleration2.5 and bounded release inertia enabled. Nicolás reports it
+worked and looked quite good. A full page should be easier to use than the small
+exercise pane; fine scroll polish is explicitly deferred.
+
+The source captured1213 frames and interpreted1206 observations, including306
+active-scroll and7 inertia observations. The application received133 trusted
+wheel events and688 scroll updates. These are recorded predictions and actual
+application effects, not individually annotated human intentions or an accuracy
+score. They do not independently accept every grab/release/rest/regrab case.
+
+Provider and observer exited0 and were reaped. Final source state confirms camera
+and system input off and writer reaped; the selected device was removed. The
+observer retained8104 kernel events without dropped synchronization, partial
+events or unsynchronized buttons. Private video and matching source/config/
+application/kernel evidence are retained; the video remains on the receiving
+host. No new capture or default-beta change follows from this feedback.
+
+This accepts basic first physical scroll use. Later source-only pinch-to-fist
+corrections and independent launcher changes were not part of this trial.
+Broader action/comfort and standalone release acceptance remain in issue10/#13
+and [ACCEPTANCE.md](ACCEPTANCE.md).

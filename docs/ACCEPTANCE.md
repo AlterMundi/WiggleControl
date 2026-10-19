@@ -46,6 +46,25 @@ labelled prolonged-held no-repeat/rearm and ordinary-use false actions remain
 focused follow-up work. Natural double click, gesture scroll, detail precision/
 rest/drawing and sustained comfort/packaging remain milestone work.
 
+## Positive first fist-scroll use —2026-10-19
+
+The separate53caf00 candidate completed the manual90-second recorded trial
+without error. The owned Wayland Chromium task received133 trusted wheel events
+and688 scroll updates. Nicolás reports that it worked and looked quite good;
+he expects a full page to be easier to use than the small exercise pane and
+explicitly defers further polish. This accepts basic first physical scroll use,
+not individually labelled direction/release/inertia cases or a false-action rate.
+
+The source captured1213 frames and interpreted1206 observations. Camera/input
+closed, provider/observer exited0 and were reaped, and the selected virtual device
+was removed without an incomplete kernel trace. Private video and source/config/
+application evidence are retained. The next scroll usability comparison should
+use a full page or ordinary application. See [SCROLL.md](SCROLL.md).
+
+Natural double click, broader action/drag/loss qualification, detail precision/
+rest/drawing, sustained comfort and standalone packaging remain milestone work.
+This trial does not deploy the later source-only transition or launcher fixes.
+
 ## Historical six-milestone baseline
 
 The table and finite trial protocol below retain the original broader

@@ -126,3 +126,40 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  assert(calls.every(path=>['/provider/config','/provider/prepare','/provider/stop'].includes(path)));
 }
 console.log('Finite countdown/detail status stay image-free; task setup cannot start acquisition');
+
+// An early EOF/closure sample is not yet the final publication. Once final,
+// retain it through a failed receipt, a late fetch failure and future polls.
+for(const ackFails of [false,true]){
+ const elements=new Map(),calls=[];let holdNext=false,rejectLate,paints=0;
+ const element=id=>{if(!elements.has(id))elements.set(id,{textContent:'',disabled:true});return elements.get(id)};
+ const config={run_id:'terminal',active:true,prepared:false,camera_opened:false,system_input:false,terminal_ready:false};
+ const context=vm.createContext({document:{getElementById:element},AbortSignal:{timeout:()=>null},setTimeout:()=>{},
+  requestAnimationFrame:cb=>{paints++;cb();},
+  fetch:async(path,options)=>{
+   calls.push(path);
+   if(path==='/provider/config'){
+    if(holdNext){holdNext=false;return new Promise((resolve,reject)=>{rejectLate=reject;});}
+    return {ok:true,json:async()=>({...config})};
+   }
+   const body=JSON.parse(options.body);assert.equal(body.run_id,'terminal');
+   if(path==='/provider/stop'){assert.equal(body.graceful,true);return {ok:true};}
+   assert.equal(path,'/provider/terminal-visible');assert.equal(paints,2);
+   if(ackFails)throw Error('Receipt unavailable');return {ok:true};
+  }});
+ vm.runInContext(control.split('<script>')[1].split('</script>')[0],context);
+ await new Promise(setImmediate);await element('stop').onclick();
+ holdNext=true;const late=vm.runInContext('poll()',context);await new Promise(setImmediate);
+ config.active=false;await vm.runInContext('poll()',context);
+ assert.match(element('operation').textContent,/Waiting for camera\/input closure/);
+ assert(!calls.includes('/provider/terminal-visible'));
+ config.terminal_ready=true;await vm.runInContext('poll()',context);
+ assert.equal(element('operation').textContent,'Session ended');
+ assert.equal(element('state').textContent,'Session ended · Camera off · Mouse off');
+ assert.match(element('message').textContent,/Final result retained/);
+ assert.equal(context.wiggleControlTerminalReceipt.acknowledged,!ackFails);
+ rejectLate(Error('Listener closed'));await late;
+ assert.equal(element('operation').textContent,'Session ended');
+ const before=calls.length;await vm.runInContext('poll()',context);assert.equal(calls.length,before);
+ assert.equal(element('start').disabled,true);assert.equal(element('stop').disabled,true);
+}
+console.log('Normal Stop is explicit; final state survives EOF, receipt failure, late network failure and closed listener');

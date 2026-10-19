@@ -1,13 +1,32 @@
 # Project context — 2026-10-13
 
+Physical scroll acceptance —2026-10-19: the separate53caf00 manual90-second
+recorded trial completed without error; provider/observer exited0, camera/input
+closed and device removal was observed. The application received133 trusted
+wheel events and688 scroll updates. Nicolás reports good operation, prefers a
+full page over the small exercise pane and defers finer polish. Basic first use
+is accepted; individually labelled inertia/release cases and sustained comfort
+remain open. Private evidence/video retained. See [SCROLL.md](SCROLL.md).
+
+Independent launcher lifecycle —2026-10-19: actual VPS user-unit standby,
+control-window close/reopen and normal Stop were exercised without Start,
+camera, inference or input. The initial fixture exposed failed normal Stop and
+lost terminal controls. Source now distinguishes graceful user Stop from worker
+failure; controls wait for final publication, acknowledge its display and retain
+the result after the listener exits. The second real fixture confirms source/
+worker exit0 and retained camera-off/mouse-off controls.239 native tests,
+all-target Clippy, control JS and six launcher tests pass. Test units were removed;
+no Pi deployment is implied. See [PREVIEW-LAUNCHER.md](PREVIEW-LAUNCHER.md).
+
 Independent launcher preparation —2026-10-19: a non-root helper prepares three
 manual-only user units and open/stop wrappers, reusing the existing mouse launcher
 and real provider preflight. New wrappers bind the loopback run ID to the source
 unit MainPID before opening browsers; existing wrapper-service routes stay opt-in.
 Finite/until-Stop selection is explicit; no boot
 target or automatic restart. Offline regressions, actual no-acquisition preflight,
-systemd unit verification and wrapper syntax pass. No units were installed/started
-and no receiving state changed. Full installer/calibration/desktop qualification
+systemd unit verification and wrapper syntax pass. Initial preparation installed
+no units; the subsequent isolated VPS lifecycle qualification is recorded above.
+No Pi receiving state changed. Full installer/calibration/desktop qualification
 remains open. See [PREVIEW-LAUNCHER.md](PREVIEW-LAUNCHER.md).
 
 Independent GPU configuration —2026-10-19: browser-provider sessions can omit

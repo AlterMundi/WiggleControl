@@ -148,12 +148,13 @@ source-only receiving statements in the dated implementation sections above.
 Default beta/calibration remain preserved; separate trials retain exact artifacts,
 private recordings, actual input evidence and explicit human feedback.
 
-Natural double click, gesture scroll, broader Escape qualification, longer drag/loss tasks,
+Natural double click, broader Escape qualification, longer drag/loss tasks,
 relaxed no-action rates and sustained comfort remain issue10/#13 work. The earlier
-thumb/middle scroll candidate cannot also select right. The new default-off
-[held-fist source candidate](SCROLL.md) uses both axes, fine wheel steps and
-optional acceleration/positive-release inertia. Receiving direction and pleasant
-physical use remain to qualify; existing explicit scroll mode is separate. Detail rest/small-target/drawing/edges and held-action changes still
+thumb/middle scroll candidate cannot also select right. The default-off
+[held-fist candidate](SCROLL.md) uses both axes, fine wheel steps and
+optional acceleration/positive-release inertia. Receiving directions and basic
+physical scroll use now have positive evidence; full-page/integrated comfort and
+labelled release/inertia cases remain open; existing explicit scroll mode is separate. Detail rest/small-target/drawing/edges and held-action changes still
 need focused acceptance. [Escape delivery and deliberate thumb-out recognition](ESCAPE.md) now connect
 under default-off `escape:{}`. A separate d625bbc Pi candidate completed90s
 with12 Escape outputs and12 trusted keydown/keyup/dialog cancellations; Nicolás

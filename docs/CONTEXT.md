@@ -7,9 +7,14 @@ Initial source c0b4428 passed all four CI39194630016 jobs, including real native
 package builds/extraction/preparation. Both downloaded archives passed external
 SHA256 and all242 file/mode checks; the actual extracted x86-64 binary also passed
 configuration/calibration-launcher preflight on the development host. No browser,
-model, camera/input or receiving installation was exercised. A followup retains
+model, camera/input or receiving installation was exercised. Followup7aed4ef retains
 separate Rust1.85.1 standard-library notices and refuses a different compiler;
-four packaging regressions pass, while matching followup CI remains pending.
+all four matching CI39195483378 jobs pass. Both downloaded followup archives
+pass249 file/mode checks and x86-64 no-acquisition configuration/launcher preflight.
+Actual extracted x86-64 package-to-package install/update/rollback/interrupted-
+selection refusal/recovery/uninstall also passed on the VPS: two source-only idle
+processes closed with zero capture/input; bound files and both archives stayed
+unchanged, no profile/recording was created and owned units were removed.
 Existing ARM bare artifact naming is preserved. No tagged prerelease or new
 receiving acceptance is implied. See [PREVIEW-PACKAGE.md](PREVIEW-PACKAGE.md).
 

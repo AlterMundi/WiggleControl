@@ -1,10 +1,29 @@
 # End-to-end acceptance checkpoint
 
 Current delivery acceptance is scoped by [LINUX-PREVIEW.md](LINUX-PREVIEW.md)
-and [#13](https://github.com/AlterMundi/WiggleControl/issues/13). Its planned
-screen/detail and basic-action requirements are not yet accepted. Latest physical
-feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
+and [#13](https://github.com/AlterMundi/WiggleControl/issues/13). Its full integrated
+screen/detail and basic-action scope is not yet accepted. Latest physical feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
 and [CONTEXT.md](CONTEXT.md).
+
+## Current release evidence —2026-10-19
+
+| Area | Established | Remaining release evidence |
+| --- | --- | --- |
+| Left/right clicks | Positive human first use; independent button routing/cleanup regressions | Labelled intended-click count, relaxed false actions and integrated tasks |
+| Natural double click | Earlier camera-free native desktop accepts300ms pairs, rejects500ms pairs | Natural physical double pinch with spatial stabilization and actual application effect |
+| Drag/release/loss | Earlier device/watchdog/application termination checks and bounded same-hand source regressions; sticky-folder incident closed on human acceptance | Ten intended completed drags, ordinary brief-loss recovery and explicit release in integrated use |
+| Detail | Positive human menu clicking and four observed modifier cycles | Small targets/text/slow drawing, stable rest/tiny motion, edges, transition comfort and sustained use |
+| Escape | Positive human first use;12 trusted application cancellations in the finite task | Labelled held/no-repeat/rearm, held-drag cancellation and ordinary-use false actions |
+| Scroll | Positive human first use; trusted two-axis wheel/content delivery | Full-page/integrated comfort and separately labelled release/rest/inertia cases; fine polish deferred by the human |
+| Calibration | Previously accepted saved diagonal/four-corner profile; new independent GPU guide/source regressions | Actual independent guide retry/cancel/four-corner Save without silent profile replacement |
+| Standalone distribution | Manual configuration, assets, user-unit lifecycle, scoped permission rollback and full ARM64/x86-64 candidate assembly have device-free/CI evidence | Clean receiver install/update/removal, post-boot permissions, real x86-64 GPU/camera/input, accepted tagged prerelease |
+| Comfort/performance | Positive qualitative human reports; retained software-only comparisons | At least18/20 intended clicks, ten drags,60s relaxed rest, five minutes seated; latest-increment cadence/latency/jitter/resources/thermal comparison |
+
+First-use acceptance is retained; it does not supply missing intent labels or
+complete the integrated targets. [BETA-1.md](BETA-1.md), [MOUSE-ACTIONS.md](MOUSE-ACTIONS.md),
+[DETAIL.md](DETAIL.md), [ESCAPE.md](ESCAPE.md), [SCROLL.md](SCROLL.md) and
+[PREVIEW-PACKAGE.md](PREVIEW-PACKAGE.md) own exact source/evidence and limits.
+The dated sections below preserve how that evidence developed.
 
 ## First left/right human feedback — 2026-10-18
 

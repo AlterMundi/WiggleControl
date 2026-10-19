@@ -105,7 +105,41 @@ receiving installation was exercised.
 | ARM64 | 19770526 | `4cf8a3b77b13a9e800dc3b8e47ed0310c442b9df059608b60ed95ccd13d828e4` |
 | x86-64 | 19805619 | `56facb89eea940ede5105cf420aaff7ec54f78ffb134ca1ba42fd27dd1b254bf` |
 
+Static ELF version inspection of both initial binaries reports `GLIBC_2.39`
+requirements; older libc installations cannot load these particular binaries.
+Their dynamic dependencies include libc, libm and libgcc_s. This necessary ABI
+bound is not sufficient evidence of browser/GPU/camera/input compatibility.
+
 These immutable initial candidates precede the separate standard-library-notice
 addition above. Their hashes are retained evidence, not hashes for a subsequent
 source revision or a qualified release. Physical/clean-host acceptance and the
 tagged prerelease remain open.
+
+## Compiler-notice followup candidates —2026-10-19
+
+Source `7aed4ef4c2dd04e8a990fd4a2dea6325278c2f1f` passed all four jobs in
+[CI39195483378](https://github.com/AlterMundi/WiggleControl/actions/runs/39195483378).
+Both downloaded archives passed external SHA256 and all249 file/mode checks,
+including separate standard-library notices; extracted x86-64 configuration and
+calibration-launcher preparation passed again without acquisition.
+
+| Archive | Bytes | SHA256 |
+| --- | ---: | --- |
+| ARM64 | 19784504 | `2f456b4b13dbd4a40e8f32aa5516c6cdb403ac805abaf2c000a21c9ca90a2a5d` |
+| x86-64 | 19819548 | `b8d338710413e926565372e5c08820cb10b32d15bfe2ffad5f021447b1ff979f` |
+
+The [ARM64 artifact](https://github.com/AlterMundi/WiggleControl/actions/runs/39195483378/artifacts/12161523324)
+and [x86-64 artifact](https://github.com/AlterMundi/WiggleControl/actions/runs/39195483378/artifacts/12161412459)
+remain unqualified CI candidates with finite retention. These replace neither
+physical acceptance nor the eventual tagged prerelease.
+
+Actual extracted-package lifecycle also passed on the VPS using the original
+c0b4428 and 7aed4ef standard-library-notice x86-64 archives. Each package supplied its own
+binary/assets/configuration/launcher; the packaged manager performed install,
+idempotent install, update, rollback, interrupted-selector refusal/recovery and
+uninstall. Only the source entered idle standby; no browser/worker/model, camera
+or input started. Both source processes stopped with exit0 and zero capture;
+bound files and both extracted integrity inventories stayed unchanged. No profile
+or recording was created, and owned units/test limits were removed. This extends
+the earlier source-checkout lifecycle evidence to actual downloadable payloads,
+without claiming a clean receiving desktop or post-boot qualification.

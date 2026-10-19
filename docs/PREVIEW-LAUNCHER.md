@@ -186,9 +186,21 @@ qualification; earlier graphical idle/Stop evidence remains separate above.
 
 These are preparation and user-unit lifecycle components, not the completed Linux preview.
 Idle graphical lifecycle is now qualified on the VPS, not on the ThinkPad or Pi.
-Live detector/graphics performance, physical guided calibration, pinned release
-assembly, actual input/camera permissions after boot, clean-host installation and
+Full [candidate assembly](PREVIEW-PACKAGE.md) now has native ARM64/x86-64 CI
+and downloaded-archive evidence. Live detector/graphics performance, physical
+guided calibration, actual input/camera permissions after boot, clean-host installation and
 human acceptance remain in issue12/#13 and
 [LINUX-PREVIEW.md](LINUX-PREVIEW.md). Existing Pi services/calibration/trials are
 unchanged. See [PROVIDER-CONFIG.md](PROVIDER-CONFIG.md) and
 [PROVIDER-ASSETS.md](PROVIDER-ASSETS.md) for the other completed source components.
+
+Actual extracted-package lifecycle also passed on the VPS using the original
+c0b4428 and 7aed4ef standard-library-notice x86-64 archives. Each package supplied its own
+binary/assets/configuration/launcher; the packaged manager performed install,
+idempotent install, update, rollback, interrupted-selector refusal/recovery and
+uninstall. Only the source entered idle standby; no browser/worker/model, camera
+or input started. Both source processes stopped with exit0 and zero capture;
+bound files and both extracted integrity inventories stayed unchanged. No profile
+or recording was created, and owned units/test limits were removed. This extends
+the earlier source-checkout lifecycle evidence to actual downloadable payloads,
+without claiming a clean receiving desktop or post-boot qualification.

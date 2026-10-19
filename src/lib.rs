@@ -74,6 +74,9 @@ pub mod provider_setup;
 pub mod provider_fixture;
 
 #[cfg(feature = "native-vision")]
+mod camera_mmap;
+
+#[cfg(feature = "native-vision")]
 pub mod session;
 
 #[cfg(feature = "native-vision")]

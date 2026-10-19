@@ -16,8 +16,8 @@ use std::{
 };
 use v4l::{
     buffer::{Flags, Type},
+    device::Device,
     io::traits::CaptureStream,
-    prelude::*,
     video::Capture,
 };
 
@@ -443,8 +443,9 @@ pub(crate) fn camera(
             device
                 .set_params(&v4l::video::capture::Parameters::with_fps(30))
                 .map_err(|e| io::Error::new(e.kind(), format!("camera set 30 FPS: {e}")))?;
-            let mut stream = MmapStream::with_buffers(&device, Type::VideoCapture, 2)
-                .map_err(|e| io::Error::new(e.kind(), format!("camera map buffers: {e}")))?;
+            let mut stream =
+                crate::camera_mmap::Stream::with_buffers(&device, Type::VideoCapture, 2)
+                    .map_err(|e| io::Error::new(e.kind(), format!("camera map buffers: {e}")))?;
             stream.set_timeout(Duration::from_millis(250));
             while !stop.load(Ordering::Relaxed) && deadline.is_none_or(|end| Instant::now() < end) {
                 let (buffer, metadata) = match stream.next() {

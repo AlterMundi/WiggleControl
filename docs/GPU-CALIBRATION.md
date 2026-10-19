@@ -156,3 +156,40 @@ acknowledgments and closure-gated Save. An isolated Chromium presentation fixtur
 fits preparing, startup-error and interrupted states at1366×712 without scrolling;
 this is source/UI evidence, not a new Cata deployment or acquisition. The earlier
 diagnostic source3cffb0c passed all four CI39209268610 jobs.
+
+## Cata first-frame timeout diagnosis —2026-10-19
+
+A freshly acknowledged bounded camera-only trace, without Chromium/inference or
+system input, establishes this sequence: format/rate/MMAP setup and both initial
+QBUF calls pass, STREAMON succeeds, then after250ms another QBUF for buffer0 fails
+with EINVAL. No successful DQBUF occurs between those queue operations. Capture
+closes and recording remains empty. This supersedes the earlier uncertainty
+about STREAMON versus dequeue; it establishes a duplicate queue after a timeout,
+not a failed format or an exposure-control diagnosis.
+
+The pinned v4l0.14.0 capture `next` queues its last arena index whenever streaming
+is active, including after a poll timeout before any successful dequeue. Current
+upstream source was inspected and retains that pattern. The product now uses a
+capture-only adaptation of its MMAP stream/arena in `src/camera_mmap`, reusing the
+same pinned library's device/format/ABI/syscall helpers. It requeues only a
+successfully dequeued buffer and clears that ownership after successful QBUF.
+Timeouts keep waiting without duplicate queue, deliberate first-frame discard
+or a longer blocking interval.
+The250ms polling interval, per-poll Stop/deadline checks, raw timestamp validation,
+private recording and independent writer deadlines remain unchanged. Inactive
+stream teardown also avoids an unnecessary STREAMOFF. Complete upstream MIT
+attribution/permission is retained in NOTICE and packaging/v4l-mmap-MIT.txt.
+
+A camera-free regression uses a real private pipe: repeated timeouts must poll,
+whereas an erroneous video QBUF would fail with ENOTTY. It covers initial wait,
+a previously requeued buffer, and preservation of ownership on a failed queue.
+This proves the queue-state fix without camera/model/uinput. A fresh real-camera
+retry remains necessary before claiming captured frames, calibrated operation or
+physical cancellation. No exposure, privacy, lighting or hardware setting was
+changed to mask the protocol failure.
+
+Upstream basis: [v4l0.14.0 capture stream](https://github.com/raymanfx/libv4l-rs/blob/867d9b122fde603ff7f1bfcdf19de48845c9e1f7/src/io/mmap/stream.rs)
+and its matching arena; the local adaptation retains that revision's provenance.
+
+Local validation: 251 native-feature tests, all-target native Clippy, formatting
+and the four archive-assembly regressions pass. No fixed-camera retry is implied.

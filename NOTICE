@@ -35,3 +35,9 @@ crates that omit standalone license texts. See packaging/dependency-licenses.jso
 The statically linked Rust standard library retains Rust 1.85.1 MIT/Apache
 licenses and COPYRIGHT notices, pinned to its compiler source revision in
 packaging/rust-standard-library.json and included separately from Cargo crates.
+
+src/camera_mmap adapts the capture-only MMAP stream and arena from v4l 0.14.0,
+upstream revision 867d9b122fde603ff7f1bfcdf19de48845c9e1f7, to retain buffer
+ownership across poll timeouts. Copyright (c) 2020 Christopher N. Hesse, MIT;
+the complete original permission notice is packaging/v4l-mmap-MIT.txt.
+The pinned v4l dependency still provides device, format, ABI and syscall helpers.

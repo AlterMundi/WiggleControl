@@ -1,5 +1,15 @@
 # Project context — 2026-10-13
 
+Camera startup diagnosis —2026-10-19: fresh human-ready camera-only tracing
+proves STREAMON succeeds, followed after250ms by duplicate QBUF0/EINVAL before
+any DQBUF/frame. The pinned v4l capture retry requeues a driver-owned buffer after
+poll timeout. A capture-only MMAP adaptation now tracks successful dequeue/requeue
+ownership with the same library ABI/helpers and unchanged250ms Stop polling.
+Real-pipe camera-free regression and all251 native-feature tests, Clippy and
+packaging regressions pass; live retry, first frames/calibration and
+receiving deployment of this increment remain pending. MIT origin/notice retained.
+See [GPU-CALIBRATION.md](GPU-CALIBRATION.md#cata-first-frame-timeout-diagnosis-2026-10-19).
+
 Offline delivery parity —2026-10-19: serialized pipeline replay now calls the
 live provider's final publication-age guard. A constructed 285ms-old held sample
 under 300ms freshness previously stayed pressed in both replay routes; matching

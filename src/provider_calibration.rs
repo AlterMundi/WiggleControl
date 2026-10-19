@@ -8,6 +8,7 @@ pub struct Run {
     runtime: Runtime,
     guide: Option<Guide>,
     last_source: Option<u64>,
+    last_received: Option<u64>,
     target: Option<Point>,
     camera_closed: bool,
     cancelled: bool,
@@ -25,6 +26,7 @@ impl Run {
             runtime: Runtime::new(profile, output)?,
             guide: None,
             last_source: None,
+            last_received: None,
             target: None,
             camera_closed: true,
             cancelled: false,
@@ -76,6 +78,7 @@ impl Run {
         }
         let guide = self.guide.as_mut().unwrap();
         self.last_source = Some(source);
+        self.last_received = Some(now);
         let raw = point.filter(|_| guide.collecting(now));
         self.target = self.runtime.frame(raw, raw, source, now, vec![]).0;
         guide.tracking_feedback(Some(reason));
@@ -86,7 +89,10 @@ impl Run {
             return;
         }
         if self
-            .last_source
+            // Missing delivery is different from a previous image aging while
+            // the next fresh result is in flight. Individual observations keep
+            // the runtime's150ms source-age and source-gap validity checks.
+            .last_received
             .is_some_and(|s| now.saturating_sub(s) >= 150_000)
         {
             self.runtime.frame(None, None, now, now, vec![]);
@@ -139,6 +145,7 @@ impl Run {
         self.guide = None;
         self.failure = None;
         self.last_source = None;
+        self.last_received = None;
         self.target = None;
         Ok(())
     }

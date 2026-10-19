@@ -216,6 +216,16 @@ impl Bridge {
         s.receipt = Some((sequence, receipt));
         self.changed.notify_all();
     }
+    fn close_calibration_capture(&self) {
+        let mut s = self.state.lock().unwrap();
+        s.camera_opened = false;
+        s.latest = None;
+        s.lease = None;
+        s.submission = None;
+        s.preparing = None;
+        s.last_issued = s.captured;
+        self.changed.notify_all();
+    }
 }
 impl Extension for Bridge {
     fn handles(&self, path: &str) -> bool {
@@ -577,6 +587,15 @@ impl Extension for Bridge {
                         if *seq == returned.sequence {
                             return Ok(reply("200 OK", result.clone()));
                         }
+                    }
+                    if s.lease
+                        .as_ref()
+                        .is_none_or(|lease| lease.sequence != returned.sequence)
+                    {
+                        return Ok(reply(
+                            "410 Gone",
+                            json!({"error":"frame lease closed before meaning receipt"}),
+                        ));
                     }
                     let remaining = until.saturating_duration_since(Instant::now());
                     if remaining.is_zero() {
@@ -1072,15 +1091,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     if let Some(error) = &camera_mailbox.lock().unwrap().error {
                         return Err(error.clone().into());
                     }
-                    {
-                        let mut s = bridge.state.lock().unwrap();
-                        s.camera_opened = false;
-                        s.latest = None;
-                        s.lease = None;
-                        s.submission = None;
-                        s.preparing = None;
-                        s.last_issued = s.captured;
-                    }
+                    bridge.close_calibration_capture();
                     calibration.lock().unwrap().confirm_camera_closed();
                     calibration_closed_at = Some(Instant::now());
                     journal.emit(json!({"event":"calibration_capture_closed","now_us":monotonic_us()?,
@@ -2171,6 +2182,38 @@ mod tests {
             "400 Bad Request"
         );
         assert!(b.state.lock().unwrap().submission.is_none());
+    }
+    #[test]
+    fn calibration_closure_expires_an_inflight_result_without_failing_the_worker() {
+        let b = bridge();
+        b.respond("POST", "/provider/ready", br#"{"run_id":"test-1"}"#)
+            .unwrap();
+        publish(&b, 8);
+        b.respond("GET", "/provider/frame", &[]).unwrap();
+        let worker = b.clone();
+        let response = thread::spawn(move || {
+            worker
+                .respond(
+                    "POST",
+                    "/provider/result",
+                    br#"{"run_id":"test-1","sequence":1,"hands":[]}"#,
+                )
+                .unwrap()
+        });
+        let deadline = Instant::now() + Duration::from_millis(150);
+        while b.state.lock().unwrap().submission.is_none() {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(1));
+        }
+        b.close_calibration_capture();
+        assert_eq!(response.join().unwrap().status, "410 Gone");
+        let s = b.state.lock().unwrap();
+        assert!(
+            s.ready,
+            "The same worker must remain available for manual Retry"
+        );
+        assert!(!s.cancelled);
+        assert!(!s.eof);
     }
     #[test]
     fn result_is_tied_to_leased_frame_and_waits_for_actual_meaning_receipt() {

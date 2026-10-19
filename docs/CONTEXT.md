@@ -1,5 +1,16 @@
 # Project context — 2026-10-13
 
+Calibration continuity correction —2026-10-19: after improved illumination the
+human's latest attempt detected one hand in all215 processed frames, yet only one
+diagonal sample survived. A100ms cadence/70ms inference-delay regression reproduced
+the150ms source-age tick repeatedly clearing samples between fresh deliveries.
+Tick loss now uses receipt silence; per-observation source freshness and real
+loss/corner/Save guards remain intact. All six guided steps pass that regression,
+while stale delivered sources still cannot calibrate. Capture closure also wakes
+an in-flight result as expired instead of an eventual fatal503. See
+[GPU-CALIBRATION.md](GPU-CALIBRATION.md#interframe-calibration-continuity-2026-10-19).
+Source validation/deployment and fresh physical acceptance remain separate.
+
 Superseding Cata startup check —2026-10-19: selected5f502eb's manual Start
 failed before camera acquisition because the headless detector could not create
 WebGL1/2. An explicitly human-authorized agent Start reproduced that error.

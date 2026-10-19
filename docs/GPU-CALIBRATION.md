@@ -212,3 +212,34 @@ start calibration directly in its controls; manual Start supplies fresh readines
 The standalone fixed-camera diagnostic remains optional fallback, not a second
 concurrent capture. First fixed-camera frames, all corners/Save and active
 Cancel/Retry remain physical qualification tasks.
+
+## Interframe calibration continuity —2026-10-19
+
+Subsequent selected5f502eb real-camera startup succeeded with a minimized desktop
+GPU worker (launcher dfc7c65), including first countdown and scoped Cancel. The
+human's better-lit attempt then detected one hand in all215 processed frames,
+but the first diagonal ended with only one retained sample. Raw observations
+arrived about73ms after exposure at roughly94ms source intervals. The provider
+tick cleared sampling whenever the previous exposure became150ms old, including
+the ordinary interval before the next fresh result arrived. This confused missing
+delivery with the age of the previous frame and repeatedly reset a valid window.
+
+The provider now measures delivery silence from the last observation receipt.
+Individual samples retain their150ms source-age check, ordered sources, actual
+source gaps and the native stability/dwell checks. A real150ms delivery silence,
+an explicit missing hand or stale observations still interrupt dwell; no old or
+predicted point supplies a new sample. A camera-free100ms cadence/70ms delay test
+failed at the first diagonal before this correction and now reaches all four
+corners. Regularly delivered150ms-old sources still fail, actual loss still
+resets corner dwell, Save still waits for camera closure and explicit acceptance.
+
+Capture closure also expires a concurrently submitted frame with410 (the
+worker's existing nonfatal expired-frame path), waking its receipt waiter.
+Previously that waiter could time out with503 after closure discarded its
+submission. A run-bound HTTP regression covers this boundary and preserves the
+worker for manual Retry. This is a demonstrated protocol race, not proof of the
+specific generic worker-cancellation cause in an older physical trial.
+
+No camera controls, inference model, mouse-delivery freshness or accepted
+calibration profile are changed by these corrections. Fresh physical diagonal/
+four-corner acceptance remains required after deployment.

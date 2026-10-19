@@ -161,3 +161,95 @@ fn missing_frames_reset_corner_dwell_and_never_reuse_a_diagonal_as_verified_revi
     run.cancel().unwrap();
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn regular_delayed_observations_survive_interframe_ticks_and_verify_all_corners() {
+    let (root, mut run) = fixture("delayed-cadence");
+    let old = fs::read(root.join("profile.json")).unwrap();
+    run.start().unwrap();
+    // Source cadence100ms plus70ms inference: each observation is fresh, but
+    // the previous source is169ms old just before the next result arrives.
+    let mut at = 1_000_000;
+    for (step, point) in [(0, Point { x: 0.2, y: 0.3 }), (1, Point { x: 0.8, y: 0.7 })] {
+        run.observe(
+            Some(point),
+            at - 70_000,
+            at,
+            "Calibration: hand visible; hold steady",
+        );
+        run.acknowledge(step, at).unwrap();
+        for n in 1..200 {
+            let receipt = at + n * 100_000;
+            run.tick(receipt - 1_000);
+            run.observe(
+                Some(point),
+                receipt - 70_000,
+                receipt,
+                "Calibration: hand visible; hold steady",
+            );
+        }
+        run.tick(at + 20_000_000);
+        assert_eq!(run.state(at + 20_000_000)["guide"]["step"], step + 1);
+        at += 21_000_000;
+    }
+    assert_eq!(run.state(at)["review"]["stage"], "review");
+    for (step, point) in [
+        Point { x: 0.2, y: 0.3 },
+        Point { x: 0.8, y: 0.3 },
+        Point { x: 0.8, y: 0.7 },
+        Point { x: 0.2, y: 0.7 },
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        run.acknowledge(step + 2, at).unwrap();
+        for n in 0..6 {
+            let receipt = at + n * 100_000;
+            run.tick(receipt - 1_000);
+            run.observe(
+                Some(point),
+                receipt - 70_000,
+                receipt,
+                "Calibration: hand visible; hold steady",
+            );
+        }
+        at += 1_000_000;
+    }
+    assert_eq!(run.state(at)["phase"], "complete");
+    assert!(
+        run.save().is_err(),
+        "Timing tolerance does not waive camera closure"
+    );
+    assert_eq!(fs::read(root.join("profile.json")).unwrap(), old);
+    run.cancel().unwrap();
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn regularly_delivered_stale_sources_still_cannot_supply_diagonal_samples() {
+    let (root, mut run) = fixture("stale-delivery");
+    run.start().unwrap();
+    let at = 1_000_000;
+    run.observe(
+        Some(Point { x: 0.2, y: 0.3 }),
+        at - 150_000,
+        at,
+        "Calibration: frame delayed",
+    );
+    run.acknowledge(0, at).unwrap();
+    for n in 1..=200 {
+        let receipt = at + n * 100_000;
+        run.tick(receipt - 1_000);
+        run.observe(
+            Some(Point { x: 0.2, y: 0.3 }),
+            receipt - 150_000,
+            receipt,
+            "Calibration: frame delayed",
+        );
+    }
+    assert_eq!(run.state(at + 20_000_000)["phase"], "retry");
+    assert_eq!(run.state(at + 20_000_000)["review"]["samples"], 0);
+    assert!(run.save().is_err());
+    run.cancel().unwrap();
+    fs::remove_dir_all(root).unwrap();
+}

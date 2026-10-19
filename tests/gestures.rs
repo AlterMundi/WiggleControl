@@ -341,7 +341,7 @@ fn scroll_releases_drag_freezes_pointer_and_resets_baseline() {
     let events = e.observe(180_001, next);
     assert!(events
         .iter()
-        .any(|e| matches!(e,Event::Scroll{vertical} if *vertical>0)));
+        .any(|e| matches!(e,Event::Scroll{vertical, ..} if *vertical>0)));
     assert!(!events.iter().any(|e| matches!(e, Event::Move { .. })));
     let exited = e.observe(200_001, frame(200_001, 1, 0.6, 0.5));
     assert!(!exited

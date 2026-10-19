@@ -21,6 +21,13 @@ now connects the opt-in thumb-out gesture. The separate d625bbc Pi trial complet
 Nicolás reports good operation. Held-drag cancellation, labelled prolonged holds/
 rearm and ordinary-use false-action qualification remain.
 
+[Held-fist scroll](SCROLL.md) now connects both axes and fine wheel delivery in
+source, with direct content direction, anchored pointer return and optional
+acceleration/release inertia. The user-selected behavior is page grabbing while
+closed, coasting only after opening in motion, and no inertia after resting.
+Receiving direction, gesture recognition and pleasant physical use remain to
+qualify. No new camera session or default-beta change is implied.
+
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into
 the new human-requested goal after the old goal was cleared. The broader touchscreen roadmap

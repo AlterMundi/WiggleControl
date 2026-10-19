@@ -530,7 +530,13 @@ mod tests {
                     Some(p),
                     at,
                     at + 50_000,
-                    vec![Event::Button { down: true }, Event::Scroll { vertical: 1 }],
+                    vec![
+                        Event::Button { down: true },
+                        Event::Scroll {
+                            vertical: 1,
+                            horizontal: 0,
+                        },
+                    ],
                 );
                 assert!(target.is_some());
                 assert!(events.is_empty());

@@ -33,6 +33,11 @@ pub enum MouseIntent {
         vertical: i32,
         horizontal: i32,
     },
+    /// High-resolution wheel units;120 equals one detent.
+    ScrollFine {
+        vertical: i32,
+        horizontal: i32,
+    },
     /// Neutralize every held button without stopping the writer.
     Release,
     Heartbeat,
@@ -43,6 +48,7 @@ pub enum MouseIntent {
 pub struct MouseState {
     held: [bool; 3],
     residual: [f64; 2],
+    wheel_residual: [i32; 2],
 }
 impl MouseState {
     pub(crate) fn is_held(&self) -> bool {
@@ -119,12 +125,56 @@ impl MouseState {
                         "wheel intent exceeds 10 steps",
                     ));
                 }
-                for (value, code) in [
-                    (vertical, RelativeAxisCode::REL_WHEEL),
-                    (horizontal, RelativeAxisCode::REL_HWHEEL),
+                for (value, code, fine) in [
+                    (
+                        vertical,
+                        RelativeAxisCode::REL_WHEEL,
+                        RelativeAxisCode::REL_WHEEL_HI_RES,
+                    ),
+                    (
+                        horizontal,
+                        RelativeAxisCode::REL_HWHEEL,
+                        RelativeAxisCode::REL_HWHEEL_HI_RES,
+                    ),
                 ] {
                     if value != 0 {
+                        events.push(InputEvent::new(EventType::RELATIVE.0, fine.0, value * 120));
                         events.push(InputEvent::new(EventType::RELATIVE.0, code.0, value));
+                    }
+                }
+            }
+            MouseIntent::ScrollFine {
+                vertical,
+                horizontal,
+            } => {
+                if vertical.abs_diff(0) > 1200 || horizontal.abs_diff(0) > 1200 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "fine wheel intent exceeds ten detents",
+                    ));
+                }
+                for (axis, value, code, fine) in [
+                    (
+                        0,
+                        horizontal,
+                        RelativeAxisCode::REL_HWHEEL,
+                        RelativeAxisCode::REL_HWHEEL_HI_RES,
+                    ),
+                    (
+                        1,
+                        vertical,
+                        RelativeAxisCode::REL_WHEEL,
+                        RelativeAxisCode::REL_WHEEL_HI_RES,
+                    ),
+                ] {
+                    if value != 0 {
+                        events.push(InputEvent::new(EventType::RELATIVE.0, fine.0, value));
+                        self.wheel_residual[axis] += value;
+                        let detents = self.wheel_residual[axis] / 120;
+                        self.wheel_residual[axis] -= detents * 120;
+                        if detents != 0 {
+                            events.push(InputEvent::new(EventType::RELATIVE.0, code.0, detents));
+                        }
                     }
                 }
             }
@@ -135,6 +185,7 @@ impl MouseState {
     }
     pub fn release(&mut self) -> Vec<InputEvent> {
         self.residual = [0.0; 2];
+        self.wheel_residual = [0; 2];
         [MouseButton::Left, MouseButton::Right, MouseButton::Middle]
             .into_iter()
             .flat_map(|button| self.button(button, false))
@@ -163,6 +214,8 @@ pub(crate) fn create(absolute: bool) -> io::Result<VirtualDevice> {
             .with_relative_axes(&AttributeSet::from_iter([
                 RelativeAxisCode::REL_WHEEL,
                 RelativeAxisCode::REL_HWHEEL,
+                RelativeAxisCode::REL_WHEEL_HI_RES,
+                RelativeAxisCode::REL_HWHEEL_HI_RES,
             ]))?
             .build()
     } else {
@@ -178,6 +231,8 @@ pub(crate) fn create(absolute: bool) -> io::Result<VirtualDevice> {
                 RelativeAxisCode::REL_Y,
                 RelativeAxisCode::REL_WHEEL,
                 RelativeAxisCode::REL_HWHEEL,
+                RelativeAxisCode::REL_WHEEL_HI_RES,
+                RelativeAxisCode::REL_HWHEEL_HI_RES,
             ]))?
             .build()
     }

@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Scroll source candidate —2026-10-19: default-off held fist maps mirrored wrist
+motion to fine vertical/horizontal wheel output, with direct content direction,
+frozen pointer and anchored return. Optional bounded acceleration and positive
+moving-open release inertia implement Nicolás's grab/release/rest distinction.
+235 native tests and relevant JS pass; paired3095 retained observations preserve
+click/detail/Escape meaning with no scroll candidate. Receiving effects and
+physical comfort remain unqualified. See [SCROLL.md](SCROLL.md).
+
 Physical Escape update —2026-10-19: the separately staged d625bbc candidate
 completed90s/error-free, with12 Escape outputs and12 trusted keydown/keyup/dialog
 cancellations. Nicolás reports the gesture worked well. Camera/input and children

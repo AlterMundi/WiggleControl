@@ -43,6 +43,7 @@ pub struct Settings {
     pub right_click_dominance_ratio: f64,
     pub detail: Option<crate::detail::Config>,
     pub escape: Option<crate::escape::Config>,
+    pub scroll: Option<crate::scroll::Config>,
 }
 impl Settings {
     pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
@@ -68,6 +69,7 @@ impl Default for Settings {
             right_click_dominance_ratio: 0.5,
             detail: None,
             escape: None,
+            scroll: None,
         }
     }
 }
@@ -90,6 +92,7 @@ pub struct Output {
     /// One-shot command for this observation only; never repeated by a tick.
     pub escape: bool,
     pub escape_feedback: Option<macros::Feedback>,
+    pub scroll: Option<crate::scroll::Feedback>,
     pub mode: Mode,
     pub right_click: bool,
     /// Active held modifier; separate from destructive exclusive mode transitions.
@@ -119,6 +122,14 @@ pub struct Output {
     /// Bounded historical receipt, separate from this frame's action/output.
     pub last_macro_action: Option<MacroReceipt>,
 }
+/// Optional raw controls share controller-owned hand/source admission.
+#[derive(Default)]
+pub struct Controls {
+    pub middle_pinch: Option<pointer_buttons::Evidence>,
+    pub detail: Option<crate::detail::Evidence>,
+    pub escape: Option<crate::escape::Evidence>,
+    pub scroll: Option<crate::scroll::Evidence>,
+}
 pub struct Controller {
     mode: Mode,
     running: bool,
@@ -140,12 +151,24 @@ pub struct Controller {
     detail: crate::detail::Held,
     escape_config: Option<crate::escape::Config>,
     escape_engine: Option<macros::Engine>,
+    scroll_config: Option<crate::scroll::Config>,
+    scroll: crate::scroll::Held,
+    scroll_captured: bool,
     contacts: Vec<Contact>,
     watermark: Option<u64>,
     last_now: Option<u64>,
 }
 impl Controller {
     pub fn new(settings: Settings) -> Result<Self, &'static str> {
+        if let Some(config) = settings.scroll {
+            config.validate()?;
+            if settings
+                .escape
+                .is_some_and(|e| config.thumb_clearance_max >= e.thumb_clearance_widths)
+            {
+                return Err("scroll and Escape thumb regions must not overlap");
+            }
+        }
         if let Some(config) = settings.detail {
             config.validate()?;
         }
@@ -193,6 +216,9 @@ impl Controller {
             detail_config: settings.detail,
             detail: Default::default(),
             escape_config: settings.escape,
+            scroll_config: settings.scroll,
+            scroll: Default::default(),
+            scroll_captured: false,
             escape_engine: settings
                 .escape
                 .map(|c| c.engine(settings.gestures.stale_us, settings.gestures.min_confidence))
@@ -206,7 +232,12 @@ impl Controller {
         Output {
             escape: false,
             escape_feedback: self.escape_engine.as_ref().map(macros::Engine::feedback),
-            mode: self.mode,
+            scroll: self.scroll_config.map(|c| self.scroll.feedback(c)),
+            mode: if self.scroll_captured {
+                Mode::Scroll
+            } else {
+                self.mode
+            },
             right_click: self.right_click,
             detail: self.detail_config.filter(|_| self.detail.active()),
             running: self.running,
@@ -235,6 +266,9 @@ impl Controller {
     }
     pub fn detail_config(&self) -> Option<crate::detail::Config> {
         self.detail_config
+    }
+    pub fn scroll_config(&self) -> Option<crate::scroll::Config> {
+        self.scroll_config
     }
     pub fn escape_config(&self) -> Option<crate::escape::Config> {
         self.escape_config
@@ -311,6 +345,8 @@ impl Controller {
         let events = self.pointer_events(events);
         self.button_candidate = None;
         self.detail = Default::default();
+        self.scroll.reset();
+        self.scroll_captured = false;
         self.contacts = self.touches.stop();
         self.primary = None;
         self.pointer_ready = false;
@@ -407,9 +443,18 @@ impl Controller {
                 middle_pinch,
                 detail,
                 escape,
-            } => {
-                self.observe_with_controls(now_us, observation, pose, middle_pinch, detail, escape)
-            }
+                scroll,
+            } => self.observe_with_evidence(
+                now_us,
+                observation,
+                pose,
+                Controls {
+                    middle_pinch,
+                    detail,
+                    escape,
+                    scroll: scroll.map(|e| *e),
+                },
+            ),
         }
     }
     pub fn action(&mut self, action: macros::Action) -> Output {
@@ -549,6 +594,31 @@ impl Controller {
         detail: Option<crate::detail::Evidence>,
         escape: Option<crate::escape::Evidence>,
     ) -> Output {
+        self.observe_with_evidence(
+            now,
+            frame,
+            pose,
+            Controls {
+                middle_pinch,
+                detail,
+                escape,
+                scroll: None,
+            },
+        )
+    }
+    pub fn observe_with_evidence(
+        &mut self,
+        now: u64,
+        frame: touch_gestures::Frame,
+        pose: Option<macros::HandPose>,
+        controls: Controls,
+    ) -> Output {
+        let Controls {
+            middle_pinch,
+            detail,
+            escape,
+            scroll,
+        } = controls;
         let regressed = self.last_now.is_some_and(|t| now < t);
         let tick = self.tick(now);
         if !self.running {
@@ -583,6 +653,7 @@ impl Controller {
             self.selected_hand(&frame)
         };
         if selected != self.primary {
+            self.scroll.reset();
             self.detail = Default::default();
             self.pointer_ready = false;
             self.button_candidate = None;
@@ -663,6 +734,11 @@ impl Controller {
             return output;
         }
         if escape_holding {
+            let scroll_released = self.scroll_captured;
+            if scroll_released {
+                self.scroll.reset();
+                self.scroll_captured = false;
+            }
             // Suppress pinch guesses and motion during a confirmed-owner candidate.
             // Preserve only the existing same-source bounded drag grace, never
             // extend it with these cancellation-pose observations.
@@ -685,10 +761,61 @@ impl Controller {
                 },
             );
             let events = self.pointer_events(events);
-            let mut output = self.output(events, tick.transition);
+            let mut output = self.output(events, tick.transition || scroll_released);
             output.mouse.splice(0..0, tick.mouse);
-            output.reason = Some("escape_holding");
+            output.reason = Some(if scroll_released {
+                "scroll_released"
+            } else {
+                "escape_holding"
+            });
             return output;
+        }
+        let mut scroll_released = false;
+        if let Some(config) = self.scroll_config.filter(|_| self.mode == Mode::Pointer) {
+            let was_captured = self.scroll_captured;
+            let evidence = scroll
+                .filter(|e| e.source_us == frame.source_us && Some(e.hand_id) == selected)
+                .and_then(|mut e| {
+                    let hand = frame.hands.iter().find(|h| h.id == e.hand_id)?;
+                    if hand.confidence < self.config.min_confidence
+                        || matches!(self.pointer.pinch_state(), "closing" | "pressed")
+                    {
+                        return None;
+                    }
+                    let neutral = self.fully_open(hand)
+                        && (!self.right_click
+                            || middle_pinch
+                                .and_then(|m| m.middle_hand(hand, frame.source_us))
+                                .is_some_and(|m| self.fully_open(&m)));
+                    if e.pose == crate::scroll::Pose::Neutral && !neutral {
+                        e.pose = crate::scroll::Pose::Other;
+                    }
+                    Some(e)
+                });
+            let motion =
+                self.scroll
+                    .observe(config, frame.source_us, evidence, self.config.stale_us);
+            self.scroll_captured = self.scroll.feedback(config).captures_pointer();
+            scroll_released = was_captured && !self.scroll_captured;
+            if self.scroll_captured {
+                let mut events = tick.mouse;
+                if !was_captured {
+                    let releases = self.pointer.stop();
+                    events.extend(self.pointer_events(releases));
+                    self.pointer.start();
+                    self.pointer_ready = false;
+                    self.button_candidate = None;
+                }
+                if motion.vertical != 0 || motion.horizontal != 0 {
+                    events.push(Event::ScrollFine {
+                        vertical: motion.vertical,
+                        horizontal: motion.horizontal,
+                    });
+                }
+                let mut output = self.output(events, tick.transition || !was_captured);
+                output.reason = Some("held_scroll");
+                return output;
+            }
         }
         if let Some(hold) = self.pointer.drag_hold() {
             let owner_changed = selected.is_some_and(|id| id != hold.hand_id);
@@ -906,8 +1033,12 @@ impl Controller {
             output.last_macro_action = Some(receipt);
             return output;
         }
-        let mut output = self.output(mouse, tick.transition);
-        output.reason = tick.reason;
+        let mut output = self.output(mouse, tick.transition || scroll_released);
+        output.reason = if scroll_released {
+            Some("scroll_released")
+        } else {
+            tick.reason
+        };
         output
     }
 }
@@ -940,6 +1071,9 @@ pub enum Command {
         detail: Option<crate::detail::Evidence>,
         #[serde(default)]
         escape: Option<crate::escape::Evidence>,
+        #[serde(default)]
+        // Box only this optional replay payload; raw live observations use Controls directly.
+        scroll: Option<Box<crate::scroll::Evidence>>,
     },
 }
 pub fn replay_stdin(config: &std::path::Path) -> std::io::Result<()> {

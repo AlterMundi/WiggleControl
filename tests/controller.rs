@@ -319,7 +319,7 @@ fn precision_scales_motion_and_scroll_emits_only_wheel() {
     assert!(wheel
         .mouse
         .iter()
-        .any(|e| matches!(e,Event::Scroll{vertical}if *vertical<0)));
+        .any(|e| matches!(e,Event::Scroll{vertical, ..}if *vertical<0)));
     assert!(!wheel
         .mouse
         .iter()

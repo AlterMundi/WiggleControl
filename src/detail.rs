@@ -140,6 +140,13 @@ impl Mapping {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+    /// Resume screen/detail at the point that stayed visible while scrolling.
+    pub fn anchor(&mut self, input: Point, detail: Option<Config>, visible: Point) {
+        self.active = detail;
+        self.input = Some(input);
+        self.output = Some(visible);
+        self.screen_anchor = Some((input, visible));
+    }
     pub fn observe(
         &mut self,
         point: Point,

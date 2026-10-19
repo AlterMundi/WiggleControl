@@ -528,8 +528,17 @@ fn write_events(
                 }
                 serde_json::json!({"type":"named_button","button":button,"down":down})
             }
-            Event::Scroll { vertical } => {
-                serde_json::json!({"type":"scroll","vertical":vertical,"horizontal":0})
+            Event::Scroll {
+                vertical,
+                horizontal,
+            } => {
+                serde_json::json!({"type":"scroll","vertical":vertical,"horizontal":horizontal})
+            }
+            Event::ScrollFine {
+                vertical,
+                horizontal,
+            } => {
+                serde_json::json!({"type":"scroll_fine","vertical":vertical,"horizontal":horizontal})
             }
             Event::Cancel { .. } => serde_json::json!({"type":"release"}),
         };
@@ -749,7 +758,32 @@ pub(crate) fn observe_controller(
             pose: crate::escape::classify(settings, &hand.world_landmarks)?,
         })
     });
-    controller.observe_with_controls(now, observation, pose, evidence, detail, escape)
+    let scroll = controller.scroll_config().and_then(|settings| {
+        let id = controller.selected_pointer_hand(&observation)?;
+        let hand = detected
+            .iter()
+            .find(|h| h.id == id && h.in_view(size[0], size[1]))?;
+        Some(crate::scroll::Evidence {
+            hand_id: id,
+            source_us: observation.source_us,
+            pose: crate::scroll::classify(settings, &hand.world_landmarks)?,
+            wrist: crate::Point {
+                x: 1.0 - hand.landmarks[0].x / size[0] as f64,
+                y: hand.landmarks[0].y / size[1] as f64,
+            },
+        })
+    });
+    controller.observe_with_evidence(
+        now,
+        observation,
+        pose,
+        crate::controller::Controls {
+            middle_pinch: evidence,
+            detail,
+            escape,
+            scroll,
+        },
+    )
 }
 pub(crate) fn write_controller(
     output: &mut Option<std::process::ChildStdin>,
@@ -2234,5 +2268,81 @@ mod tests {
             assert!(SessionConfig::load(&path).is_err());
         }
         fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn raw_scroll_bridge_uses_in_view_owner_and_mirrored_wrist_for_both_axes() {
+        let config:SessionConfig=serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera","models":"/fictional/models","runtime":"/fictional/runtime",
+            "fps":10,"gain":2000,"pinch_3d":false,"freshness_ms":300,"gesture_min_confidence":0.5
+        })).unwrap();
+        for obstruct in [false, true] {
+            let mut controller = crate::controller::Controller::new(crate::controller::Settings {
+                gestures: config.gestures(),
+                scroll: Some(Default::default()),
+                ..Default::default()
+            })
+            .unwrap();
+            controller.start();
+            controller.select_hand(Some(7));
+            for n in 0..=7 {
+                let t = 1 + n * 100_000;
+                let fist = n >= 3;
+                let mut raw = fictional_hand(7, false, 0.2);
+                raw.confidence = 0.5;
+                raw.world_landmarks = crate::escape::tests::world(if fist {
+                    crate::escape::Pose::ThumbOut
+                } else {
+                    crate::escape::Pose::Neutral
+                });
+                if fist {
+                    raw.world_landmarks[4] = [0.0, -0.02, 0.0];
+                    for (tip, pip) in [(8, 6), (12, 10), (16, 14), (20, 18)] {
+                        raw.landmarks[pip].y = 280.0;
+                        raw.landmarks[tip].y = 350.0;
+                    }
+                }
+                if n == 7 {
+                    raw.landmarks[0].x += 64.0;
+                    raw.landmarks[0].y -= 48.0;
+                }
+                if obstruct && n == 4 {
+                    raw.landmarks[1].x = -1.0;
+                }
+                let observed = config.observation(Some(&raw), 640, 480, t).hand.unwrap();
+                if fist {
+                    assert!(!observed.pinch_eligible);
+                }
+                let mut other = raw.clone();
+                other.id = 9;
+                let frame = crate::touch_gestures::Frame {
+                    version: 1,
+                    source_us: t,
+                    ambiguous: false,
+                    hands: vec![
+                        config.observation(Some(&other), 640, 480, t).hand.unwrap(),
+                        observed,
+                    ],
+                };
+                let out = observe_controller(
+                    &config,
+                    &mut controller,
+                    t,
+                    frame,
+                    None,
+                    &[other, raw],
+                    [640, 480],
+                );
+                assert_eq!(out.primary_hand, Some(7));
+                assert_eq!(out.scroll.as_ref().unwrap().active, n >= 6 && !obstruct);
+                if n == 7 && !obstruct {
+                    assert!(out.mouse.iter().any(|e|matches!(e,Event::ScrollFine{vertical,horizontal} if *vertical<0&&*horizontal>0)));
+                } else {
+                    assert!(!out
+                        .mouse
+                        .iter()
+                        .any(|e| matches!(e, Event::ScrollFine { .. })));
+                }
+            }
+        }
     }
 }

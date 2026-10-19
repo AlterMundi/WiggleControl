@@ -183,3 +183,87 @@ fn named_button_protocol_rejects_unknown_button_without_reinterpreting_it_as_lef
     }
     assert_eq!(state.release()[0].code(), KeyCode::BTN_RIGHT.0);
 }
+
+#[test]
+fn fine_wheel_preserves_subdetents_both_axes_and_clears_residual_on_release() {
+    let mut s = MouseState::default();
+    for n in 1..=4 {
+        let events = s
+            .apply(
+                MouseIntent::ScrollFine {
+                    vertical: -30,
+                    horizontal: 30,
+                },
+                1.0,
+            )
+            .unwrap();
+        assert!(events
+            .iter()
+            .any(|e| e.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0 && e.value() == -30));
+        assert!(events
+            .iter()
+            .any(|e| e.code() == RelativeAxisCode::REL_HWHEEL_HI_RES.0 && e.value() == 30));
+        assert_eq!(
+            events
+                .iter()
+                .any(|e| e.code() == RelativeAxisCode::REL_WHEEL.0),
+            n == 4
+        );
+        assert_eq!(
+            events
+                .iter()
+                .any(|e| e.code() == RelativeAxisCode::REL_HWHEEL.0),
+            n == 4
+        );
+    }
+    s.apply(
+        MouseIntent::ScrollFine {
+            vertical: 90,
+            horizontal: -90,
+        },
+        1.0,
+    )
+    .unwrap();
+    s.release();
+    let after = s
+        .apply(
+            MouseIntent::ScrollFine {
+                vertical: 30,
+                horizontal: -30,
+            },
+            1.0,
+        )
+        .unwrap();
+    assert!(after
+        .iter()
+        .all(|e| e.code() != RelativeAxisCode::REL_WHEEL.0
+            && e.code() != RelativeAxisCode::REL_HWHEEL.0));
+    let legacy = s
+        .apply(
+            MouseIntent::Scroll {
+                vertical: 2,
+                horizontal: -1,
+            },
+            1.0,
+        )
+        .unwrap();
+    for (code, value) in [
+        (RelativeAxisCode::REL_WHEEL_HI_RES, 240),
+        (RelativeAxisCode::REL_WHEEL, 2),
+        (RelativeAxisCode::REL_HWHEEL_HI_RES, -120),
+        (RelativeAxisCode::REL_HWHEEL, -1),
+    ] {
+        assert!(legacy
+            .iter()
+            .any(|e| e.code() == code.0 && e.value() == value));
+    }
+    assert!(s
+        .apply(
+            MouseIntent::ScrollFine {
+                vertical: i32::MIN,
+                horizontal: 0
+            },
+            1.0
+        )
+        .is_err());
+}

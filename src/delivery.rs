@@ -66,6 +66,8 @@ pub struct Publisher {
     cursor_freshness_us: u64,
     detail_map: crate::detail::Mapping,
     mapping_owner: Option<u64>,
+    scroll_anchor: Option<crate::Point>,
+    last_absolute: Option<crate::Point>,
 }
 impl Publisher {
     pub fn with_cursor_output(
@@ -165,6 +167,42 @@ impl Publisher {
             ));
         }
         let mut packet = self.packet(output, now, source)?;
+        if output.running && output.scroll.as_ref().is_some_and(|s| s.captures_pointer()) {
+            if self.scroll_anchor.is_none() {
+                self.scroll_anchor = self
+                    .cursor
+                    .as_ref()
+                    .and_then(|c| c.feedback())
+                    .map(|s| s.estimated)
+                    .or(self.last_absolute);
+            }
+            if let Some(cursor) = &mut self.cursor {
+                cursor.freeze(now).map_err(io::Error::other)?;
+            }
+            if let Some(Packet::Frame {
+                mouse, absolute, ..
+            }) = &mut packet
+            {
+                mouse.retain(|e| {
+                    matches!(
+                        e,
+                        Event::Scroll { .. } | Event::ScrollFine { .. } | Event::Cancel { .. }
+                    )
+                });
+                *absolute = None;
+            }
+            return Ok(packet);
+        }
+        if output.reason == Some("scroll_released")
+            && output.transition
+            && self.scroll_anchor.is_some()
+            && self.mapping_owner == output.primary_hand
+        {
+            if let Some(cursor) = &mut self.cursor {
+                cursor.freeze(now).map_err(io::Error::other)?;
+            }
+            return Ok(packet);
+        }
         if output.transition
             || !output.running
             || output.mode != Mode::Pointer
@@ -172,12 +210,19 @@ impl Publisher {
         {
             self.detail_map.reset();
             self.mapping_owner = output.primary_hand;
+            self.scroll_anchor = None;
+            self.last_absolute = None;
         }
         let mapped = if output.mode == Mode::Pointer && matches!(packet, Some(Packet::Frame { .. }))
         {
             output
                 .pointer_cursor
                 .map(|point| {
+                    if let Some(anchor) = self.scroll_anchor.take() {
+                        self.detail_map
+                            .anchor(workspace.map(point), output.detail, anchor);
+                        return Ok((anchor, true));
+                    }
                     self.detail_map
                         .observe(
                             workspace.map(point),
@@ -245,6 +290,7 @@ impl Publisher {
                         .sample(now, true)
                         .map_err(io::Error::other)?
                         .map(|s| s.estimated);
+                    self.last_absolute = *absolute;
                 } else {
                     cursor.reset();
                     self.cursor_owner = None;
@@ -274,6 +320,9 @@ impl Publisher {
             mouse.retain(|e| !matches!(e, Event::Move { .. }));
             if output.mode == Mode::Pointer {
                 *absolute = mapped.map(|(point, _)| point);
+                if absolute.is_some() {
+                    self.last_absolute = *absolute;
+                }
             }
         }
         Ok(packet)
@@ -526,6 +575,7 @@ impl State {
                                 matches!(
                                     e,
                                     Event::Scroll { .. }
+                                        | Event::ScrollFine { .. }
                                         | Event::Cancel { .. }
                                         | Event::Button { down: false }
                                         | Event::NamedButton { down: false, .. }
@@ -534,7 +584,9 @@ impl State {
                     }
                     Mode::Pointer | Mode::Precision => {
                         contacts.is_empty()
-                            && mouse.iter().all(|e| !matches!(e, Event::Scroll { .. }))
+                            && mouse.iter().all(|e| {
+                                !matches!(e, Event::Scroll { .. } | Event::ScrollFine { .. })
+                            })
                     }
                 };
                 if !allowed
@@ -563,10 +615,23 @@ impl State {
                         Event::NamedButton { button, down } => self
                             .mouse
                             .apply(MouseIntent::NamedButton { button, down }, gain)?,
-                        Event::Scroll { vertical } => self.mouse.apply(
+                        Event::Scroll {
+                            vertical,
+                            horizontal,
+                        } => self.mouse.apply(
                             MouseIntent::Scroll {
                                 vertical,
-                                horizontal: 0,
+                                horizontal,
+                            },
+                            gain,
+                        )?,
+                        Event::ScrollFine {
+                            vertical,
+                            horizontal,
+                        } => self.mouse.apply(
+                            MouseIntent::ScrollFine {
+                                vertical,
+                                horizontal,
                             },
                             gain,
                         )?,

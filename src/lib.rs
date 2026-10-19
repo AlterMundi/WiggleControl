@@ -7,6 +7,7 @@ pub mod escape;
 pub mod filter;
 pub mod macros;
 pub mod pointer_buttons;
+pub mod scroll;
 
 #[cfg(target_os = "linux")]
 pub mod controller;
@@ -244,6 +245,9 @@ pub enum MouseButton {
     Middle,
 }
 
+fn wheel_zero(value: &i32) -> bool {
+    *value == 0
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
@@ -263,6 +267,13 @@ pub enum Event {
     },
     Scroll {
         vertical: i32,
+        #[serde(default, skip_serializing_if = "wheel_zero")]
+        horizontal: i32,
+    },
+    /// High-resolution wheel units:120 units equal one detent.
+    ScrollFine {
+        vertical: i32,
+        horizontal: i32,
     },
     Cancel {
         reason: String,
@@ -696,7 +707,10 @@ impl Engine {
                 let steps = (self.scroll_remainder.trunc() as i32).clamp(-10, 10);
                 self.scroll_remainder -= f64::from(steps);
                 if steps != 0 {
-                    events.push(Event::Scroll { vertical: steps });
+                    events.push(Event::Scroll {
+                        vertical: steps,
+                        horizontal: 0,
+                    });
                 }
             } else if dx != 0.0 || dy != 0.0 {
                 events.push(Event::Move { dx, dy });

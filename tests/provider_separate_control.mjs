@@ -105,6 +105,11 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  config.escape_feedback={candidate:null,armed:false};await vm.runInContext('poll()',context);
  assert.match(element('operation').textContent,/Escape: open hand/);
  assert.match(element('lifetime-help').textContent,/90 seconds of acquisition/);
+ config.scroll_configured=true;config.scroll_feedback={candidate:true,hold_elapsed_us:150000,hold_required_us:300000};
+ await vm.runInContext('poll()',context);assert.match(element('operation').textContent,/SCROLL hold 50%/);
+ assert.match(element('gesture-help').textContent,/vertically and horizontally/);
+ config.scroll_feedback={active:true};await vm.runInContext('poll()',context);assert.match(element('operation').textContent,/SCROLL/);
+ config.scroll_feedback=null;
  config.remaining_ms=null;await vm.runInContext('poll()',context);
  assert.match(element('operation').textContent,/Waiting for acquisition clock/);
  assert.doesNotMatch(element('operation').textContent,/Until Stop/);

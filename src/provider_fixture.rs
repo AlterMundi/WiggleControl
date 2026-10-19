@@ -66,6 +66,7 @@ struct State {
     controller_running: bool,
     detail_active: bool,
     escape_feedback: Option<crate::macros::Feedback>,
+    scroll_feedback: Option<crate::scroll::Feedback>,
 }
 impl State {
     fn remaining_ms(&self, seconds: Option<u64>, now: Instant) -> Option<u64> {
@@ -83,6 +84,7 @@ impl State {
         self.controller_running = output.running;
         self.detail_active = output.detail.is_some();
         self.escape_feedback = output.escape_feedback.clone();
+        self.scroll_feedback = output.scroll.clone();
     }
     fn worker_expired(&self, now: Instant) -> bool {
         self.ready
@@ -115,6 +117,7 @@ struct Bridge {
     cursor_output: Option<crate::cursor::Config>,
     detail_configured: bool,
     escape_configured: bool,
+    scroll_configured: bool,
     right_click: bool,
     manual_start: bool,
     trial_seconds: Option<u64>,
@@ -163,6 +166,7 @@ impl Bridge {
             cursor_output: None,
             detail_configured: false,
             escape_configured: false,
+            scroll_configured: false,
             right_click: false,
             manual_start: false,
             trial_seconds: None,
@@ -302,7 +306,8 @@ impl Extension for Bridge {
                 "mode":state.control_mode,"controller_running":state.controller_running&&!state.eof,
                 "detail_configured":self.detail_configured,"detail_active":state.detail_active&&!state.eof,
                 "right_click":self.right_click,"escape_configured":self.escape_configured,
-                "escape_feedback":if state.eof {None}else{state.escape_feedback.as_ref()}}),
+                "escape_feedback":if state.eof {None}else{state.escape_feedback.as_ref()},
+                "scroll_configured":self.scroll_configured,"scroll_feedback":if state.eof {None}else{state.scroll_feedback.as_ref()}}),
                 ))
             }
             ("GET", "/provider/warmup") if !self.warmup.is_empty() => Ok(ExtensionResponse {
@@ -831,6 +836,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     bridge.cursor_output = config.pointer_cursor_output;
     bridge.detail_configured = controller.detail_config().is_some();
     bridge.escape_configured = controller.escape_config().is_some();
+    bridge.scroll_configured = controller.scroll_config().is_some();
     bridge.right_click = controller.right_click_enabled();
     bridge.manual_start = manual_start;
     bridge.trial_seconds = (camera_source && !until_stop).then_some(duration / 1_000_000);
@@ -843,7 +849,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             "{}",
             json!({"preflight":"ok","camera_opened":false,"system_input":false,
             "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
-            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
+            "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"scroll":controller.scroll_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
     }
@@ -1473,9 +1479,11 @@ mod tests {
         bridge.trial_seconds = Some(90);
         bridge.detail_configured = true;
         bridge.escape_configured = true;
+        bridge.scroll_configured = true;
         bridge.right_click = true;
         let mut controller = controller::Controller::new(controller::Settings {
             escape: Some(Default::default()),
+            scroll: Some(Default::default()),
             ..Default::default()
         })
         .unwrap();
@@ -1502,6 +1510,8 @@ mod tests {
         assert_eq!(live["detail_configured"], true);
         assert_eq!(live["detail_active"], true);
         assert_eq!(live["right_click"], true);
+        assert_eq!(live["scroll_configured"], true);
+        assert_eq!(live["scroll_feedback"]["active"], false);
         assert_eq!(live["escape_configured"], true);
         assert_eq!(live["escape_feedback"]["enabled"], true);
         assert_eq!(live["mode"], "pointer");
@@ -1520,6 +1530,7 @@ mod tests {
         assert_eq!(end["detail_active"], false);
         assert_eq!(end["controller_running"], false);
         assert!(end["escape_feedback"].is_null());
+        assert!(end["scroll_feedback"].is_null());
         assert_eq!(end["remaining_ms"], 0);
     }
 

@@ -87,7 +87,7 @@ motion before deciding whether bounded independent output reconstruction is need
 
 ## Source evidence and remaining qualification
 
-235 native-feature tests pass, zero failures, one existing opt-in benchmark ignored.
+237 native-feature tests pass, zero failures, one existing opt-in benchmark ignored.
 Regressions cover geometry/visibility/real0.5admission, default-off behavior,
 nonoverlapping Escape geometry, both axes/signs, fine/coarse wheel encoding,
 rest/no backlog, loss/owner/duplicate/gap, pointer freeze/anchored return with and
@@ -109,6 +109,22 @@ of grab/pan/release/rest/regrab. Preserve accepted calibration/beta. Compare lin
 and accelerated/inertial settings for comfort rather than declaring phone-like
 quality from source tests. No Pi deployment or sensor session follows from this
 source record. Full release scope remains in LINUX-PREVIEW.md and issue10/#13.
+
+### Pending pinch to fist correction —2026-10-19
+
+A deterministic regression reproduced a pending left/right pinch disarming scroll
+before a confirmed fist could take over. A positive fist can now cancel that
+uncommitted pinch without emitting a button edge; an established press retains
+its existing drag/release behavior and cannot turn into scroll. Both cases have
+regression coverage. Moving-open inertia, resting-open zero inertia and regrab
+cancellation remain covered by the existing release tests.
+
+All237 native-feature tests and all-target Clippy pass. A fresh paired replay
+of the same3095 retained observations preserves every compared field, including
+the13 press intents,478 detail observations and12 Escape outputs, with zero
+scroll candidates/actions. This is source-only compatibility evidence; the
+separate prepared receiving trial still uses53caf00. No camera or OS input was
+started for this correction, and physical fist/comfort acceptance remains open.
 
 
 ## First camera-free receiving direction qualification —2026-10-19

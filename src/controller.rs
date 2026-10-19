@@ -777,8 +777,11 @@ impl Controller {
                 .filter(|e| e.source_us == frame.source_us && Some(e.hand_id) == selected)
                 .and_then(|mut e| {
                     let hand = frame.hands.iter().find(|h| h.id == e.hand_id)?;
+                    // A committed press keeps its existing drag/release rules.
+                    // A pending pinch may yield to a positive fist before any
+                    // button has been emitted; curling fingers can pass through it.
                     if hand.confidence < self.config.min_confidence
-                        || matches!(self.pointer.pinch_state(), "closing" | "pressed")
+                        || self.pointer.pinch_state() == "pressed"
                     {
                         return None;
                     }

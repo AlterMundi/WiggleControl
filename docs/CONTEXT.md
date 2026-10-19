@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Scroll transition correction —2026-10-19: a positive fist can preempt an
+uncommitted left/right pinch without a click; a committed press keeps its
+existing drag/release rules.237 native tests, all-target Clippy and a fresh
+paired3095-observation replay pass. Moving-open versus resting-open inertia
+remains covered. This is source-only; the prepared manual Pi trial remains
+source53caf00 and physical scroll/comfort qualification is pending. See
+[SCROLL.md](SCROLL.md#pending-pinch-to-fist-correction-2026-10-19).
+
 Packaging increment —2026-10-19: [pinned GPU asset preparation](PROVIDER-ASSETS.md)
 now verifies SDK1.1.1 archive/member hashes, task bundle and retained license/metadata,
 with offline/cache-free verified reuse and atomic new-directory publication.

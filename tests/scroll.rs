@@ -348,3 +348,94 @@ fn escape_during_scroll_first_rearms_the_writer_then_emits_one_key() {
     }
     assert_eq!(fired, 1);
 }
+
+fn pinch_observation(p: &mut Pipeline, t: u64, right: bool) -> Output {
+    let hand: Hand = serde_json::from_value(serde_json::json!({
+        "id":7,"confidence":0.5,"engaged":true,"pinch_eligible":true,
+        "cursor":{"x":0.5,"y":0.5},"thumb_tip":{"x":0.4,"y":0.5},
+        "index_tip":{"x":0.5,"y":0.5},"palm_width":0.2,
+        "pinch_distance_ratio":if right{0.6}else{0.1}
+    }))
+    .unwrap();
+    p.controller.observe_with_evidence(
+        t,
+        Frame {
+            version: 1,
+            source_us: t,
+            ambiguous: false,
+            hands: vec![hand],
+        },
+        None,
+        Controls {
+            middle_pinch: Some(pointer_buttons::Evidence {
+                hand_id: 7,
+                source_us: t,
+                middle_tip: Point { x: 0.5, y: 0.5 },
+                pinch_distance_m: None,
+                pinch_distance_ratio: Some(if right { 0.1 } else { 0.6 }),
+                onset_allowed: true,
+            }),
+            scroll: Some(scroll::Evidence {
+                hand_id: 7,
+                source_us: t,
+                pose: Pose::Other,
+                wrist: Point { x: 0.5, y: 0.5 },
+            }),
+            escape: Some(wigglecontrol::escape::Evidence {
+                hand_id: 7,
+                source_us: t,
+                pose: wigglecontrol::escape::Pose::Other,
+            }),
+            ..Default::default()
+        },
+    )
+}
+
+#[test]
+fn positive_fist_can_preempt_an_uncommitted_pinch_without_a_click() {
+    for right in [false, true] {
+        let mut p = Pipeline::new(true);
+        p.arm();
+        let pending = pinch_observation(&mut p, 250_001, right);
+        assert_eq!(pending.pointer_state, "closing");
+        assert!(!pending.button_down);
+        for t in [300_001, 400_001, 500_001, 600_001] {
+            let (out, _, batch) = p.sample(t, Some(Pose::Fist), 0.5, 0.5);
+            assert_eq!(
+                out.mode,
+                Mode::Scroll,
+                "uncommitted {} pinch at {t}",
+                if right { "right" } else { "left" }
+            );
+            assert!(!out.button_down);
+            assert!(batch.mouse.iter().all(|e| e.event_type() != EventType::KEY));
+        }
+        let (out, _, batch) = p.sample(700_001, Some(Pose::Fist), 0.4, 0.4);
+        assert!(out.scroll.unwrap().active);
+        assert!(batch
+            .mouse
+            .iter()
+            .any(|e| e.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0));
+    }
+}
+
+#[test]
+fn an_established_press_is_not_converted_to_scroll_by_a_fist() {
+    for right in [false, true] {
+        let mut p = Pipeline::new(true);
+        p.arm();
+        pinch_observation(&mut p, 250_001, right);
+        let pressed = pinch_observation(&mut p, 300_001, right);
+        assert!(pressed.button_down);
+        for t in [400_001, 500_001, 600_001] {
+            let out = p.interpret(t, Some(Pose::Fist), 0.5, 0.5);
+            assert_eq!(out.mode, Mode::Pointer);
+            assert!(out.button_down);
+            assert!(!out.scroll.unwrap().captures_pointer());
+            assert!(!out
+                .mouse
+                .iter()
+                .any(|e| matches!(e, wigglecontrol::Event::ScrollFine { .. })));
+        }
+    }
+}

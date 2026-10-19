@@ -141,3 +141,10 @@ publication regression preserves even an empty destination appearing during
 preparation. The full native-feature suite now passes242 tests with zero failures
 and one existing opt-in benchmark ignored; all-target Clippy passes. These checks
 remain camera-free and do not qualify physical calibration or a receiving install.
+
+An actual VPS preparation chain also passes: illustrative profile import, real
+configuration check, then independent until-Stop launcher preparation against
+the pinned assets. Source-file hashes remain unchanged; preflight confirms manual
+Start with no acquisition or system input. The profile and blank warmup image
+are fictional/preflight-only. No user units were linked/started, camera opened,
+model initialized or input emitted; this does not qualify a live GPU calibration.

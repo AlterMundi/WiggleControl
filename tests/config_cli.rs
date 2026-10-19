@@ -3,7 +3,6 @@ use std::{fs, process::Command};
 
 #[test]
 fn browser_provider_replay_needs_no_onnx_paths_but_native_commands_still_require_them() {
-    use std::{io::Write, process::Stdio};
     let root = std::env::temp_dir().join(format!(
         "wigglecontrol-provider-config-{}",
         std::process::id()
@@ -11,6 +10,8 @@ fn browser_provider_replay_needs_no_onnx_paths_but_native_commands_still_require
     fs::create_dir(&root).unwrap();
     let session = root.join("session.json");
     let settings = root.join("settings.json");
+    let input = root.join("input.jsonl");
+    fs::write(&input, b"{\"type\":\"start\"}\n").unwrap();
     let mut value = serde_json::json!({
         "camera":"/fictional/unavailable-camera", "fps":10,"gain":2000,
         "gesture_min_confidence":0.5,"provider_absolute_pointer":true
@@ -25,23 +26,16 @@ fn browser_provider_replay_needs_no_onnx_paths_but_native_commands_still_require
     )
     .unwrap();
     let replay = || {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        // Invalid configuration can exit before consuming stdin. A retained
+        // input file preserves the real exit/stderr instead of racing a pipe.
+        Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
             .arg("provider-replay")
             .arg(&session)
             .arg(&settings)
             .arg("0.5")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
+            .stdin(fs::File::open(&input).unwrap())
+            .output()
             .unwrap()
-            .write_all(b"{\"type\":\"start\"}\n")
-            .unwrap();
-        child.wait_with_output().unwrap()
     };
     for explicit_empty in [false, true] {
         if explicit_empty {

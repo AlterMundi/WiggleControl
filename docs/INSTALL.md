@@ -18,6 +18,11 @@ without unused native hand models or ONNX Runtime paths. Validate it with
 Native inference and opted-in ONNX visual macros retain their runtime requirements.
 This is a configuration component, not a complete standalone setup/installer.
 
+[Independent launcher preparation](PREVIEW-LAUNCHER.md) emits manual-only user
+units and open/stop wrappers using that configuration and the existing launch
+helper. Its real preflight and unit syntax are qualified without installation,
+browser/model/sensor/input activation. Full receiving qualification remains open.
+
 ## Build and artifacts
 
 Use the ordinary checkout with Rust 1.85 or later. Native vision requires libclang

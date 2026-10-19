@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Independent launcher preparation —2026-10-19: a non-root helper prepares three
+manual-only user units and open/stop wrappers, reusing the existing mouse launcher
+and real provider preflight. Finite/until-Stop selection is explicit; no boot
+target or automatic restart. Offline regressions, actual no-acquisition preflight,
+systemd unit verification and wrapper syntax pass. No units were installed/started
+and no receiving state changed. Full installer/calibration/desktop qualification
+remains open. See [PREVIEW-LAUNCHER.md](PREVIEW-LAUNCHER.md).
+
 Independent GPU configuration —2026-10-19: browser-provider sessions can omit
 unused native hand-model/runtime paths. `config-check-provider SESSION SETTINGS`
 reuses actual provider admission without assets/inference/sensors/input, retaining

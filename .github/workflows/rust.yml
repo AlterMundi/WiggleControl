@@ -32,6 +32,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: python3 tools/test_fetch_provider_assets.py
+      - run: python3 tools/test_prepare_preview_launcher.py
       - run: python3 tools/test_one_hand_trial.py
       - run: python3 tools/test_trace_absolute_drag.py --binary target/debug/wigglecontrol
       - run: cargo clippy --locked --all-targets -- -D warnings

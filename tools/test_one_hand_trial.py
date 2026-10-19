@@ -15,6 +15,15 @@ import one_hand_trial as trial
 
 
 class TrialTests(unittest.TestCase):
+    def test_manual_standby_limit_does_not_change_finite_acquisition(self):
+        spec={'seconds':90}
+        self.assertEqual(trial.standby_seconds(spec),3600)
+        self.assertEqual(spec['seconds'],90)
+        self.assertEqual(trial.standby_seconds({**spec,'standby_seconds':600}),600)
+        for invalid in (0,29,3601,True,'3600'):
+            with self.assertRaisesRegex(ValueError,'Manual standby'):
+                trial.standby_seconds({**spec,'standby_seconds':invalid})
+
     def test_real_process_cookie_and_executable_validation(self):
         child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(10)'])
         try:

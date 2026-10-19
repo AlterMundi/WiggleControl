@@ -171,3 +171,18 @@ HOLD merely because the timed hold interval has begun. These are presentation
 hints from the existing tracking assessment; they neither generate samples nor
 relax freshness, geometry, count or adoption requirements. A regression clears
 the hint and still refuses advancement when no real samples exist.
+
+
+## Manual standby duration —2026-10-19
+
+The observer originally expired after600seconds while waiting for manual Start,
+which ended a prepared scroll trial before capture. Retained receiving evidence
+confirms zero captured frames/no input and normal child cleanup; this was idle
+expiration, not a hand-recognition failure.
+
+An optional trial-specification `standby_seconds` now selects30..3600seconds,
+default3600. This bounds idle waiting only. The finite90-second acquisition starts
+on actual acquisition after human Start, and attached tracing still uses the
+existing acquisition duration plus15seconds. No camera, model preparation or input
+starts from increasing standby, and no completed trial is restarted automatically.
+Existing specifications remain accepted; explicit600 retains their old idle bound.

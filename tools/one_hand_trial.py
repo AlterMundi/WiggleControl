@@ -22,11 +22,19 @@ FIELDS={'schema','binary','binary_sha256','session','session_sha256','settings',
         'settings_sha256','assets','warmup','port','seconds','grant_observer_read'}
 
 
+def standby_seconds(spec):
+    # Manual idle waiting is separate from the acquisition/attached-trace clocks.
+    seconds=spec.get('standby_seconds',3600)
+    if type(seconds) is not int or not 30<=seconds<=3600:
+        raise ValueError('Manual standby must be30..3600 seconds')
+    return seconds
+
+
 def load(path):
     if path.stat().st_size>16384:
         raise ValueError('Trial specification exceeds16KiB')
     spec=json.loads(path.read_text())
-    if set(spec)!=FIELDS or spec['schema']!='wigglecontrol.one-hand-trial/v1':
+    if set(spec)-{'standby_seconds'}!=FIELDS or spec['schema']!='wigglecontrol.one-hand-trial/v1':
         raise ValueError('Unexpected trial specification')
     if not isinstance(spec['seconds'],int) or not 1<=spec['seconds']<=90:
         raise ValueError('Finite trial must be1..90s after manual Start')
@@ -34,6 +42,7 @@ def load(path):
         raise ValueError('Expected an unprivileged receiving port')
     if not isinstance(spec['grant_observer_read'],bool):
         raise ValueError('Observer ACL choice must be explicit')
+    standby_seconds(spec)
     for field in ('binary','session','settings'):
         selected=Path(spec[field])
         if not selected.is_absolute() or not selected.is_file():
@@ -85,7 +94,7 @@ def run(spec, logs):
     (root/'preflight.json').write_text(json.dumps(proof,indent=2)+'\n')
     state={'schema':'wigglecontrol.one-hand-trial-run/v1','phase':'starting',
            'binary_sha256':spec['binary_sha256'],'seconds_after_start':spec['seconds'],
-           'root':str(root),'startup_camera_opened':False,'startup_input_opened':False}
+           'root':str(root),'startup_camera_opened':False,'startup_input_opened':False,'standby_seconds':standby_seconds(spec)}
     provider=observer=None;stopped=False;sent_stop=None
     def stop(*_):
         nonlocal stopped
@@ -98,7 +107,7 @@ def run(spec, logs):
             state['provider_pid']=provider.pid
             args=[sys.executable,'-B',str(Path(__file__).resolve().with_name('observe_absolute_input.py')),
                   '--producer-pid',str(provider.pid),'--binary',spec['binary'],'--sha256',spec['binary_sha256'],
-                  '--output',str(root/'kernel'),'--wait-seconds','600','--seconds',str(spec['seconds']+15)]
+                  '--output',str(root/'kernel'),'--wait-seconds',str(standby_seconds(spec)),'--seconds',str(spec['seconds']+15)]
             if spec['grant_observer_read']:
                 args.append('--grant-observer-read')
             observer=subprocess.Popen(args,stdout=observer_output,stderr=observer_error)

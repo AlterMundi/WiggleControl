@@ -25,6 +25,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args[0].ends_with("-preflight"),
             );
         }
+        Some("prepare-preview-config") if args.len() == 6 => {
+            return wigglecontrol::provider_setup::fresh(
+                std::path::Path::new(&args[1]),
+                args[2].parse()?,
+                args[3].parse()?,
+                std::path::Path::new(&args[4]),
+                std::path::Path::new(&args[5]),
+            );
+        }
         Some("prepare-provider-config") if args.len() == 5 => {
             return wigglecontrol::provider_setup::prepare(
                 std::path::Path::new(&args[1]),
@@ -572,6 +581,8 @@ fn print_help() {
     println!("       wigglecontrol provider-calibrate[-preflight] SESSION SETTINGS ASSETS WARMUP PROFILE PORT (manual camera-only guided calibration; no mouse)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol prepare-provider-config SESSION SETTINGS PROFILE NEW_DIRECTORY (import selected calibration; new private configuration only)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol prepare-preview-config CAMERA WIDTH HEIGHT RECORDINGS NEW_DIRECTORY (new uncalibrated preview settings; no resources opened)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
     #[cfg(feature = "native-vision")]

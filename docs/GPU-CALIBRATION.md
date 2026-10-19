@@ -8,7 +8,8 @@ still pending; preserve the accepted Pi profile when selecting a trial candidate
 
 ## Preparation
 
-Use a valid [standalone provider configuration](PROVIDER-CONFIG.md), pinned assets
+Generate a fresh pair with [`prepare-preview-config`](PROVIDER-CONFIG.md#configuration-example)
+or use a valid existing standalone provider configuration, pinned assets
 and explicit synthetic warmup. Set session `pointer_output` to the selected single
 display's dimensions. Select an absolute profile path with an existing private
 parent. Existing profiles must validate, belong to the current user and match
@@ -31,7 +32,7 @@ python3 tools/prepare_preview_launcher.py \
 ```
 
 Calibration and `--seconds` are mutually exclusive. Follow the existing
-[explicit user-unit operation](PREVIEW-LAUNCHER.md#explicit-installation-and-operation)
+[explicit user-unit operation](PREVIEW-LAUNCHER.md#user-installation-update-and-rollback)
 using this bundle. Its source is `provider-calibrate` with the same arguments as
 preflight; detector/controls use `/provider/worker` and `/provider/calibration`.
 Preparation starts no units, browser, model, listener, sensor or input device.

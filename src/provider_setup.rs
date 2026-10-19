@@ -85,29 +85,74 @@ pub fn prepare(
     session_value["touch_workspace"] = workspace.clone();
     session_value["pointer_output"] = json!(selected.output);
     settings_value["workspace"] = workspace;
+    let selected = serde_json::to_value(selected)?;
+    let report = json!({"schema":"wigglecontrol.provider-setup/v1",
+        "prepared":true,"camera_opened":false,"system_input":false,
+        "inference_initialized":false,"installed":false,
+        "profile":"calibration.json","session":"session.json","settings":"settings.json",
+        "output":selected["output"],"workspace":selected["workspace"]});
+    publish_pair(
+        &session_value,
+        &settings_value,
+        Some(&selected),
+        output,
+        &report,
+    )
+}
+
+/// Generate portable preview tuning; explicit receiving choices never come from
+/// another installation or personal calibration. All resource admission stays
+/// in the existing provider, and no sensor or input device is opened here.
+pub fn fresh(
+    camera: &Path,
+    width: u32,
+    height: u32,
+    recordings: &Path,
+    output: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let mut session: Value =
+        serde_json::from_str(include_str!("../packaging/preview-session.json"))?;
+    let settings: Value = serde_json::from_str(include_str!("../packaging/preview-settings.json"))?;
+    session["camera"] = json!(camera);
+    session["recording_directory"] = json!(recordings);
+    session["pointer_output"] = json!([width, height]);
+    let report = json!({"schema":"wigglecontrol.preview-config/v1",
+        "prepared":true,"calibrated":false,"camera_opened":false,"system_input":false,
+        "inference_initialized":false,"installed":false,"recording_configured":true,
+        "session":"session.json","settings":"settings.json","output":[width,height]});
+    publish_pair(&session, &settings, None, output, &report)
+}
+
+fn publish_pair(
+    session: &Value,
+    settings: &Value,
+    profile: Option<&Value>,
+    output: &Path,
+    report: &Value,
+) -> Result<(), Box<dyn Error>> {
+    if !output.is_absolute() || output.file_name().is_none() {
+        return Err("choose an absolute new configuration directory".into());
+    }
+    if output.try_exists()? || output.is_symlink() {
+        return Err("preserve the existing configuration; choose a new directory".into());
+    }
     let mut name = output.as_os_str().to_os_string();
     name.push(format!(".new-{}", std::process::id()));
     let stage = std::path::PathBuf::from(name);
     DirBuilder::new().mode(0o700).create(&stage)?;
     let result = (|| {
-        write_new(&stage.join("session.json"), &session_value)?;
-        write_new(&stage.join("settings.json"), &settings_value)?;
-        write_new(
-            &stage.join("calibration.json"),
-            &serde_json::to_value(selected)?,
-        )?;
+        write_new(&stage.join("session.json"), session)?;
+        write_new(&stage.join("settings.json"), settings)?;
+        if let Some(profile) = profile {
+            write_new(&stage.join("calibration.json"), profile)?;
+        }
         // Validate the actual serialized pair, not just the input templates.
         provider::configured(
             &stage.join("session.json"),
             &stage.join("settings.json"),
             None,
         )?;
-        let report = json!({"schema":"wigglecontrol.provider-setup/v1",
-            "prepared":true,"camera_opened":false,"system_input":false,
-            "inference_initialized":false,"installed":false,
-            "profile":"calibration.json","session":"session.json","settings":"settings.json",
-            "output":selected.output,"workspace":selected.workspace});
-        write_new(&stage.join("setup.json"), &report)?;
+        write_new(&stage.join("setup.json"), report)?;
         fs::File::open(&stage)?.sync_all()?;
         publish_new(&stage, output)?;
         fs::File::open(output.parent().unwrap())?.sync_all()?;

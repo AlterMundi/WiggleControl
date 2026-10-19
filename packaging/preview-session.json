@@ -1,0 +1,40 @@
+{
+  "fps": 10,
+  "gain": 2000.0,
+  "pinch_close_ratio": 0.38,
+  "pinch_open_ratio": 0.4,
+  "freshness_ms": 300,
+  "pinch_3d": false,
+  "pinch_close_m": 0.045,
+  "pinch_open_m": 0.065,
+  "pair_separation_widths": 1.2,
+  "prayer_enabled": false,
+  "gesture_min_confidence": 0.5,
+  "dual_crop": false,
+  "secondary_model": null,
+  "pinch_onset_max_screen_ratio": 0.38,
+  "pinch_2d_reference": "wrist_middle_mcp",
+  "provider_absolute_pointer": true,
+  "provider_presence_scores": false,
+  "pointer_drag_grace_ms": 1000,
+  "pointer_cursor_output": {
+    "interval_us": 16667,
+    "smoothing_us": 30000.0,
+    "prediction_us": 80000,
+    "max_prediction_distance": 0.01,
+    "consistent_prediction": true,
+    "velocity_smoothing_us": 80000.0,
+    "max_speed_per_s": 2.0,
+    "click_stabilization": {
+      "radius": 0.008,
+      "closing_us": 200000,
+      "pressed_us": 150000
+    }
+  },
+  "camera": "/dev/video0",
+  "recording_directory": "/absolute/private/wigglecontrol-recordings",
+  "pointer_output": [
+    1920,
+    1080
+  ]
+}

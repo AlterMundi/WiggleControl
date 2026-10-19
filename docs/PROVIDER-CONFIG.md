@@ -17,6 +17,44 @@ Existing provider profiles containing native paths remain compatible.
 
 ## Configuration example
 
+For a fresh preview, generate a coherent pair instead of manually copying the
+illustrative JSON below:
+
+```sh
+wigglecontrol prepare-preview-config \
+  /dev/video0 1920 1080 \
+  /absolute/private/recordings /absolute/private/new-config
+```
+
+Choose the actual camera, single-output dimensions, private recording directory
+and a new configuration directory whose parent exists. Paths must be absolute;
+camera/recording locations need not exist for this camera-free preparation.
+The command opens neither, initializes no inference and installs/starts nothing.
+It writes private0700/0600 `session.json`, `settings.json` and `setup.json` using
+actual provider admission and the same atomic new-directory publication as
+calibration import. Existing destinations/symlinks are preserved, including one
+appearing during publication. Invalid configuration leaves no partial directory.
+
+The compiled [preview templates](../packaging/preview-session.json) use the
+current experimental 2D wrist/middle-MCP pinch ratio0.38/0.4, one-second bounded
+same-hand drag grace,300ms freshness and the selected independently timed cursor
+filter/prediction/click stabilization. [Controller settings](../packaging/preview-settings.json)
+enable left/right click, detail, Escape and two-axis scroll/inertia. These portable
+numeric settings come from the selected beta; no personal workspace, host binding
+or footage is included. They are a starting configuration, not universal physical
+acceptance. Native inference paths remain absent.
+
+The generated pair has the full default workspace and `calibrated:false`; it is
+for [guided calibration](GPU-CALIBRATION.md), not immediate accepted mouse use.
+After Save, import that profile with `prepare-provider-config` below. Recording is
+explicitly configured because the current experimental camera path requires it;
+only later manual Start opens recording/capture. No microphone or upload is used.
+See the [source setup walkthrough](PREVIEW-QUICKSTART.md) for the connected flow.
+
+### Lower-level 3D configuration example
+
+The following files select the optional3D pinch path and minimal cursor defaults.
+Use the generator above for the selected preview's 2D tuning and cursor policy.
 These are complete illustrative files for checking the interface, not a calibrated
 comfort profile or an instruction to start capture. Replace the camera and private
 recording paths with the selected local resources. No daimon-integrators file,
@@ -129,9 +167,10 @@ value on3095 retained observations (248+393+1271+1183). Only actual per-call
 intent labels are involved; this is compatibility evidence, not clean-install
 or physical acceptance.
 
-Independent setup/guided calibration, normal-user launcher/permissions,
-installation/update/removal/rollback and clean-host qualification are still
-required by [LINUX-PREVIEW.md](LINUX-PREVIEW.md) and issue12. The older
+Fresh configuration generation, GPU guided calibration, normal-user launcher and
+independent permissions helpers now exist; actual clean-host/post-boot and physical
+qualification plus release assembly are still required by
+[LINUX-PREVIEW.md](LINUX-PREVIEW.md) and issue12. The older
 `install.sh` remains the native/integrator installer; it is not the complete GPU
 preview installer.
 
@@ -149,3 +188,22 @@ the pinned assets. Source-file hashes remain unchanged; preflight confirms manua
 Start with no acquisition or system input. The profile and blank warmup image
 are fictional/preflight-only. No user units were linked/started, camera opened,
 model initialized or input emitted; this does not qualify a live GPU calibration.
+
+Fresh setup extends that real CLI chain: generated preview configuration, actual
+provider check, calibration launcher preflight, explicitly fictional profile
+import, another provider check and until-Stop mouse launcher preflight all pass.
+Both prepared bundles also pass manager hash/binding validation. No unit was
+installed, browser/model initialized, real profile saved, recording created or
+camera/input opened. The warmup was an explicit blank synthetic preflight image;
+it does not qualify graph warmup or physical tracking. An initial disk preparation
+exceeded its30-second fixture deadline while the host showed high I/O pressure;
+that terminal attempt remains retained. The next bounded120-second attempt
+completed; the exact initial blocked syscall was not observed.
+
+The full native-feature suite now passes248 tests, zero failures and one existing
+ignored benchmark; all-target Clippy passes. New CLI regressions cover explicit
+resource/dimension selection, private publication, absent personal mapping,
+preservation of tuning during profile import, invalid resource/dimension rejection,
+existing destination/symlink preservation and no partial output on normal errors.
+The shared no-replace publication regression remains applicable. This does not
+replace clean-host, post-boot, real guided-calibration or integrated human acceptance.

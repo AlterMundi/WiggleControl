@@ -1,5 +1,18 @@
 # Project context — 2026-10-13
 
+Fresh preview setup —2026-10-19: `prepare-preview-config` publishes a private
+uncalibrated pair from portable templates and explicit camera/output/recording
+choices. It uses the selected beta's 2D ratio, drag grace and cursor stabilization,
+with right click/detail/Escape/scroll; no personal mapping or receiving paths.
+Actual provider admission and atomic publication are shared with profile import.
+248 native tests and all-target Clippy pass. Actual generated-config/calibration-
+launcher/fictitious-profile-import/mouse-launcher preflight and binding validation
+pass without unit installation, model, camera/input, real profile save or recording.
+The first disk fixture timed out under observed I/O pressure; its terminal evidence
+is retained separately from the completed retry. The connected source walkthrough is
+[PREVIEW-QUICKSTART.md](PREVIEW-QUICKSTART.md); downloadable release assembly and
+clean-host/physical qualification remain open.
+
 Independent input preparation —2026-10-19: existing preparation/rollback helpers
 now support `--standalone` without binary/models or integrator configuration.
 Three separate preview paths register uinput, a named-operator ACL and Escape

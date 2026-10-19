@@ -49,6 +49,150 @@ fn value(path: &Path) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
+fn fresh(camera: &str, recordings: &str, width: u32, output: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .args([
+            "prepare-preview-config",
+            camera,
+            &width.to_string(),
+            "1080",
+            recordings,
+        ])
+        .arg(output)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn fresh_preview_uses_explicit_resources_and_keeps_tuning_through_calibration_import() {
+    let root = fixture("fresh");
+    let output = root.join("uncalibrated");
+    let recordings = root.join("not-created-recordings");
+    let profile = fs::read(root.join("profile.json")).unwrap();
+    let result = fresh(
+        "/fictional/unavailable-camera",
+        recordings.to_str().unwrap(),
+        1920,
+        &output,
+    );
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let report: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(report["calibrated"], false);
+    assert_eq!(report["recording_configured"], true);
+    for field in [
+        "camera_opened",
+        "system_input",
+        "inference_initialized",
+        "installed",
+    ] {
+        assert_eq!(report[field], false);
+    }
+    assert!(!String::from_utf8_lossy(&result.stdout).contains("/fictional"));
+    assert!(!recordings.exists());
+    assert!(!output.join("calibration.json").exists());
+    assert_eq!(fs::read(root.join("profile.json")).unwrap(), profile);
+    let session = value(&output.join("session.json"));
+    let settings = value(&output.join("settings.json"));
+    assert_eq!(session["camera"], "/fictional/unavailable-camera");
+    assert_eq!(session["recording_directory"], recordings.to_str().unwrap());
+    assert_eq!(session["pointer_output"], json!([1920, 1080]));
+    assert_eq!(session["pinch_3d"], false);
+    assert!(session.get("touch_workspace").is_none());
+    assert!(settings.get("workspace").is_none());
+    for field in ["detail", "scroll", "escape"] {
+        assert!(settings[field].is_object());
+    }
+    assert_eq!(settings["right_click"], true);
+    assert!(session["pointer_cursor_output"].is_object());
+    assert_eq!(session["pointer_cursor_output"], settings["cursor_output"]);
+    assert_eq!(
+        fs::metadata(&output).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    for name in ["session.json", "settings.json", "setup.json"] {
+        assert_eq!(
+            fs::metadata(output.join(name))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
+    let mapped = root.join("calibrated");
+    let adopted = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .arg("prepare-provider-config")
+        .arg(output.join("session.json"))
+        .arg(output.join("settings.json"))
+        .arg(root.join("profile.json"))
+        .arg(&mapped)
+        .output()
+        .unwrap();
+    assert!(
+        adopted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&adopted.stderr)
+    );
+    assert_eq!(
+        value(&mapped.join("session.json"))["pointer_cursor_output"],
+        session["pointer_cursor_output"]
+    );
+    assert_eq!(
+        value(&mapped.join("settings.json"))["cursor_output"],
+        settings["cursor_output"]
+    );
+    assert_eq!(
+        value(&mapped.join("session.json"))["touch_workspace"],
+        value(&root.join("profile.json"))["workspace"]
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn fresh_preview_rejects_invalid_resources_and_preserves_existing_destinations() {
+    let root = fixture("fresh-refused");
+    let output = root.join("new");
+    for (camera, recordings, width) in [
+        ("relative-camera", "/fictional/recordings", 1920),
+        ("/fictional/camera", "relative-recordings", 1920),
+        ("/fictional/camera", "/fictional/recordings", 0),
+    ] {
+        let result = fresh(camera, recordings, width, &output);
+        assert!(!result.status.success());
+        assert!(!output.exists());
+        assert_eq!(
+            fs::read_dir(&root).unwrap().count(),
+            3,
+            "No staging or resource files remain"
+        );
+    }
+    fs::create_dir(&output).unwrap();
+    fs::write(output.join("sentinel"), "preserve").unwrap();
+    assert!(
+        !fresh("/fictional/camera", "/fictional/recordings", 1920, &output)
+            .status
+            .success()
+    );
+    assert_eq!(
+        fs::read_to_string(output.join("sentinel")).unwrap(),
+        "preserve"
+    );
+    symlink(&output, root.join("link")).unwrap();
+    assert!(!fresh(
+        "/fictional/camera",
+        "/fictional/recordings",
+        1920,
+        &root.join("link")
+    )
+    .status
+    .success());
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn imported_profile_produces_a_matching_private_pair_without_changing_sources_or_loading_resources()
 {

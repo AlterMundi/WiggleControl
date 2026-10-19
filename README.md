@@ -10,7 +10,9 @@ and Linux virtual input; a native CPU backend also exists. The next delivery is
 the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
 Left/right gestures have [first positive human feedback](docs/ACCEPTANCE.md);
 [held absolute detail](docs/DETAIL.md) has positive first-use feedback with clicking in a real menu;
-precision/rest/drawing and longer comfort qualification remain. Gesture scroll and Escape remain unfinished;
+precision/rest/drawing and longer comfort qualification remain. Gesture
+[scroll](docs/SCROLL.md) and [Escape](docs/ESCAPE.md) also have positive first-use
+feedback, with integrated task/comfort qualification still open;
 multitouch and other operating systems remain later qualification/ports.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need
@@ -25,6 +27,8 @@ Start here:
 - [Modes and macro semantics](docs/MODES.md), with camera-free mode arbitration and named-action replay.
 - [Native controller session](docs/CONTROLLER-NATIVE.md): opt-in modes, manual controls and independent delivery.
 - [Installation, manual use and rollback](docs/INSTALL.md).
+- [Connected preview setup from source](docs/PREVIEW-QUICKSTART.md): explicit resources,
+  fresh configuration, guided calibration and independent manual launch.
 - [Development plan](docs/DEVELOPMENT.md): milestones, acceptance and next step.
 - [End-to-end acceptance checkpoint](docs/ACCEPTANCE.md): evidence and remaining human trial.
 - [Research](docs/research/state-of-the-art.md): existing systems, models, native

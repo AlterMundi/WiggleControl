@@ -3,8 +3,8 @@
 Nicolás selected this interaction on2026-10-19: a closed fist grabs the page;
 vertical, horizontal and diagonal hand motion moves its content in the same
 screen direction. Opening while moving releases a short decelerating glide.
-Opening after stopping has no inertia. This is a source candidate; receiving
-application direction, gesture comfort and phone-like fluency remain unqualified.
+Opening after stopping has no inertia. The matching candidate now has camera-free receiving direction/fine-wheel evidence;
+physical fist recognition, gesture comfort and phone-like fluency remain unqualified.
 
 ## Recognition and ownership
 
@@ -47,7 +47,7 @@ The native axes have different signs; do not invert both with one multiplier.
 Actual compositor settings/application content movement still require receiving
 verification. Do not change physical-device settings to manufacture a passing test.
 
-The wrist avoids fingertip-articulation displacement. Per-axis radial play absorbs
+The wrist avoids fingertip-articulation displacement. Per-axis play absorbs
 bounded rest noise without accumulating creep, while sub-detent remainders retain
 small deliberate travel. A real reversal can have a bounded settling displacement;
 this is not a promise of zero physical jitter. Large discontinuities reanchor
@@ -109,3 +109,25 @@ of grab/pan/release/rest/regrab. Preserve accepted calibration/beta. Compare lin
 and accelerated/inertial settings for comfort rather than declaring phone-like
 quality from source tests. No Pi deployment or sensor session follows from this
 source record. Full release scope remains in LINUX-PREVIEW.md and issue10/#13.
+
+
+## First camera-free receiving direction qualification —2026-10-19
+
+Exact source53caf00 / [CI39180979616](https://github.com/AlterMundi/WiggleControl/actions/runs/39180979616)
+passed replay, native/isolated installation and ARM64 build/test jobs. The matching
+ARM candidate was staged separately with accepted normal config/calibration
+hashes unchanged. Camera and microphone remained off.
+
+A finite selected native writer emitted24 high-resolution wheel events with no
+coarse wheel event, proving this sub-detent application test used the fine path.
+The owned Wayland Chromium grid received8 trusted wheel events and actual content
+offsets changed by60pixels per axis in each of four diagonals: up-left, down-right,
+up-right and down-left. Both intended directions were observed; this was not just
+a packet acknowledgment. Writer exit0 and selected node removal are retained.
+
+The separate recorded90-second manual-Start task is prepared with acceleration2.5
+and bounded release inertia enabled, no camera view/skeleton, cheap status and
+scoped Stop. The complete task fits its actual1600x950 viewport, with Start locked
+through qualification, then unlocked with camera/input/preparation off. Human
+fist recognition, pleasant grip/release/rest/regrab and sustained comfort remain
+pending. No acquisition was started by preparation.

@@ -15,6 +15,20 @@ import mouse_launcher
 
 
 class LauncherTests(unittest.TestCase):
+    def test_minimized_worker_uses_the_desktop_gpu_without_headless_or_unsafe_flags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            kwargs, proof = self.fixture(Path(tmp))
+            with patch.object(launcher.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(proof), '')) as call:
+                manifest = launcher.prepare(**kwargs, worker_display='minimized')
+            self.assertEqual(call.call_count, 1, 'Only no-acquisition preflight runs')
+            unit = (kwargs['output'] / 'units' / manifest['units']['worker']).read_text()
+            self.assertIn('"--start-minimized"', unit)
+            self.assertNotIn('--headless', unit)
+            self.assertNotIn('--no-sandbox', unit)
+            self.assertNotIn('--remote-debugging', unit)
+            self.assertEqual(manifest['worker_display'], 'minimized')
+            self.assertFalse(manifest['started'])
+
     def test_calibration_prepares_camera_only_units_with_explicit_save_and_no_start(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); kwargs, proof = self.fixture(root)
@@ -97,7 +111,7 @@ class LauncherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             kwargs, _ = self.fixture(Path(tmp))
             with patch.object(launcher.subprocess, 'run', side_effect=AssertionError('No process')):
-                for change in ({'seconds': True}, {'seconds': 91}, {'port': 80}, {'name': 'bad/name'}):
+                for change in ({'seconds': True}, {'seconds': 91}, {'port': 80}, {'name': 'bad/name'}, {'worker_display': 'invalid'}):
                     with self.assertRaises(ValueError):
                         launcher.prepare(**(kwargs | change))
                 kwargs['output'].mkdir(); marker = kwargs['output'] / 'existing'

@@ -122,6 +122,13 @@ source; the existing helper does not restart an already running source/worker.
 `KillMode=control-group`; the detector binds to the source's lifetime. Controls
 remain open after source completion to retain its final result, without inference
 or images; reopening through `open.sh` binds a fresh page to the current source.
+If the receiving driver cannot create headless WebGL, prepare with
+`--worker-display minimized`. This replaces `--headless=new` with
+`--start-minimized` for the detector only, retaining the same GPU model, separate
+controls and explicit Start. It renders no camera preview or skeleton. The window
+manager determines whether the requested minimization is honored. Default is
+`headless`; no software-inference fallback or sandbox relaxation is implied.
+
 There is no boot target, automatic restart, remote-debugging port or disabled browser
 sandbox. No Matrix or daimon-integrators service/configuration is used.
 

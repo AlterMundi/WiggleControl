@@ -1,5 +1,16 @@
 # Project context — 2026-10-13
 
+Superseding Cata startup check —2026-10-19: selected5f502eb's manual Start
+failed before camera acquisition because the headless detector could not create
+WebGL1/2. An explicitly human-authorized agent Start reproduced that error.
+A minimized desktop detector then prepared the same model, processed eight real
+camera frames and started the first calibration countdown. Scoped Cancel closed
+capture with source exit0, worker closure acknowledged, no input/profile save.
+This establishes first fixed-MMAP frames, not physical hand/corner acceptance.
+The launcher now offers `--worker-display minimized` for this receiving GPU
+compatibility case; headless remains default. Private recordings and diagnostic
+logs are retained in the receiving record; calibration acceptance remains pending.
+
 Current MMAP candidate —2026-10-19: source5f502eb passed all four CI39218959037
 jobs. Downloaded ARM64/x86-64 archives pass external SHA256 and all250 file/mode
 checks, including the derivative MIT notice. Cata independently verified the

@@ -46,7 +46,10 @@ def command(binary, session, settings, assets, warmup, seconds, port, preflight=
 
 
 def prepare(*, binary, browser, session, settings, assets, warmup, output, port, seconds=None,
-            name='mouse', python=Path('/usr/bin/python3'), calibration_profile=None):
+            name='mouse', python=Path('/usr/bin/python3'), calibration_profile=None,
+            worker_display='headless'):
+    if worker_display not in ('headless', 'minimized'):
+        raise ValueError('Select headless or minimized worker display')
     if calibration_profile is not None:
         calibration_profile = Path(calibration_profile)
         if seconds is not None:
@@ -97,7 +100,8 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
         source = ('[Unit]\nDescription=WiggleControl manual ' + purpose + ' source\n'
                   '[Service]\nType=simple\nExecStart=' + ' '.join(map(unit_arg, argv)) + '\n' + common)
         flags = ['--no-first-run', '--no-default-browser-check']
-        worker = [str(browser), '--headless=new', '--enable-gpu',
+        display_flag = '--headless=new' if worker_display == 'headless' else '--start-minimized'
+        worker = [str(browser), display_flag, '--enable-gpu',
                   '--user-data-dir=' + str(output / 'worker-profile'), *flags,
                   '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
                   '--disable-backgrounding-occluded-windows', base + '/provider/worker']
@@ -133,6 +137,7 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
                     'purpose': 'calibration' if calibration_profile else 'mouse',
                     'calibration_profile': str(calibration_profile) if calibration_profile else None,
                     'bindings': bindings, 'assets': str(assets), 'browser': str(browser),
+                    'worker_display': worker_display,
                     'preflight': proof, 'installed': False, 'started': False}
         (stage / 'bundle.json').write_text(json.dumps(manifest, indent=2) + '\n')
         # Publish only a complete new bundle. No systemd, browser or sensor is
@@ -158,6 +163,8 @@ def main():
     selection.add_argument('--seconds', type=int,
                         help='1..90 for a finite manual trial; explicit 0 for use until Stop')
     parser.add_argument('--name', default='mouse')
+    parser.add_argument('--worker-display', choices=('headless', 'minimized'), default='headless',
+                        help='Use minimized when the installed graphics driver cannot run headless WebGL')
     args = parser.parse_args()
     manifest = prepare(**vars(args))
     print(json.dumps({'prepared': True, 'installed': False, 'started': False,

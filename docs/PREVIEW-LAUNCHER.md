@@ -56,6 +56,10 @@ host's Wayland socket name. Browser/graphics, normal-user camera/uinput permissi
 and desktop effects require receiving qualification before actual use.
 
 Opening starts an idle source and independent detector, then opens controls.
+The generated wrappers require the endpoint's native run ID to match the selected
+source unit's current MainPID before opening either browser. A different provider
+on an occupied port is refused. Existing wrapper-service launch routes remain
+compatible unless they explicitly opt into this direct-process requirement.
 Only the human's Start requests detector preparation/acquisition. Closing controls
 or feedback does not close the detector. Reopening controls rebinds to the current
 source; the existing helper does not restart an already running source/worker.
@@ -73,9 +77,10 @@ does not delete them or claim complete uninstall/rollback support.
 
 ## Evidence and limits —2026-10-19
 
-Four offline tests cover finite/until-Stop argument selection, rejection of
+Six offline tests cover finite/until-Stop argument selection, rejection of
 nonmanual/active preflight, preservation of existing output, private preparation,
-service dependency/cleanup/no-start contracts and systemd/shell argument escaping.
+service dependency/cleanup/no-start contracts, systemd/shell argument escaping
+and actual launcher refusal before browser launch on a different source PID.
 Actual pinned assets and the Rust GPU configuration without ONNX paths pass real
 preflight. The generated units pass the installed `systemd-analyze --user verify`,
 including spaces, dollar and percent characters in the bundle path; wrapper

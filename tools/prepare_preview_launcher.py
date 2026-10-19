@@ -104,7 +104,7 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
         for action in ('open', 'stop'):
             args = [str(python), str(output / 'mouse_launcher.py'), action, '--port', str(port),
                     '--source-unit', units['source'], '--worker-unit', units['worker'],
-                    '--control-unit', units['control']]
+                    '--control-unit', units['control'], '--require-direct-source']
             (stage / (action + '.sh')).write_text('#!/bin/sh\nset -eu\nexec ' + shlex.join(args) + '\n')
             (stage / (action + '.sh')).chmod(0o700)
         files = {str(p.relative_to(stage)): hashlib.sha256(p.read_bytes()).hexdigest()

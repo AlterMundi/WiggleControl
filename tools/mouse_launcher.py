@@ -11,6 +11,15 @@ import time
 import urllib.request
 
 
+def validate_source(config, expected_pid=None):
+    if not (config['manual_start'] and config['absolute_pointer']
+            and config['max_hands'] == 1 and 'prepared' in config):
+        raise ValueError('Selected source does not support separate manual mouse controls')
+    if expected_pid is not None and (expected_pid <= 0 or
+            not str(config.get('run_id', '')).startswith(str(expected_pid) + '-')):
+        raise ValueError('Loopback source does not match the selected service process')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('open', 'stop'))
@@ -18,6 +27,8 @@ def main():
     parser.add_argument('--source-unit', default='wigglecontrol-onehand-smooth.service')
     parser.add_argument('--worker-unit', default='wigglecontrol-onehand-mouse-worker.service')
     parser.add_argument('--control-unit', default='wigglecontrol-onehand-trial-browser.service')
+    parser.add_argument('--require-direct-source', action='store_true',
+                        help='Require the native run ID to match the source unit MainPID')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error('Expected an unprivileged loopback port')
@@ -34,9 +45,13 @@ def main():
         try:
             with urllib.request.urlopen(f'http://127.0.0.1:{args.port}/provider/config', timeout=1) as reply:
                 config = json.load(reply)
-            if not (config['manual_start'] and config['absolute_pointer']
-                    and config['max_hands'] == 1 and 'prepared' in config):
-                raise ValueError('Selected source does not support separate manual mouse controls')
+            expected_pid = None
+            if args.require_direct_source:
+                process = subprocess.run(['systemctl', '--user', 'show', '--property=MainPID',
+                                          '--value', args.source_unit], check=True,
+                                         capture_output=True, text=True)
+                expected_pid = int(process.stdout.strip())
+            validate_source(config, expected_pid)
             break
         except OSError:
             if time.monotonic() >= deadline:

@@ -2,7 +2,9 @@
 
 Independent launcher preparation —2026-10-19: a non-root helper prepares three
 manual-only user units and open/stop wrappers, reusing the existing mouse launcher
-and real provider preflight. Finite/until-Stop selection is explicit; no boot
+and real provider preflight. New wrappers bind the loopback run ID to the source
+unit MainPID before opening browsers; existing wrapper-service routes stay opt-in.
+Finite/until-Stop selection is explicit; no boot
 target or automatic restart. Offline regressions, actual no-acquisition preflight,
 systemd unit verification and wrapper syntax pass. No units were installed/started
 and no receiving state changed. Full installer/calibration/desktop qualification

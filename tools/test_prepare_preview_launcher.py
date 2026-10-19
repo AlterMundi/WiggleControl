@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Offline unit preparation: no services, browsers, inference or devices start."""
 import json
+import io
 from pathlib import Path
 import shlex
 import subprocess
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
 import prepare_preview_launcher as launcher
+import mouse_launcher
 
 
 class LauncherTests(unittest.TestCase):
@@ -62,6 +65,7 @@ class LauncherTests(unittest.TestCase):
                     self.assertEqual(args[1], str(output / 'mouse_launcher.py'))
                     self.assertEqual(args[2], action)
                     self.assertIn(manifest['units']['source'], args)
+                    self.assertIn('--require-direct-source', args)
                 self.assertEqual(json.loads((output / 'bundle.json').read_text()), manifest)
 
     def test_existing_bundle_and_invalid_input_are_preserved_without_preflight(self):
@@ -91,6 +95,39 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(launcher.unit_arg('/a path/100%/$HOME/"x"'), '"/a path/100%%/$$HOME/\\"x\\""')
         for value in ('/a\nb', '/a\tb', '/a\x00b'):
             with self.assertRaises(ValueError): launcher.unit_arg(value)
+
+    def test_source_process_binding_rejects_another_provider_on_the_same_port(self):
+        config = {'manual_start': True, 'absolute_pointer': True, 'max_hands': 1,
+                  'prepared': False, 'run_id': '123-456'}
+        mouse_launcher.validate_source(config, 123)
+        for pid in (0, 12, 124):
+            with self.assertRaisesRegex(ValueError, 'service process'):
+                mouse_launcher.validate_source(config, pid)
+        # Existing wrapper services may own a native child rather than MainPID;
+        # their established launch route is unchanged unless explicitly opted in.
+        mouse_launcher.validate_source(config)
+        with self.assertRaisesRegex(ValueError, 'manual mouse'):
+            mouse_launcher.validate_source(config | {'manual_start': False}, 123)
+
+    def test_open_does_not_launch_worker_or_controls_for_a_different_service_pid(self):
+        config = {'manual_start': True, 'absolute_pointer': True, 'max_hands': 1,
+                  'prepared': False, 'run_id': '123-456'}
+        for pid in (123, 124):
+            calls = []
+            def run(args, **kwargs):
+                calls.append(args)
+                return subprocess.CompletedProcess(args, 0, str(pid) + '\n', '')
+            with patch.object(sys, 'argv', ['mouse_launcher.py', 'open', '--require-direct-source']), \
+                    patch.object(mouse_launcher.subprocess, 'run', side_effect=run), \
+                    patch.object(mouse_launcher.urllib.request, 'urlopen', return_value=io.StringIO(json.dumps(config))):
+                if pid == 123:
+                    mouse_launcher.main()
+                else:
+                    with self.assertRaisesRegex(ValueError, 'service process'):
+                        mouse_launcher.main()
+            self.assertEqual(len(calls), 4 if pid == 123 else 2)
+            self.assertEqual(calls[0][:3], ['systemctl', '--user', 'start'])
+            self.assertIn('--property=MainPID', calls[1])
 
 
 if __name__ == '__main__':

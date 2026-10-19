@@ -14,6 +14,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("prepare-provider-config") if args.len() == 5 => {
+            return wigglecontrol::provider_setup::prepare(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+                std::path::Path::new(&args[3]),
+                std::path::Path::new(&args[4]),
+            );
+        }
         Some("config-check-provider") if args.len() == 3 => {
             return wigglecontrol::provider::check_config(
                 std::path::Path::new(&args[1]),
@@ -549,6 +557,8 @@ fn print_help() {
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol config-check-provider SESSION SETTINGS (browser-provider configuration only; no assets/acquisition)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol prepare-provider-config SESSION SETTINGS PROFILE NEW_DIRECTORY (import selected calibration; new private configuration only)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
     #[cfg(feature = "native-vision")]

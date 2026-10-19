@@ -1,5 +1,14 @@
 # Project context — 2026-10-13
 
+Independent calibrated configuration —2026-10-19: `prepare-provider-config`
+imports an explicitly selected valid profile into a new private session/controller
+pair using live provider admission. Both workspace maps and output dimensions
+agree; other settings and all source/profile files are preserved. Existing or
+concurrently appearing destinations are not replaced. No assets/inference/sensors/
+input are opened. This closes profile-to-configuration preparation, not the still
+missing GPU guided-calibration connection or full installer. See
+[PROVIDER-CONFIG.md](PROVIDER-CONFIG.md#import-a-selected-calibration-without-replacing-it).
+
 Physical scroll acceptance —2026-10-19: the separate53caf00 manual90-second
 recorded trial completed without error; provider/observer exited0, camera/input
 closed and device removal was observed. The application received133 trusted

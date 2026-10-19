@@ -14,6 +14,11 @@ generated launch paths refer to it and to the explicitly selected artifacts.
 
 From the checkout, with existing compatible artifacts/configuration:
 
+Import an already adopted calibration with
+[`prepare-provider-config`](PROVIDER-CONFIG.md#import-a-selected-calibration-without-replacing-it)
+when preparing a new configuration. Select its resulting session/controller
+files below; this prevents independently edited workspace maps from drifting.
+
 ```sh
 python3 tools/prepare_preview_launcher.py \
   --binary /absolute/path/wigglecontrol \

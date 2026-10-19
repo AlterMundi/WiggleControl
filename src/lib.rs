@@ -65,6 +65,9 @@ pub mod sequence;
 pub mod provider;
 
 #[cfg(feature = "native-vision")]
+pub mod provider_setup;
+
+#[cfg(feature = "native-vision")]
 pub mod provider_fixture;
 
 #[cfg(feature = "native-vision")]

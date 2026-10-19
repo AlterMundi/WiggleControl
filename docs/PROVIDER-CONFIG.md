@@ -64,6 +64,45 @@ The current camera-worker path requires private recording configuration. The
 checker reports whether recording is configured, without exposing its directory.
 Pinch distances are model estimates, not calibrated physical measurements.
 
+## Import a selected calibration without replacing it
+
+For an already adopted profile, prepare a new matching session/controller pair:
+
+```sh
+wigglecontrol prepare-provider-config \
+  /absolute/private/session-template.json \
+  /absolute/private/settings-template.json \
+  /absolute/private/accepted-profile.json \
+  /absolute/private/new-mouse-config
+
+wigglecontrol config-check-provider \
+  /absolute/private/new-mouse-config/session.json \
+  /absolute/private/new-mouse-config/settings.json
+```
+
+The templates must already pass provider admission. Their camera/recording paths,
+gesture thresholds, cursor filtering and optional actions remain selected by you.
+The command copies the profile's workspace into both files and its dimensions
+into `pointer_output`. An explicitly configured different output is rejected;
+do not reuse a profile for another display without review. Relative camera or
+recording paths, mismatched settings and invalid profiles are rejected by the
+existing validators. Native model/runtime paths remain optional.
+
+The new directory must be absolute and its parent must exist. It is published
+only after the actual serialized pair validates. Existing directories/files and
+symlinks are preserved, including a destination appearing during preparation.
+The directory is private0700 and its four files are0600: `session.json`,
+`settings.json`, a copied `calibration.json` and a path-free `setup.json` report.
+Source templates, the selected profile and its previous/draft/verification files
+are not changed. No assets, model, camera, browser, listener or input device is
+opened. This copies an explicitly selected valid profile; it does not certify
+that its four corners were verified, perform a new calibration or install it.
+
+Use the resulting `session.json` and `settings.json` as the explicit inputs to
+[launcher preparation](PREVIEW-LAUNCHER.md). Keep the old configuration/bundle
+for intentional rollback. Independent guided calibration through the GPU worker
+is still required; the existing `calibrate-guided` command uses native inference.
+
 The selected GPU path still needs [pinned assets](PROVIDER-ASSETS.md), its explicit
 synthetic warmup image and compatible Chromium. `config-check-provider` does not
 download, prepare or acquire them. The existing `provider-camera-manual-preflight`
@@ -94,3 +133,11 @@ installation/update/removal/rollback and clean-host qualification are still
 required by [LINUX-PREVIEW.md](LINUX-PREVIEW.md) and issue12. The older
 `install.sh` remains the native/integrator installer; it is not the complete GPU
 preview installer.
+
+Calibration import adds CLI qualification of the actual generated pair, private
+permissions, preservation of all unrelated settings and original files, rejection
+of mismatched outputs/settings, symlink profiles and unfinished drafts. A separate
+publication regression preserves even an empty destination appearing during
+preparation. The full native-feature suite now passes242 tests with zero failures
+and one existing opt-in benchmark ignored; all-target Clippy passes. These checks
+remain camera-free and do not qualify physical calibration or a receiving install.

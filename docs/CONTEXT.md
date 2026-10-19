@@ -1,5 +1,14 @@
 # Project context — 2026-10-13
 
+Cata idle calibration —2026-10-19: installed the normal-user manual calibration
+units and started only the idle source. Bounded owned diagnostic Chromium confirms
+hardware WebGL2 via ANGLE/Mesa Intel HD4000. The original page overflowed its
+1366x700 content area; a compact-height CSS prototype fits that and1366x768 while
+preserving1080p. Source now contains that CSS; matching receiving deployment is
+still pending. Actual idle Cancel passed with source exit0, zero capture/input,
+no profile/recording and diagnostic process stopped. Physical calibration remains
+pending fresh manual Start. See [GPU-CALIBRATION.md](GPU-CALIBRATION.md).
+
 Cata x86-64 preparation —2026-10-19: human-identified dedicated-VPN enrollment,
 controller read-back and fresh normal-user SSH passed. Observed DMI identifies
 ThinkPad X230 (superseding older reported X220), Debian13/trixie, GNOME/Wayland,

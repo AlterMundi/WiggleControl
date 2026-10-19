@@ -97,3 +97,25 @@ expired in idle with zero capture/input; its timeout is retained separately.
 These checks do not establish physical calibration accuracy, live GPU performance
 or human comfort. Receiving trials, complete install/update/removal and offered
 ThinkPad qualification remain in [LINUX-PREVIEW.md](LINUX-PREVIEW.md), issue12/#13.
+
+## Cata idle graphics and compact layout —2026-10-19
+
+On actual Debian13/GNOME Wayland X230, the original selected headless Chromium
+flags produce WebGL2 through ANGLE/Mesa Intel HD Graphics4000, OpenGL4.2; this
+is hardware-context availability, not model inference speed or hand accuracy.
+The packaged7aed4ef source entered manual idle under its installed normal-user
+unit, without starting the product worker/control browser. A separate bounded
+owned diagnostic browser inspected the page without touching human tabs.
+
+At1366×700 available content area, the original page was826px high. A compact
+height-specific CSS rule now reduces spacing/type/SVG height on desktop viewports
+at most850px tall, retaining the original1080p presentation and narrow-screen
+reflow. Actual Cata prototype checks fit1366×700 and1366×768 without whole-page
+scrolling;1920×1080 remains fitted. This prototype was injected only into the owned
+diagnostic page before the source change; matching binary deployment is separate.
+
+Actual Cancel before Start reached retained camera-off/mouse-off terminal state,
+source exit0, zero capture/input and no profile/recording. Diagnostic process was
+stopped after the check. This qualifies idle cancellation and a viewport fix;
+physical retry/cancel after acquisition, all four corners and human Save remain
+unqualified. No camera Start, model warmup or virtual input was requested.

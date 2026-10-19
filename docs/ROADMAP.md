@@ -8,6 +8,8 @@ Pi 5/labwc is the initial receiving environment; Nicolás offers the ThinkPad fo
 Linux x86-64 testing. Changing detail during a drag/stroke is optional: include it if naturally
 independent, defer only separate extra work. Second-hand modifiers, multitouch
 and Windows/macOS ports remain later work.
+Exploratory product concepts, including infrared operation with optional passive
+wearables, are retained in [IDEAS.md](IDEAS.md).
 
 The opt-in [held-detail implementation](DETAIL.md) modifies calibrated absolute
 motion independently of left/right buttons. A separate sourcef21a48b Pi trial

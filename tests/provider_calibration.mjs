@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const elements=new Map(),calls=[];let paints=0,failConfig=false;
-const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',disabled:true,attrs:{},setAttribute(k,v){this.attrs[k]=v},toggleAttribute(k,yes){if(yes)this.attrs[k]='';else delete this.attrs[k]}});return elements.get(id)};
+const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',disabled:true,attrs:{},removeAttribute(k){delete this.attrs[k]},setAttribute(k,v){this.attrs[k]=v},toggleAttribute(k,yes){if(yes)this.attrs[k]='';else delete this.attrs[k]}});return elements.get(id)};
 const calibration={phase:'idle',guide:null,review:{corner_target:null},target:null,has_frame:false,camera_closed:true,saved:false};
 const config={run_id:'calibration',calibration,active:true,terminal_ready:false,camera_opened:false,system_input:false};
-const context=vm.createContext({document:{getElementById:el},AbortSignal:{timeout:()=>null},setTimeout:()=>{},
+const context=vm.createContext({document:{getElementById:el,body:{classList:{toggle(){}}},documentElement:{}},AbortSignal:{timeout:()=>null},setTimeout:()=>{},clearTimeout:()=>{},performance:{now:()=>0},innerWidth:1920,innerHeight:1080,screen:{width:1920,height:1080},
  requestAnimationFrame:callback=>{paints++;callback()},fetch:async(path,options)=>{
+ if(path==='/frame')return {status:204};
  calls.push({path,body:options?.body&&JSON.parse(options.body),paints});
  if(path==='/provider/config'){if(failConfig)throw Error('Listener unavailable');return {ok:true,json:async()=>structuredClone(config)}};
  assert.equal(JSON.parse(options.body).run_id,'calibration');return {ok:true};
@@ -35,8 +36,8 @@ await vm.runInContext('poll()',context);assert.equal(calls.filter(c=>c.path.ends
 calibration.guide.step=2;calibration.review.corner_target=[1,0];calibration.target=[.9,.1];
 await vm.runInContext('poll()',context);
 assert.equal(calls.at(-1).body.step,2);assert.equal(paints,4);
-assert.equal(el('corner').attrs.cx,100);assert(!('hidden' in el('corner').attrs));
-assert.equal(el('point').attrs.cy,10);assert(!('hidden' in el('point').attrs));
+assert.equal(el('corner').attrs.cx,'100%');assert(!('hidden' in el('corner').attrs));
+assert.equal(el('point').attrs.cy,'10%');assert(!('hidden' in el('point').attrs));
 failConfig=true;await vm.runInContext('poll()',context);
 assert.match(el('state').textContent,/Camera state unavailable/);assert.equal(el('save').disabled,true);
 failConfig=false;

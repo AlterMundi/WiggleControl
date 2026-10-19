@@ -2,8 +2,9 @@
 
 The browser GPU worker feeds the existing Rust diagonal sampling, four-corner
 review and profile store. Calibration is camera-only: it cannot create a virtual
-mouse or keyboard. Its separate controls show instructions and target/observed
-points without camera images or a skeleton. Receiving/human qualification is
+mouse or keyboard. Its separate controls show instructions, the mirrored camera
+view and target/observed points across the full viewport. No second capture or
+skeleton rendering is needed. Receiving/human qualification is
 still pending; preserve the accepted Pi profile when selecting a trial candidate.
 
 ## Preparation
@@ -51,6 +52,21 @@ existing stable-sample/freshness rules and workspace margin. All four corners
 then require fresh continuous dwell in order, each within20 seconds. Two diagonal
 inputs alone cannot finish. Missing/out-of-frame/ambiguous/unclear observations
 do not supply valid samples, and tracking loss/staleness interrupts corner dwell.
+
+The calibration control window requests browser fullscreen at launch, with an
+explicit Enter full screen control as fallback. Corner-step acknowledgment waits
+for fullscreen (the fullscreen API or a viewport matching the display). Corner
+targets and the observed point use the entire viewport, not a reduced screen map.
+Keep the separate detector alive; on some GNOME setups its requested initial
+minimization is not honored.
+
+The camera panel mirrors the existing640x480 preview using fit-contain, without
+cropping the hand. It requests at most one image at a time, about five per second,
+only while the source reports active acquisition. Run-bound metadata, source
+freshness and a preview generation guard reject synthetic/old/late frames. Closing
+capture clears the image and releases its object URL. No image/model fetching is
+added to the separate normal mouse-only controls. This is visual feedback, never
+another source of calibration samples or a camera-start request.
 
 Completion or failure closes capture before the next choice. Save requires all
 four corners, saved verification and confirmed camera closure; it adopts through

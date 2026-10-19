@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Calibration visibility update —2026-10-19: Nicolás requests seeing the camera
+during calibration and actual fullscreen four-corner review. Controls now show
+the existing mirrored camera preview while acquisition is active and clear it
+on closure; no second capture or mouse-only rendering is introduced. Corner
+markers use the entire viewport; step acknowledgment waits for fullscreen.
+The receiving c1e94ff trial reached step2 after both diagonals, then was cancelled
+without saving. New visual presentation and physical acceptance remain separate.
+
 Calibration continuity correction —2026-10-19: after improved illumination the
 human's latest attempt detected one hand in all215 processed frames, yet only one
 diagonal sample survived. A100ms cadence/70ms inference-delay regression reproduced

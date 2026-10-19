@@ -106,7 +106,8 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
                   '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
                   '--disable-backgrounding-occluded-windows', base + '/provider/worker']
         control = [str(browser), '--user-data-dir=' + str(output / 'control-profile'),
-                   *flags, '--start-maximized', '--app=' + base + ('/provider/calibration' if calibration_profile else '/provider/control')]
+                   *flags, '--start-fullscreen' if calibration_profile else '--start-maximized',
+                   '--app=' + base + ('/provider/calibration' if calibration_profile else '/provider/control')]
         (stage / 'units').mkdir()
         (stage / 'units' / units['source']).write_text(source)
         for role, args in [('worker', worker), ('control', control)]:

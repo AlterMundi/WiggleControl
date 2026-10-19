@@ -44,6 +44,8 @@ class LauncherTests(unittest.TestCase):
             self.assertIn('"provider-calibrate"', source)
             self.assertNotIn('--inject', source)
             self.assertIn('/provider/calibration', control)
+            self.assertIn('--start-fullscreen', control)
+            self.assertNotIn('--start-maximized', control)
             self.assertEqual(manifest['purpose'], 'calibration')
             self.assertEqual(manifest['seconds_after_start'], 150)
             self.assertFalse(kwargs['calibration_profile'].exists())

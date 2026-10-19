@@ -1452,6 +1452,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 data["recorded_source"] = recorded_source.into();
                 data["recorded_time_ms"] = feedback.recorded_time_ms.into();
                 data["camera_opened"] = camera_opened.into();
+                data["provider_run_id"] = bridge.run_id.clone().into();
                 data["input_available"] = (inject && writer.is_some()).into();
                 data["input_enabled"] = (inject && writer.is_some() && output.running).into();
                 data["recording"] = journal.recording.is_some().into();

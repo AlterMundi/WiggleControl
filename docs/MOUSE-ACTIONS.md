@@ -148,14 +148,17 @@ source-only receiving statements in the dated implementation sections above.
 Default beta/calibration remain preserved; separate trials retain exact artifacts,
 private recordings, actual input evidence and explicit human feedback.
 
-Natural double click, complete scroll/Escape gestures, longer drag/loss tasks,
+Natural double click, gesture scroll, broader Escape qualification, longer drag/loss tasks,
 relaxed no-action rates and sustained comfort remain issue10/#13 work. The earlier
 thumb/middle scroll candidate cannot also select right: select and qualify a
 separate scroll gesture before release. Existing explicit scroll mode remains
 separate. Detail rest/small-target/drawing/edges and held-action changes still
 need focused acceptance. [Escape delivery and deliberate thumb-out recognition](ESCAPE.md) now connect
-in source under default-off `escape:{}`. Keyboard effects/gesture comfort remain
-unqualified; no new Escape gesture is selected on the receiving host.
+under default-off `escape:{}`. A separate d625bbc Pi candidate completed90s
+with12 Escape outputs and12 trusted keydown/keyup/dialog cancellations; Nicolás
+reports good operation. Basic gesture/application acceptance is positive.
+Held-drag cancellation, labelled prolonged holds/rearm and ordinary-use false
+actions remain unqualified; normal beta/calibration are preserved.
 
 Pi tests remain serialized with realtime-conversation work. Continue off-Pi
 source/replay work between freshly acknowledged finite physical trials. No camera

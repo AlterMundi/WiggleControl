@@ -170,3 +170,26 @@ click, detail and Escape enabled, preserving accepted normal configuration and
 calibration. Start remained locked during delivery qualification; standby shows
 camera/input off. Human gesture recognition, no-repeat/rearm comfort and native
 application cancellation while dragging remain unqualified.
+
+
+## Positive first physical gesture trial —2026-10-19
+
+The matching d625bbc candidate completed the manual90-second recorded trial
+without a source error:1193 captured frames,1183 interpreted observations and
+12 Escape outputs. The owned Wayland Chromium dialog received12 trusted keydown,
+12 keyup and12 cancel events, closing once per tap. Nicolás reports that several
+attempts worked well and performed one final attempt before completion. These
+are positive gesture/application observations, not an individually labelled
+12/12 intent score.
+
+Camera/input closed, writer/worker and provider/observer were reaped; the selected
+virtual mouse was removed with no partial/overflow trace. Private video, raw
+observations, exact configs, native/application evidence and acceptance summary
+are retained. Accepted normal configuration/calibration hashes still match.
+
+Basic Escape recognition and application cancellation now have positive human
+acceptance. Held-drag cancellation, a separately labelled prolonged-held/rearm
+sequence and false-action rates in ordinary use remain focused follow-up work.
+No source replay or geometry fixture substitutes for those tasks. The task's
+finite source exits after90seconds; final camera/input closure was independently
+verified and its result retained in the owned task display.

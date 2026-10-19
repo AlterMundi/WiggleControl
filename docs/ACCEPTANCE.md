@@ -31,6 +31,21 @@ measured unintended-action rates remain open; gesture scroll/Escape and standalo
 release work remain incomplete. The accidental task-window closure is not reported
 as a controller fault.
 
+## Positive Escape gesture/application use —2026-10-19
+
+The d625bbc candidate completed a manual90-second recorded trial/error-free.
+Twelve Escape outputs produced12 trusted keydown/keyup/dialog cancellations in
+the owned Wayland application. Nicolás reports several successful attempts and
+good operation; the exact intended attempt count was not separately annotated.
+Camera/input closure, child reaping, device removal, private video/evidence and
+unchanged normal configuration/calibration are retained. [ESCAPE.md](ESCAPE.md)
+owns the matching source, adapter and physical evidence.
+
+This accepts first physical Escape gesture/application use. Held-drag cancellation,
+labelled prolonged-held no-repeat/rearm and ordinary-use false actions remain
+focused follow-up work. Natural double click, gesture scroll, detail precision/
+rest/drawing and sustained comfort/packaging remain milestone work.
+
 ## Historical six-milestone baseline
 
 The table and finite trial protocol below retain the original broader

@@ -1,5 +1,12 @@
 # Project context — 2026-10-13
 
+Physical Escape update —2026-10-19: the separately staged d625bbc candidate
+completed90s/error-free, with12 Escape outputs and12 trusted keydown/keyup/dialog
+cancellations. Nicolás reports the gesture worked well. Camera/input and children
+closed; private video/evidence retained and normal beta/calibration unchanged.
+Basic gesture/application acceptance is positive; held-drag, labelled no-repeat/
+rearm and ordinary-use false-action qualification remain. See [ESCAPE.md](ESCAPE.md).
+
 Escape gesture source candidate —2026-10-18: default-off `escape:{}` connects
 selected in-view raw thumb-out pose to the fixed-key writer, with700ms hold,
 200ms positive open rearm, no repeat and no new classifier. Uses the actual

@@ -14,8 +14,10 @@ motion independently of left/right buttons. A separate sourcef21a48b Pi trial
 completed90s; Nicolás reports very good detail use with intentional clicking in
 the X menu. Small-target/rest/drawing, edge/held-action behavior and longer comfort
 remain to qualify; the normal beta/calibration remain preserved. [Escape delivery](ESCAPE.md)
-now connects an opt-in deliberate thumb-out gesture in source; actual keyboard
-effects and human recognition/comfort remain pending.
+now connects the opt-in thumb-out gesture. The separate d625bbc Pi trial completed
+90s/error-free, with12 Escape outputs and12 trusted application cancellations;
+Nicolás reports good operation. Held-drag cancellation, labelled prolonged holds/
+rearm and ordinary-use false-action qualification remain.
 
 The preview plan owns the current delivery scope and issue order. The reconciled
 [goal specification](ONE-HAND-GOAL.md) carries prior reliability/comfort work into
@@ -23,7 +25,7 @@ the new human-requested goal after the old goal was cleared. The broader touchsc
 and dated implementation/receiving checkpoints below remain historical evidence,
 not additional gates on this Linux preview.
 
-Updated 2026-10-18. This is the current development entry point. The original
+Updated 2026-10-19. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.

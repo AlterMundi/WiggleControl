@@ -4,6 +4,14 @@ Current qualification is Linux ARM64 Pi 5, labwc/Wayland and a single 1080p outp
 Source, device delivery, finite lifecycle and human hand accuracy are separate;
 see QUALIFICATION.md for what is proved. No boot camera/inference session exists.
 
+## GPU-preview asset preparation
+
+The selected GPU preview now has a reproducible, non-root asset preparation path:
+[PROVIDER-ASSETS.md](PROVIDER-ASSETS.md). It verifies the pinned SDK/archive/WASM
+and task bundle, retains license/metadata and supports offline verified reuse.
+This is separate from the older native installation below; standalone configuration,
+launch, permissions/update/removal and receiving acceptance remain issue12 work.
+
 ## Build and artifacts
 
 Use the ordinary checkout with Rust 1.85 or later. Native vision requires libclang

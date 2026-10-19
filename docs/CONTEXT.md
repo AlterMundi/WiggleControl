@@ -1,5 +1,15 @@
 # Project context — 2026-10-13
 
+Packaging increment —2026-10-19: [pinned GPU asset preparation](PROVIDER-ASSETS.md)
+now verifies SDK1.1.1 archive/member hashes, task bundle and retained license/metadata,
+with offline/cache-free verified reuse and atomic new-directory publication.
+Genuine online/offline preparation and real no-acquisition preflight pass; fictional
+corruption/unsafe-member tests pass. Full standalone install/launch/calibration/
+rollback/prerelease remains incomplete. Manual trial standby now defaults to one
+hour (configurable30..3600s), separate from the90-second acquisition clock.
+The initial scroll standby expired with zero capture/input; a fresh idle task
+is prepared, reusing exact source53caf00/direction proof and requiring human Start.
+
 Scroll source candidate —2026-10-19: default-off held fist maps mirrored wrist
 motion to fine vertical/horizontal wheel output, with direct content direction,
 frozen pointer and anchored return. Optional bounded acceleration and positive

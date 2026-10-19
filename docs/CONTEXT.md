@@ -1,13 +1,17 @@
 # Project context — 2026-10-13
 
-Cata idle calibration —2026-10-19: installed the normal-user manual calibration
-units and started only the idle source. Bounded owned diagnostic Chromium confirms
-hardware WebGL2 via ANGLE/Mesa Intel HD4000. The original page overflowed its
-1366x700 content area; a compact-height CSS prototype fits that and1366x768 while
-preserving1080p. Source now contains that CSS; matching receiving deployment is
-still pending. Actual idle Cancel passed with source exit0, zero capture/input,
-no profile/recording and diagnostic process stopped. Physical calibration remains
-pending fresh manual Start. See [GPU-CALIBRATION.md](GPU-CALIBRATION.md).
+Cata calibration deployment —2026-10-19: source3092347 passed all four
+CI39207545887 jobs; its complete x86-64 package passed all249 file/mode checks
+on Cata and replaced the selected manual launcher with configuration hashes
+unchanged. The actual product window fits1366×712 without scrolling; camera-only
+source, GPU worker and controls opened in manual idle. Hardware WebGL2 context
+availability and actual idle Cancel passed separately, with zero capture/input.
+The previous package remains available for rollback. Nicolás manually started
+the physical calibration, which failed with EINVAL before any captured frame;
+no input/profile was produced. Format/rate/buffer setup diagnostics pass without
+streaming; the failing operation remains under investigation. All four corners,
+Save, active Cancel/Retry and mouse/performance acceptance remain unqualified. See
+[GPU-CALIBRATION.md](GPU-CALIBRATION.md).
 
 Cata x86-64 preparation —2026-10-19: human-identified dedicated-VPN enrollment,
 controller read-back and fresh normal-user SSH passed. Observed DMI identifies

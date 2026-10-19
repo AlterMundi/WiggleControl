@@ -425,24 +425,36 @@ pub(crate) fn camera(
     let path = config.camera.clone();
     thread::spawn(move || {
         let work = (|| -> Result<(), Box<dyn Error>> {
-            let device = Device::with_path(path)?;
+            let device = Device::with_path(path)
+                .map_err(|e| io::Error::new(e.kind(), format!("camera open: {e}")))?;
             mailbox.lock().unwrap().opened = true;
-            let mut format = device.format()?;
+            let mut format = device
+                .format()
+                .map_err(|e| io::Error::new(e.kind(), format!("camera get format: {e}")))?;
             format.width = 640;
             format.height = 480;
             format.fourcc = v4l::FourCC::new(b"MJPG");
-            let actual = device.set_format(&format)?;
+            let actual = device
+                .set_format(&format)
+                .map_err(|e| io::Error::new(e.kind(), format!("camera set 640x480 MJPEG: {e}")))?;
             if actual.width != 640 || actual.height != 480 || actual.fourcc != format.fourcc {
                 return Err("camera did not accept 640x480 MJPEG".into());
             }
-            device.set_params(&v4l::video::capture::Parameters::with_fps(30))?;
-            let mut stream = MmapStream::with_buffers(&device, Type::VideoCapture, 2)?;
+            device
+                .set_params(&v4l::video::capture::Parameters::with_fps(30))
+                .map_err(|e| io::Error::new(e.kind(), format!("camera set 30 FPS: {e}")))?;
+            let mut stream = MmapStream::with_buffers(&device, Type::VideoCapture, 2)
+                .map_err(|e| io::Error::new(e.kind(), format!("camera map buffers: {e}")))?;
             stream.set_timeout(Duration::from_millis(250));
             while !stop.load(Ordering::Relaxed) && deadline.is_none_or(|end| Instant::now() < end) {
                 let (buffer, metadata) = match stream.next() {
                     Ok(v) => v,
                     Err(e) if e.kind() == io::ErrorKind::TimedOut => continue,
-                    Err(e) => return Err(e.into()),
+                    Err(e) => {
+                        return Err(
+                            io::Error::new(e.kind(), format!("camera stream next: {e}")).into()
+                        )
+                    }
                 };
                 if stop.load(Ordering::Relaxed) || deadline.is_some_and(|end| Instant::now() >= end)
                 {
@@ -468,7 +480,11 @@ pub(crate) fn camera(
                     sequence: metadata.sequence,
                 };
                 if let Some(recording) = &mut recording {
-                    recording.append(&frame.bytes, frame.source_us, frame.sequence)?;
+                    recording
+                        .append(&frame.bytes, frame.source_us, frame.sequence)
+                        .map_err(|e| {
+                            io::Error::new(e.kind(), format!("camera record frame: {e}"))
+                        })?;
                 }
                 let mut slot = mailbox.lock().unwrap();
                 slot.frames += 1;

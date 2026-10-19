@@ -119,3 +119,27 @@ source exit0, zero capture/input and no profile/recording. Diagnostic process wa
 stopped after the check. This qualifies idle cancellation and a viewport fix;
 physical retry/cancel after acquisition, all four corners and human Save remain
 unqualified. No camera Start, model warmup or virtual input was requested.
+
+Source309234744276a91c0e1aa5526bbc7f097eff46f9 passed all four CI39207545887
+jobs and was deployed as the complete x86-64 archive. External archive SHA256
+480b98813bc0837062e7a39f8ff5b023422e54416cabeb7da1cae4a299f6411d and all249
+files/modes passed receiving verification. Updating the selected user launcher
+preserved both configuration hashes and retained the previous package. The actual
+product window, rather than an injected prototype, fits its1366×712 content area
+without scrolling; Start/Cancel and disabled Save/Retry are fully visible.
+Source, worker and controls opened in manual idle with camera/input off. The
+human manually started calibration, but it terminated with EINVAL before any
+captured frame or timer, without input/profile. Separate non-streaming checks of
+the same requested format/rate and buffers pass; the exact failing operation is
+not yet established. Source camera errors now name their failing operation; that
+diagnostic increment has not been deployed. Temporary owned
+inspection forwarding and the diagnostic unit were removed; future control
+launches use the normal flags. No physical acceptance follows from this layout
+or idle lifecycle proof.
+
+At Nicolás's fresh request, a separate bounded camera-only probe (no Chromium,
+model or input) reproduced EINVAL in the first stream read, before receiving any
+frame. Raw private recording files remain empty. Non-streaming Rust setup and
+both QBUF operations pass. This narrows the failing phase but does not yet
+establish whether STREAMON or dequeue fails, nor its driver/hardware cause.
+No new physical calibration was started after that probe.

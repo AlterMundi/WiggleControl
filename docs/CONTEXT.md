@@ -1,5 +1,18 @@
 # Project context — 2026-10-13
 
+Cata x86-64 preparation —2026-10-19: human-identified dedicated-VPN enrollment,
+controller read-back and fresh normal-user SSH passed. Observed DMI identifies
+ThinkPad X230 (superseding older reported X220), Debian13/trixie, GNOME/Wayland,
+one1366x768 display, Python3.13.5 and glibc2.41. Downloaded source7aed4ef x86-64
+archive and all249 file/mode checks pass on Cata; its actual native binary generated
+fresh matching screen configuration and a camera-only calibration launcher with
+real packaged assets. No browser session/model, camera/input, unit installation,
+profile save or recording occurred. Existing camera/uinput permissions were checked
+as metadata only; unattended sudo is unavailable. Next: idle graphics/launcher and
+fresh manual calibration Start, then actual input/desktop/performance qualification.
+Exact access and receiving paths belong to Shared Resources host-cata private binding.
+Pi beta/calibration/power settings remain unchanged.
+
 Double-click envelope —2026-10-19: selected preview options pass306 constructed
 phase cases with neutral EOF; a further612 cases cover three target positions.
 Timing coverage, rather than the tested lateral offset, limits brief closures:

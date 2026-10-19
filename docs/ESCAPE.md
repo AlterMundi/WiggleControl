@@ -153,3 +153,20 @@ Original video/landmarks, configs, source/binary hashes and derived outputs stay
 private. These are comparisons with retained predictions, not new inference,
 intermediate writer ticks, OS effects, pose intent labels or false-action rates.
 Actual Escape gesture/keyboard delivery remain unqualified on the receiving host.
+
+
+## First receiving delivery qualification —2026-10-19
+
+Source d625bbc / [CI39178767136](https://github.com/AlterMundi/WiggleControl/actions/runs/39178767136)
+passed all three jobs. Its matching ARM64 candidate was staged separately on the
+Pi, with the fixed classification rule and retained original-rule rollback.
+Camera-free checks observed udev keyboard classification, libinput keyboard
+admission, a selected virtual-node KEY_ESC down/up pair, clean writer exit and
+device removal. The owned Wayland Chromium dialog received trusted Escape
+keydown/keyup/cancel and closed once. No camera or microphone was used.
+
+A separate manual-Start recorded90-second gesture trial is prepared with right
+click, detail and Escape enabled, preserving accepted normal configuration and
+calibration. Start remained locked during delivery qualification; standby shows
+camera/input off. Human gesture recognition, no-repeat/rearm comfort and native
+application cancellation while dragging remain unqualified.

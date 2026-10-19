@@ -37,6 +37,11 @@ acquisition clock. New physical trials still require coordinated human readiness
 and the private recording-enabled configuration. A launcher is not camera/input
 permission or acceptance of its selected calibration.
 
+For [camera-only guided calibration](GPU-CALIBRATION.md), select
+`--calibration-profile /absolute/private/calibration.json` instead of `--seconds`.
+That bundle opens the calibration controls and never passes `--inject`; the
+profile changes only after four-corner verification, camera closure and Save.
+
 The bundle includes three uniquely named user units, `open.sh`/`stop.sh`, the
 existing launch helper and `bundle.json` with checksums, selected bindings and
 preflight. Artifacts/configuration/assets remain at their explicit paths; they

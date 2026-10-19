@@ -35,16 +35,26 @@ def selected(path, directory=False, executable=False):
     return path
 
 
-def command(binary, session, settings, assets, warmup, seconds, port, preflight=False):
+def command(binary, session, settings, assets, warmup, seconds, port, preflight=False, calibration_profile=None):
+    if calibration_profile is not None:
+        return [str(binary), 'provider-calibrate' + ('-preflight' if preflight else ''),
+                str(session), str(settings), str(assets), str(warmup), str(calibration_profile), str(port)]
     mode = 'provider-camera-until-stop' if seconds == 0 else 'provider-camera-manual'
     return [str(binary), mode + ('-preflight' if preflight else ''), str(session),
             str(settings), str(assets), str(warmup),
             *([] if seconds == 0 else [str(seconds)]), str(port), '1', '--inject']
 
 
-def prepare(*, binary, browser, session, settings, assets, warmup, output, port, seconds,
-            name='mouse', python=Path('/usr/bin/python3')):
-    if type(seconds) is not int or not 0 <= seconds <= 90:
+def prepare(*, binary, browser, session, settings, assets, warmup, output, port, seconds=None,
+            name='mouse', python=Path('/usr/bin/python3'), calibration_profile=None):
+    if calibration_profile is not None:
+        calibration_profile = Path(calibration_profile)
+        if seconds is not None:
+            raise ValueError('Choose calibration or explicit mouse seconds, not both')
+        if not calibration_profile.is_absolute() or not calibration_profile.parent.is_dir():
+            raise ValueError('Select an absolute calibration profile in an existing directory')
+        unit_arg(calibration_profile)
+    elif type(seconds) is not int or not 0 <= seconds <= 90:
         raise ValueError('Select explicit seconds: 1..90 finite, or 0 until Stop')
     if type(port) is not int or not 1024 <= port <= 65535:
         raise ValueError('Select an unprivileged loopback port')
@@ -64,13 +74,15 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
     # The real selected provider validates configuration/assets without opening
     # a camera, model runtime, listener or input device. It cannot request Start.
     result = subprocess.run(command(binary, session, settings, assets, warmup,
-                                    seconds, port, True), capture_output=True,
+                                    seconds, port, True, calibration_profile), capture_output=True,
                             text=True, timeout=30, check=True)
     proof = json.loads(result.stdout)
     expected = {'preflight': 'ok', 'manual_start': True, 'camera_opened': False,
                 'system_input': False, 'acquisition_started': False,
                 'absolute_pointer': True, 'max_hands': 1, 'recording_configured': True,
-                'until_stop': seconds == 0, 'trial_seconds': seconds or None}
+                'until_stop': seconds == 0, 'trial_seconds': 150 if calibration_profile else seconds or None}
+    if calibration_profile is not None:
+        expected.update(calibration=True, input_requested=False)
     if any(type(proof.get(k)) is not type(v) or proof.get(k) != v for k, v in expected.items()):
         raise ValueError('Selected provider did not confirm manual-only no-acquisition preflight')
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -80,8 +92,9 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
         units = {key: prefix + '-' + key + '.service' for key in ('source', 'worker', 'control')}
         base = f'http://127.0.0.1:{port}'
         common = 'Restart=no\nKillMode=control-group\nTimeoutStopSec=6\nUMask=0077\n'
-        argv = command(binary, session, settings, assets, warmup, seconds, port)
-        source = ('[Unit]\nDescription=WiggleControl manual mouse source\n'
+        argv = command(binary, session, settings, assets, warmup, seconds, port, calibration_profile=calibration_profile)
+        purpose = 'calibration' if calibration_profile else 'mouse'
+        source = ('[Unit]\nDescription=WiggleControl manual ' + purpose + ' source\n'
                   '[Service]\nType=simple\nExecStart=' + ' '.join(map(unit_arg, argv)) + '\n' + common)
         flags = ['--no-first-run', '--no-default-browser-check']
         worker = [str(browser), '--headless=new', '--enable-gpu',
@@ -89,7 +102,7 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
                   '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
                   '--disable-backgrounding-occluded-windows', base + '/provider/worker']
         control = [str(browser), '--user-data-dir=' + str(output / 'control-profile'),
-                   *flags, '--start-maximized', '--app=' + base + '/provider/control']
+                   *flags, '--start-maximized', '--app=' + base + ('/provider/calibration' if calibration_profile else '/provider/control')]
         (stage / 'units').mkdir()
         (stage / 'units' / units['source']).write_text(source)
         for role, args in [('worker', worker), ('control', control)]:
@@ -116,7 +129,9 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
                     for key, path in [('binary', binary), ('session', session), ('settings', settings),
                                       ('warmup', warmup)]}
         manifest = {'schema': 'wigglecontrol.preview-launcher/v1', 'units': units,
-                    'seconds_after_start': seconds, 'port': port, 'files': files,
+                    'seconds_after_start': 150 if calibration_profile else seconds, 'port': port, 'files': files,
+                    'purpose': 'calibration' if calibration_profile else 'mouse',
+                    'calibration_profile': str(calibration_profile) if calibration_profile else None,
                     'bindings': bindings, 'assets': str(assets), 'browser': str(browser),
                     'preflight': proof, 'installed': False, 'started': False}
         (stage / 'bundle.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -137,7 +152,10 @@ def main():
     for key in ('binary', 'browser', 'session', 'settings', 'assets', 'warmup', 'output'):
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--port', type=int, required=True)
-    parser.add_argument('--seconds', type=int, required=True,
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument('--calibration-profile', type=Path,
+                           help='Camera-only guided calibration; Save is explicit after four corners')
+    selection.add_argument('--seconds', type=int,
                         help='1..90 for a finite manual trial; explicit 0 for use until Stop')
     parser.add_argument('--name', default='mouse')
     args = parser.parse_args()

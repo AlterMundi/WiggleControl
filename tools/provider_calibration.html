@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiggleControl · Calibration</title>
+<style>
+:root{color-scheme:dark;background:#090e17;color:#f5f0e6;font:22px system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;padding:24px 176px 24px 24px}header{border-left:20px solid #dcb3c3;border-top:10px solid #f4c283;border-radius:36px 0 0 0;padding:12px 22px;background:#111925}h1{font-size:28px;margin:0}header p{margin:6px 0}main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:24px;margin-top:22px}section{background:#111925;border:2px solid #87d7ee;border-radius:24px 0 0 24px;padding:22px}h2{font-size:30px;margin:0 0 16px;line-height:1.3}p{line-height:1.45;margin:12px 0}svg{width:100%;height:min(43vh,440px);display:block;margin:12px auto;background:#090e17}#clock{font-size:34px;font-variant-numeric:tabular-nums;color:#f4c283}button{font:inherit;font-weight:700;min-height:56px;width:100%;margin:6px 0;border:0;border-radius:28px 0 0 28px;background:#a8dac6;color:#090e17}button.secondary{background:#f4c283}button:disabled{opacity:.45}button:focus-visible{outline:4px solid #87d7ee;outline-offset:3px}#message{min-height:2.9em}#point{fill:#a8dac6}#corner{fill:none;stroke:#f4c283;stroke-width:1.5}#point[hidden],#corner[hidden]{display:none}.help{font-size:18px}@media(max-width:1000px){body{padding:20px}main{grid-template-columns:1fr 1fr}}@media(max-width:700px){main{grid-template-columns:1fr}h2{font-size:26px}svg{height:260px}}
+</style>
+<header><h1>WIGGLECONTROL // CALIBRATION</h1><p id="state" role="status">Checking camera state…</p></header>
+<main>
+<section aria-label="Calibration guidance"><h2 id="instruction" aria-live="polite">Prepare your comfortable hand range</h2><p id="clock" role="timer">Not started</p>
+<svg viewBox="-8 -8 116 116" role="img" aria-label="Screen map: orange target and green observed pointer"><rect x="0" y="0" width="100" height="100" fill="none" stroke="#87d7ee" stroke-width=".5"/><path d="M50 0V100M0 50H100" stroke="#45586c" stroke-width=".3"/><circle id="corner" cx="0" cy="0" r="5" hidden/><circle id="point" cx="0" cy="0" r="2.5" hidden/></svg>
+<p id="progress">Two comfortable diagonal positions, then all four corners.</p></section>
+<section aria-label="Calibration controls"><button id="start" disabled>START CALIBRATION</button><button id="save" disabled>SAVE CALIBRATION</button><button id="retry" class="secondary" disabled>RETRY FROM THE BEGINNING</button><button id="cancel" class="secondary" disabled>CANCEL AND CLOSE CAMERA</button>
+<p id="message" role="status"></p><p class="help">Keep your whole hand in view. Move during the first 15 seconds of each diagonal step, then hold. At each corner, hold the green point inside the orange target.</p><p class="help">Calibration never controls the mouse. Camera recording stays local. Your saved profile changes only after all four corners pass and you choose Save.</p></section>
+</main>
+<script>
+let runId=null,busy=false,terminal=false,last=null,acknowledgedStep=null;
+const el=id=>document.getElementById(id);
+async function post(action,fields={}){const r=await fetch('/provider/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId,...fields}),signal:AbortSignal.timeout(2000)});if(!r.ok)throw Error(await r.text());}
+function dot(id,point){const node=el(id);node.toggleAttribute('hidden',!point);if(point){node.setAttribute('cx',point[0]*100);node.setAttribute('cy',point[1]*100);}}
+function render(c){const s=c.calibration;if(!s)throw Error('This source is not a calibration session');last=c;
+ const g=s.guide,closed=s.camera_closed&&c.camera_opened===false,ended=!c.active;
+ el('state').textContent=(c.error?'Session error: '+c.error:c.camera_opened?'Camera active · Recording locally':closed?'Camera off':'Preparing or closing camera')+' · Mouse off';
+ el('instruction').textContent=s.saved?'Calibration saved':s.phase==='cancelled'?'Calibration cancelled':ended?'Calibration ended without saving':g?.instruction||'Prepare your comfortable hand range';
+ el('clock').textContent=ended||s.saved||s.phase==='cancelled'?'Finished':s.phase==='complete'?'All four corners verified':s.phase==='retry'?'Retry when ready':g?.remaining_ms!=null?`${Math.ceil(g.remaining_ms/1000)} seconds · ${g.phase==='hold'?'HOLD':'MOVE'}`:g?'Waiting for this instruction to appear':'Not started';
+ el('progress').textContent=g?`Step ${Math.min(g.step+1,6)} of 6 · ${g.step<2?'Comfortable range':'Four-corner review'}`:'Two comfortable diagonal positions, then all four corners.';
+ dot('corner',g?.step>=2?s.review.corner_target:null);dot('point',s.target);
+ el('start').disabled=busy||ended||s.phase!=='idle';el('save').disabled=busy||ended||s.phase!=='complete'||!closed;
+ el('retry').disabled=busy||ended||!['complete','retry'].includes(s.phase)||!closed;el('cancel').disabled=busy||ended||s.saved||s.phase==='cancelled';
+ if(s.saved)el('message').textContent='Saved. Camera and mouse are off. You can close this window.';
+ else if(s.phase==='cancelled')el('message').textContent='Cancelled. The previous saved profile is unchanged.';
+ else if(ended)el('message').textContent='The previous saved profile is unchanged. Reopen calibration to try again.';
+ else if(s.phase==='complete')el('message').textContent=closed?'Review complete. Choose Save, Retry or Cancel.':'Review complete. Waiting for camera closure before Save.';
+ else if(s.phase==='retry')el('message').textContent=closed?'The previous saved profile is unchanged. Choose Retry, then Start when ready.':'Waiting for camera closure.';
+
+ else if(!busy)el('message').textContent=s.phase==='idle'?'Start opens the camera. It does not enable the mouse.':'Follow the instruction above. Cancel remains available.';
+}
+async function poll(){if(terminal)return;try{
+ const r=await fetch('/provider/config',{cache:'no-store',signal:AbortSignal.timeout(2000)});if(!r.ok)throw Error('Calibration state unavailable');const c=await r.json();
+ if(runId&&runId!==c.run_id)throw Error('Calibration session changed. Reopen calibration.');runId=c.run_id;render(c);
+ const s=c.calibration,g=s.guide;
+ if(c.active&&g?.phase==='waiting'&&s.has_frame&&!s.camera_closed&&acknowledgedStep!==g.step){
+  await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  await post('calibration/step',{step:g.step});acknowledgedStep=g.step;
+ }
+ if(s.phase==='idle')acknowledgedStep=null;
+ if(!c.active&&c.terminal_ready===true&&c.camera_opened===false&&c.system_input===false){
+  terminal=true;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  try{await post('terminal-visible');}catch{} // Keep the observed terminal result.
+ }
+ }catch(e){if(!terminal){el('state').textContent='Camera state unavailable · Check local activity';el('message').textContent=e.message;el('start').disabled=true;el('save').disabled=true;el('retry').disabled=true;el('cancel').disabled=!runId||busy;}}
+ if(!terminal)setTimeout(poll,250);
+}
+async function command(action){if(!runId||busy||terminal)return;busy=true;try{if(last)render(last);await post(action);if(action==='calibration/retry')acknowledgedStep=null;}catch(e){el('message').textContent=e.message;}finally{busy=false;}}
+el('start').onclick=()=>command('prepare');el('save').onclick=()=>command('calibration/save');el('retry').onclick=()=>command('calibration/retry');el('cancel').onclick=()=>command('calibration/cancel');poll();
+</script></html>

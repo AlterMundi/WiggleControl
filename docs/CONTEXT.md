@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Guided GPU calibration —2026-10-19: a manual camera-only provider mode connects
+the existing diagonal/Guide/four-corner/profile-store engines to GPU observations.
+Instruction paint acknowledges each stage; verified or failed attempts close
+capture before Save/Retry/Cancel. Retry requires another human Start. Independent
+launcher preparation selects `--calibration-profile` instead of mouse duration;
+no input writer or Matrix/integrators dependency. This is source work, not a new
+accepted Pi calibration. See [GPU-CALIBRATION.md](GPU-CALIBRATION.md).
+
 Independent calibrated configuration —2026-10-19: `prepare-provider-config`
 imports an explicitly selected valid profile into a new private session/controller
 pair using live provider admission. Both workspace maps and output dimensions

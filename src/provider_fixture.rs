@@ -43,6 +43,7 @@ struct State {
     ready: bool,
     cancelled: bool,
     stop_requested: bool,
+    calibration_retry_requested: bool,
     closed: bool,
     finishing: bool,
     terminal_visible: bool,
@@ -107,6 +108,7 @@ impl State {
     }
 }
 struct Bridge {
+    calibration: Option<Arc<Mutex<crate::provider_calibration::Run>>>,
     camera_source: bool,
     recorded_source: bool,
     input_requested: bool,
@@ -156,6 +158,7 @@ impl Bridge {
         max_hands: usize,
     ) -> Self {
         Self {
+            calibration: None,
             camera_source: false,
             recorded_source: false,
             input_requested: false,
@@ -270,6 +273,14 @@ impl Extension for Bridge {
                 body: include_bytes!("../tools/provider_control.html").to_vec(),
                 headers: String::new(),
             }),
+            ("GET", "/provider/calibration") if self.calibration.is_some() => {
+                Ok(ExtensionResponse {
+                    status: "200 OK",
+                    mime: "text/html; charset=utf-8",
+                    body: include_bytes!("../tools/provider_calibration.html").to_vec(),
+                    headers: String::new(),
+                })
+            }
             ("GET", "/provider/client.mjs") => Ok(ExtensionResponse {
                 status: "200 OK",
                 mime: "text/javascript",
@@ -304,6 +315,7 @@ impl Extension for Bridge {
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
                 "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
                 "terminal_ready":state.finishing,
+                "calibration":self.calibration.as_ref().map(|c|c.lock().unwrap().state(monotonic_us().unwrap_or(0))),
                 "remaining_ms":state.remaining_ms(self.trial_seconds,Instant::now()),
                 "mode":state.control_mode,"controller_running":state.controller_running&&!state.eof,
                 "detail_configured":self.detail_configured,"detail_active":state.detail_active&&!state.eof,
@@ -349,11 +361,19 @@ impl Extension for Bridge {
                 }
                 if path == "/provider/prepare" {
                     let mut state = self.state.lock().unwrap();
-                    if state.preparing.is_some() || state.ready {
+                    if state.eof
+                        || state.preparing.is_some()
+                        || (state.ready && self.calibration.is_none())
+                    {
                         return Ok(reply(
                             "409 Conflict",
                             json!({"error":"preparation already requested"}),
                         ));
+                    }
+                    if let Some(calibration) = &self.calibration {
+                        if let Err(error) = calibration.lock().unwrap().start() {
+                            return Ok(reply("409 Conflict", json!({"error":error})));
+                        }
                     }
                     state.preparing = Some(Instant::now());
                 } else if path == "/provider/ready" {
@@ -382,6 +402,57 @@ impl Extension for Bridge {
                 }
                 self.changed.notify_all();
                 Ok(reply("200 OK", json!({"accepted":true})))
+            }
+            ("POST", path) if path.starts_with("/provider/calibration/") => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Action {
+                    run_id: String,
+                    step: Option<usize>,
+                }
+                let action: Action = match serde_json::from_slice(body) {
+                    Ok(action) => action,
+                    Err(_) => {
+                        return Ok(reply("400 Bad Request", json!({"error":"run ID required"})))
+                    }
+                };
+                if action.run_id != self.run_id {
+                    return Ok(reply(
+                        "409 Conflict",
+                        json!({"error":"different provider run"}),
+                    ));
+                }
+                let Some(calibration) = &self.calibration else {
+                    return Ok(reply(
+                        "404 Not Found",
+                        json!({"error":"calibration not selected"}),
+                    ));
+                };
+                let mut state = self.state.lock().unwrap();
+                if state.eof {
+                    return Ok(reply("410 Gone", json!({"error":"session ended"})));
+                }
+                let mut calibration = calibration.lock().unwrap();
+                let result = match (path, action.step) {
+                    ("/provider/calibration/step", Some(step)) => {
+                        calibration.acknowledge(step, monotonic_us()?)
+                    }
+                    ("/provider/calibration/save", None) => calibration.save(),
+                    ("/provider/calibration/retry", None) => calibration.retry().map(|()| {
+                        state.calibration_retry_requested = true;
+                    }),
+                    ("/provider/calibration/cancel", None) => calibration.cancel(),
+                    _ => {
+                        return Ok(reply(
+                            "400 Bad Request",
+                            json!({"error":"unknown calibration action/step"}),
+                        ))
+                    }
+                };
+                match result {
+                    Ok(()) => Ok(reply("200 OK", json!({"accepted":true}))),
+                    Err(error) => Ok(reply("409 Conflict", json!({"error":error}))),
+                }
             }
             ("POST", "/provider/closed") => {
                 #[derive(Deserialize)]
@@ -636,6 +707,7 @@ pub fn run(
         .ok_or("fixture has no images")?;
     let initial_jpeg = jpeg(initial)?;
     run_engine(RunOptions {
+        calibration_profile: None,
         session,
         settings,
         asset_root,
@@ -668,6 +740,7 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
         return Err("camera trial duration must be0(until-stop)..90 seconds".into());
     }
     run_engine(RunOptions {
+        calibration_profile: None,
         session: options.session,
         settings: options.settings,
         asset_root: options.asset_root,
@@ -680,6 +753,34 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
             manual_start: options.manual_start || options.seconds == 0,
         },
         preflight: options.preflight,
+    })
+}
+
+/// Independent guided calibration, manual Start, camera-only and bounded to150s
+/// per attempt. Completion closes capture before explicit Save/Retry/Cancel.
+pub fn calibrate(
+    session: &Path,
+    settings: &Path,
+    asset_root: &Path,
+    warmup: &Path,
+    profile: &Path,
+    port: u16,
+    preflight: bool,
+) -> Result<(), Box<dyn Error>> {
+    run_engine(RunOptions {
+        calibration_profile: Some(profile),
+        session,
+        settings,
+        asset_root,
+        port,
+        max_hands: 1,
+        initial_jpeg: jpeg(warmup)?,
+        preflight,
+        source: Source::Camera {
+            seconds: 150,
+            inject: false,
+            manual_start: true,
+        },
     })
 }
 
@@ -731,6 +832,7 @@ pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>
     let last = *indices.last().unwrap();
     let duration = reader.rows()[last].source_us - reader.rows()[first].source_us;
     run_engine(RunOptions {
+        calibration_profile: None,
         session: options.session,
         settings: options.settings,
         asset_root: options.asset_root,
@@ -763,6 +865,7 @@ enum Source {
     },
 }
 struct RunOptions<'a> {
+    calibration_profile: Option<&'a Path>,
     session: &'a Path,
     settings: &'a Path,
     asset_root: &'a Path,
@@ -789,6 +892,7 @@ impl Journal<'_> {
 
 fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let RunOptions {
+        calibration_profile,
         session,
         settings,
         asset_root,
@@ -818,11 +922,24 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             ..
         }
     );
+    let inject = matches!(&source, Source::Camera { inject: true, .. });
+    let calibration = if let Some(profile) = calibration_profile {
+        if !camera_source || !manual_start || inject || max_hands != 1 {
+            return Err("provider calibration requires manual camera-only single-hand mode".into());
+        }
+        Some(Arc::new(Mutex::new(crate::provider_calibration::Run::new(
+            profile,
+            config
+                .pointer_output
+                .ok_or("calibration requires explicit pointer_output dimensions")?,
+        )?)))
+    } else {
+        None
+    };
     let recording_epoch = match &source {
         Source::Recorded { reader, .. } => Some(reader.rows()[0].source_us),
         _ => None,
     };
-    let inject = matches!(&source, Source::Camera { inject: true, .. });
     if camera_source && config.recording_directory.is_none() {
         return Err("camera worker trials require private recording_directory".into());
     }
@@ -842,6 +959,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         format!("{}-{}", std::process::id(), monotonic_us()?),
         max_hands,
     );
+    bridge.calibration = calibration.clone();
     bridge.presence_floor = presence_floor;
     bridge.presence_scores = config.provider_presence_scores;
     bridge.absolute_pointer = config.provider_absolute_pointer;
@@ -859,7 +977,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     if preflight {
         println!(
             "{}",
-            json!({"preflight":"ok","camera_opened":false,"system_input":false,
+            json!({"preflight":"ok","camera_opened":false,"system_input":false,"calibration":calibration.is_some(),
             "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
             "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"scroll":controller.scroll_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
@@ -907,7 +1025,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     let prepared = Instant::now();
     let mut started = None;
     let mut ended = None;
-    let mut producer = None;
+    let mut producer: Option<thread::JoinHandle<()>> = None;
+    let mut calibration_closed_at: Option<Instant> = None;
     let mut last_publish = Instant::now() - Duration::from_secs(1);
     let mut feedback_snapshots = 0_u64;
     let outcome = (|| -> Result<(), Box<dyn Error>> {
@@ -922,7 +1041,64 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 }
             }
             let mut now = monotonic_us()?;
-            if bridge.state.lock().unwrap().ready && started.is_none() {
+            if let Some(calibration) = &calibration {
+                if std::mem::take(&mut bridge.state.lock().unwrap().calibration_retry_requested) {
+                    started = None;
+                    calibration_closed_at = None;
+                    capture_stop.store(false, Ordering::Relaxed);
+                    *camera_mailbox.lock().unwrap() = Default::default();
+                    bridge.state.lock().unwrap().acquisition_started = None;
+                    tracker.clear();
+                }
+                {
+                    let mut c = calibration.lock().unwrap();
+                    c.tick(now);
+                    if started
+                        .is_some_and(|s: Instant| s.elapsed() >= Duration::from_micros(duration))
+                    {
+                        c.limit_reached();
+                    }
+                }
+                let close_camera = {
+                    let c = calibration.lock().unwrap();
+                    c.finished() && !c.camera_closed()
+                };
+                if close_camera {
+                    capture_stop.store(true, Ordering::Relaxed);
+                    if let Some(p) = producer.take() {
+                        p.join()
+                            .map_err(|_| "calibration camera producer panicked")?;
+                    }
+                    if let Some(error) = &camera_mailbox.lock().unwrap().error {
+                        return Err(error.clone().into());
+                    }
+                    {
+                        let mut s = bridge.state.lock().unwrap();
+                        s.camera_opened = false;
+                        s.latest = None;
+                        s.lease = None;
+                        s.submission = None;
+                        s.preparing = None;
+                        s.last_issued = s.captured;
+                    }
+                    calibration.lock().unwrap().confirm_camera_closed();
+                    calibration_closed_at = Some(Instant::now());
+                    journal.emit(json!({"event":"calibration_capture_closed","now_us":monotonic_us()?,
+                        "camera_opened":false,"system_input":false,"calibration":calibration.lock().unwrap().state(monotonic_us()?)}))?;
+                }
+                if calibration.lock().unwrap().done()
+                    || calibration_closed_at
+                        .is_some_and(|at| at.elapsed() >= Duration::from_secs(600))
+                {
+                    break;
+                }
+            }
+            if bridge.state.lock().unwrap().ready
+                && started.is_none()
+                && calibration
+                    .as_ref()
+                    .is_none_or(|c| c.lock().unwrap().running())
+            {
                 let recording_frames = if camera_source {
                     let base = Path::new(config.recording_directory.as_ref().unwrap());
                     let (frames, observations, dir) = crate::recording::create(
@@ -1039,6 +1215,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             }
             if camera_source
                 && !until_stop
+                && calibration.is_none()
                 && started.is_some_and(|s| s.elapsed() >= Duration::from_micros(duration))
             {
                 break;
@@ -1050,7 +1227,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     );
                 }
             }
-            let camera_opened = {
+            let camera_opened = if calibration_closed_at.is_some() {
+                false
+            } else {
                 let mut mailbox = camera_mailbox.lock().unwrap();
                 bridge.state.lock().unwrap().camera_opened = mailbox.opened;
                 if let Some(error) = &mailbox.error {
@@ -1075,6 +1254,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 return Err("worker preparation timeout".into());
             }
             if !until_stop
+                && calibration.is_none()
                 && started.is_some_and(|s| {
                     s.elapsed() > Duration::from_micros(duration) + Duration::from_secs(5)
                 })
@@ -1107,6 +1287,39 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     hands: submission.hands,
                 };
                 let found = tracker.observe(&packet)?;
+                if let Some(calibration) = &calibration {
+                    let calibration_now = monotonic_us()?;
+                    let hand =
+                        (!found.ambiguous && found.hands.len() == 1).then(|| &found.hands[0]);
+                    let reason = if calibration_now.saturating_sub(packet.source_us) >= 150_000 {
+                        "Calibration: frame delayed"
+                    } else if let Some(hand) = hand {
+                        if hand.confidence < presence_floor {
+                            "Calibration: low hand confidence"
+                        } else if !hand.in_view(640, 480) {
+                            "Calibration: hand partly outside camera; move inward"
+                        } else {
+                            "Calibration: hand visible; hold steady"
+                        }
+                    } else {
+                        "Calibration: no hand detected"
+                    };
+                    let point = hand
+                        .filter(|_| reason == "Calibration: hand visible; hold steady")
+                        .and_then(|h| {
+                            config
+                                .observation(Some(h), 640, 480, packet.source_us)
+                                .hand
+                                .map(|h| h.cursor)
+                        });
+                    calibration.lock().unwrap().observe(
+                        point,
+                        packet.source_us,
+                        calibration_now,
+                        reason,
+                    );
+                }
+
                 let hands: Vec<_> = found
                     .hands
                     .iter()
@@ -1294,6 +1507,10 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         .map(|p| p.join())
         .transpose()
         .map_err(|_| "frame producer panicked");
+    if let Some(calibration) = &calibration {
+        // join returned even on panic: the producer no longer owns a camera fd.
+        calibration.lock().unwrap().confirm_camera_closed();
+    }
     let outcome = outcome.and_then(|_| {
         joined?;
         release?;
@@ -1358,7 +1575,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
         "source_kind":camera.source_kind,"system_input":s.system_input(),
         "camera_was_opened":camera.opened,"input_was_started":s.input_started,
-        "writer_reaped":s.writer_reaped,"feedback_snapshots":feedback_snapshots}),
+        "writer_reaped":s.writer_reaped,"feedback_snapshots":feedback_snapshots,"calibration":calibration.as_ref().map(|c|c.lock().unwrap().state(monotonic_us().unwrap_or(0)))}),
     )?;
     outcome
 }
@@ -1426,6 +1643,67 @@ fn metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn calibration_routes_are_run_bound_manual_camera_only_and_cannot_save_before_review() {
+        let root =
+            std::env::temp_dir().join(format!("wiggle-calibration-routes-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let path = root.join("profile.json");
+        let mut b = Bridge::new(BTreeMap::new(), 300_000, "calibration".into(), 1);
+        b.manual_start = true;
+        b.calibration = Some(Arc::new(Mutex::new(
+            crate::provider_calibration::Run::new(&path, [1920, 1080]).unwrap(),
+        )));
+        for (route, body, status) in [
+            (
+                "/provider/calibration/save",
+                br#"{"run_id":"other"}"#.as_slice(),
+                "409 Conflict",
+            ),
+            (
+                "/provider/calibration/save",
+                br#"{"run_id":"calibration"}"#.as_slice(),
+                "409 Conflict",
+            ),
+            (
+                "/provider/calibration/step",
+                br#"{"run_id":"calibration","step":0}"#.as_slice(),
+                "409 Conflict",
+            ),
+            (
+                "/provider/prepare",
+                br#"{"run_id":"calibration"}"#.as_slice(),
+                "200 OK",
+            ),
+            (
+                "/provider/prepare",
+                br#"{"run_id":"calibration"}"#.as_slice(),
+                "409 Conflict",
+            ),
+            (
+                "/provider/calibration/save",
+                br#"{"run_id":"calibration","step":0}"#.as_slice(),
+                "400 Bad Request",
+            ),
+            (
+                "/provider/calibration/cancel",
+                br#"{"run_id":"calibration"}"#.as_slice(),
+                "200 OK",
+            ),
+        ] {
+            assert_eq!(
+                b.respond("POST", route, body).unwrap().status,
+                status,
+                "{route}"
+            );
+        }
+        let state = b.state.lock().unwrap();
+        assert!(!state.ready && !state.camera_opened && !state.input_started && !state.cancelled);
+        assert!(!path.exists());
+        drop(state);
+        assert!(b.calibration.as_ref().unwrap().lock().unwrap().done());
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn worker_loss_is_bounded_without_timing_out_manual_standby_or_missing_hands() {
@@ -1785,6 +2063,7 @@ mod tests {
         )
         .unwrap();
         let result = run_engine(RunOptions {
+            calibration_profile: None,
             session: &session,
             settings: &settings,
             asset_root: Path::new("/not-loaded"),

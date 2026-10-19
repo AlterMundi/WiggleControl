@@ -100,8 +100,9 @@ that its four corners were verified, perform a new calibration or install it.
 
 Use the resulting `session.json` and `settings.json` as the explicit inputs to
 [launcher preparation](PREVIEW-LAUNCHER.md). Keep the old configuration/bundle
-for intentional rollback. Independent guided calibration through the GPU worker
-is still required; the existing `calibrate-guided` command uses native inference.
+for intentional rollback. The [guided GPU calibration](GPU-CALIBRATION.md) now
+reuses the existing engine; receiving/human qualification remains open. The
+existing `calibrate-guided` command uses native inference.
 
 The selected GPU path still needs [pinned assets](PROVIDER-ASSETS.md), its explicit
 synthetic warmup image and compatible Chromium. `config-check-provider` does not

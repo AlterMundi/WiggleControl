@@ -21,6 +21,7 @@ jobs:
       - run: node tests/provider_presence.mjs
       - run: node tests/provider_manual_start.mjs
       - run: node tests/provider_separate_control.mjs
+      - run: node tests/provider_calibration.mjs
       - run: python3 tools/synthetic/test_browser_provider.py
       - run: python3 tools/synthetic/test_score_provider_fixture.py
       - run: python3 tools/test_score_recorded_replay.py

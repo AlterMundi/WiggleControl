@@ -15,6 +15,28 @@ import mouse_launcher
 
 
 class LauncherTests(unittest.TestCase):
+    def test_calibration_prepares_camera_only_units_with_explicit_save_and_no_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); kwargs, proof = self.fixture(root)
+            kwargs['seconds'] = None
+            kwargs['calibration_profile'] = root / 'new-profile.json'
+            proof.update(calibration=True, input_requested=False, trial_seconds=150)
+            with patch.object(launcher.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(proof), '')) as call:
+                manifest = launcher.prepare(**kwargs)
+            self.assertEqual(call.call_count, 1)
+            self.assertEqual(call.call_args.args[0][1], 'provider-calibrate-preflight')
+            source = (kwargs['output'] / 'units' / manifest['units']['source']).read_text()
+            control = (kwargs['output'] / 'units' / manifest['units']['control']).read_text()
+            self.assertIn('"provider-calibrate"', source)
+            self.assertNotIn('--inject', source)
+            self.assertIn('/provider/calibration', control)
+            self.assertEqual(manifest['purpose'], 'calibration')
+            self.assertEqual(manifest['seconds_after_start'], 150)
+            self.assertFalse(kwargs['calibration_profile'].exists())
+            self.assertFalse(manifest['installed']); self.assertFalse(manifest['started'])
+            for invalid in (kwargs | {'seconds': 90}, kwargs | {'calibration_profile': Path('relative.json')}):
+                with self.assertRaises(ValueError): launcher.prepare(**invalid)
+
     def fixture(self, root, seconds=90):
         for name in ('native', 'browser', 'session.json', 'settings.json', 'warmup.jpg'):
             (root / name).write_text('fixture')

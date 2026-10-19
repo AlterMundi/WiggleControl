@@ -41,6 +41,9 @@ pub mod calibration_runtime;
 #[cfg(target_os = "linux")]
 pub mod guided_calibration;
 
+#[cfg(target_os = "linux")]
+pub mod provider_calibration;
+
 pub mod prayer;
 
 #[cfg(target_os = "linux")]

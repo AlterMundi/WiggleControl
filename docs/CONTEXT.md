@@ -1,16 +1,27 @@
 # Project context — 2026-10-13
 
+Current MMAP candidate —2026-10-19: source5f502eb passed all four CI39218959037
+jobs. Downloaded ARM64/x86-64 archives pass external SHA256 and all250 file/mode
+checks, including the derivative MIT notice. Cata independently verified the
+x86 archive, prepared the actual packaged calibration launcher, then selected
+and opened it in manual idle: no preparation, camera/input off, no error; both
+configuration hashes unchanged. Previous versions remain retained. The next
+human action is Start in the calibration window, then two diagonals, all four
+corners and explicit Save. The separate fixed camera-only probe remains unused
+as diagnostic fallback; first real fixed-camera frames and calibration acceptance
+are still unqualified. See [GPU-CALIBRATION.md](GPU-CALIBRATION.md).
+
 Camera startup diagnosis —2026-10-19: fresh human-ready camera-only tracing
 proves STREAMON succeeds, followed after250ms by duplicate QBUF0/EINVAL before
 any DQBUF/frame. The pinned v4l capture retry requeues a driver-owned buffer after
 poll timeout. A capture-only MMAP adaptation now tracks successful dequeue/requeue
 ownership with the same library ABI/helpers and unchanged250ms Stop polling.
 Real-pipe camera-free regression and all251 native-feature tests, Clippy and
-packaging regressions pass; live retry, first frames/calibration and
-receiving deployment of this increment remain pending. MIT origin/notice retained.
+packaging regressions pass. Live retry and first frames/calibration remain
+pending; the selected receiving package is recorded above. MIT origin/notice retained.
 Source48c7e79 built both CI candidates and passed replay; pinned Clippy reported
 six redundant lifetime declarations in the adapted modules. Followup elides those
-names; complete matching CI remains pending. See
+names; matching CI39218959037 now passes all four jobs. See
 [GPU-CALIBRATION.md](GPU-CALIBRATION.md#cata-first-frame-timeout-diagnosis-2026-10-19).
 
 Offline delivery parity —2026-10-19: serialized pipeline replay now calls the

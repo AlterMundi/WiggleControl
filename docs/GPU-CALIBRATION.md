@@ -200,3 +200,15 @@ in the adapted modules. Its actual job output was read before correction.
 The declarations now elide only those unused lifetime names; buffer logic and
 I/O are unchanged. Local Clippy1.95 had not reported those older-version lints.
 A matching CI rerun is required before claiming the complete check set passed.
+
+Followup5f502eb passed all four jobs in CI39218959037. Both downloaded complete
+ARM64/x86 archives pass external hashes and all250 inventory/mode checks, including
+the retained derivative MIT notice. Cata's actual x86 package also passes those
+checks and the no-acquisition launcher preparation. It is now selected/open in
+manual idle, with all three user units active, camera/input off, no preparation
+or error, and both configuration hashes unchanged. This supersedes the earlier
+selected3092347 checkpoint; that version is retained for rollback. The human can
+start calibration directly in its controls; manual Start supplies fresh readiness.
+The standalone fixed-camera diagnostic remains optional fallback, not a second
+concurrent capture. First fixed-camera frames, all corners/Save and active
+Cancel/Retry remain physical qualification tasks.

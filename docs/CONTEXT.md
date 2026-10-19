@@ -1,5 +1,13 @@
 # Project context — 2026-10-13
 
+Independent GPU configuration —2026-10-19: browser-provider sessions can omit
+unused native hand-model/runtime paths. `config-check-provider SESSION SETTINGS`
+reuses actual provider admission without assets/inference/sensors/input, retaining
+matching gesture/workspace/cursor and visual-macro requirements. Native commands
+still require native paths. This removes an unused installation dependency,
+not the remaining standalone setup/calibration/launcher work. See
+[PROVIDER-CONFIG.md](PROVIDER-CONFIG.md). No receiving profile was changed.
+
 Scroll transition correction —2026-10-19: a positive fist can preempt an
 uncommitted left/right pinch without a click; a committed press keeps its
 existing drag/release rules.237 native tests, all-target Clippy and a fresh

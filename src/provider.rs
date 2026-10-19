@@ -316,7 +316,7 @@ pub(crate) fn configured(
     settings: &Path,
     presence_floor: Option<f64>,
 ) -> Result<(SessionConfig, Controller, Tracker), Box<dyn Error>> {
-    let config = SessionConfig::load(session)?;
+    let config = SessionConfig::load_provider(session)?;
     let presence_floor = presence_floor
         .or(config.gesture_min_confidence)
         .ok_or("provider requires an explicit gesture_min_confidence / SDK presence floor")?;
@@ -338,6 +338,9 @@ pub(crate) fn configured(
         tracker = tracker.with_absence_retention(config.gestures().drag_grace_us)?;
     }
     let controller: Controller = crate::session::controller_config(&config, settings)?;
+    if controller.visual_policy().is_some() && config.runtime.is_empty() {
+        return Err("provider visual macros require an explicit native runtime path".into());
+    }
     if controller.visual_policy().is_some_and(|policy| {
         !config.provider_presence_scores && presence_floor < policy.min_confidence
     }) {
@@ -346,6 +349,24 @@ pub(crate) fn configured(
         );
     }
     Ok((config, controller, tracker))
+}
+/// Validate standalone browser-provider settings without assets, inference,
+/// sensors, a listener or system input. Reports configuration, not host readiness.
+pub fn check_config(session: &Path, settings: &Path) -> Result<(), Box<dyn Error>> {
+    let (config, controller, _) = configured(session, settings, None)?;
+    println!(
+        "{}",
+        serde_json::json!({"schema":"wigglecontrol.provider-config/v1","valid":true,
+            "camera_opened":false,"system_input":false,"inference_initialized":false,
+            "absolute_pointer":config.provider_absolute_pointer,
+            "recording_configured":config.recording_directory.is_some(),
+            "onnx_runtime_required":controller.visual_policy().is_some(),
+            "presence_floor":config.gestures().min_confidence,
+            "right_click":controller.right_click_enabled(),
+            "detail":controller.detail_config(),"escape":controller.escape_config(),
+            "scroll":controller.scroll_config()})
+    );
+    Ok(())
 }
 pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<(), Box<dyn Error>> {
     let (config, mut controller, mut tracker) =
@@ -666,6 +687,21 @@ mod tests {
                     .contains("matching presence floor"));
             }
         }
+        // Browser landmarks do not need native hand models, but an opted-in
+        // ONNX pose classifier still needs its explicit runtime before preflight.
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&session).unwrap()).unwrap();
+        value.as_object_mut().unwrap().remove("models");
+        value.as_object_mut().unwrap().remove("runtime");
+        std::fs::write(&session, value.to_string()).unwrap();
+        assert!(configured(&session, &settings, None)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("visual macros require an explicit native runtime path"));
+        value["runtime"] = "/not-loaded".into();
+        std::fs::write(&session, value.to_string()).unwrap();
+        assert!(configured(&session, &settings, None).is_ok());
         std::fs::remove_dir_all(root).unwrap();
     }
 

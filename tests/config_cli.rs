@@ -2,6 +2,115 @@
 use std::{fs, process::Command};
 
 #[test]
+fn browser_provider_replay_needs_no_onnx_paths_but_native_commands_still_require_them() {
+    use std::{io::Write, process::Stdio};
+    let root = std::env::temp_dir().join(format!(
+        "wigglecontrol-provider-config-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&root).unwrap();
+    let session = root.join("session.json");
+    let settings = root.join("settings.json");
+    let mut value = serde_json::json!({
+        "camera":"/fictional/unavailable-camera", "fps":10,"gain":2000,
+        "gesture_min_confidence":0.5,"provider_absolute_pointer":true
+    });
+    let config: wigglecontrol::session::SessionConfig =
+        serde_json::from_value(value.clone()).unwrap();
+    fs::write(
+        &settings,
+        serde_json::json!({"gestures":config.gestures(),"right_click":true,
+            "detail":{},"escape":{},"scroll":{"inertia":{}}})
+        .to_string(),
+    )
+    .unwrap();
+    let replay = || {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .arg("provider-replay")
+            .arg(&session)
+            .arg(&settings)
+            .arg("0.5")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"{\"type\":\"start\"}\n")
+            .unwrap();
+        child.wait_with_output().unwrap()
+    };
+    for explicit_empty in [false, true] {
+        if explicit_empty {
+            value["models"] = "".into();
+            value["runtime"] = "".into();
+        }
+        fs::write(&session, value.to_string()).unwrap();
+        let checked = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .arg("config-check-provider")
+            .arg(&session)
+            .arg(&settings)
+            .output()
+            .unwrap();
+        assert!(checked.status.success());
+        let report: serde_json::Value = serde_json::from_slice(&checked.stdout).unwrap();
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["camera_opened"], false);
+        assert_eq!(report["system_input"], false);
+        assert_eq!(report["inference_initialized"], false);
+        assert_eq!(report["onnx_runtime_required"], false);
+        assert_eq!(report["absolute_pointer"], true);
+        assert_eq!(report["right_click"], true);
+        assert!(report["detail"].is_object());
+        assert!(report["escape"].is_object());
+        assert!(report["scroll"].is_object());
+        assert!(report.get("camera").is_none());
+        assert!(report.get("recording_directory").is_none());
+        let result = replay();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        for row in String::from_utf8(result.stdout).unwrap().lines() {
+            let report: serde_json::Value = serde_json::from_str(row).unwrap();
+            assert_eq!(report["camera_opened"], false);
+            assert_eq!(report["system_input"], false);
+        }
+        let native = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .arg("config-check")
+            .arg(&session)
+            .output()
+            .unwrap();
+        assert!(!native.status.success());
+        assert!(String::from_utf8_lossy(&native.stderr)
+            .contains("native inference requires explicit models and runtime paths"));
+    }
+    for field in ["camera", "models", "runtime"] {
+        let mut invalid = value.clone();
+        invalid[field] = "relative/path".into();
+        fs::write(&session, invalid.to_string()).unwrap();
+        let rejected = replay();
+        assert!(!rejected.status.success());
+        assert!(String::from_utf8_lossy(&rejected.stderr).contains("must be absolute"));
+    }
+    fs::write(&session, value.to_string()).unwrap();
+    fs::write(&settings, "{}").unwrap();
+    let mismatch = Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+        .arg("config-check-provider")
+        .arg(&session)
+        .arg(&settings)
+        .output()
+        .unwrap();
+    assert!(!mismatch.status.success());
+    assert!(String::from_utf8_lossy(&mismatch.stderr).contains("must match the session"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn config_check_needs_no_camera_models_or_runtime_and_rejects_invalid_bounds() {
     let path = std::env::temp_dir().join(format!(
         "wigglecontrol-cli-config-{}.json",

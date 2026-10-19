@@ -14,6 +14,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
+        Some("config-check-provider") if args.len() == 3 => {
+            return wigglecontrol::provider::check_config(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+            );
+        }
         Some("provider-recording") if args.len() == 10 => {
             return wigglecontrol::provider_fixture::run_recording(
                 wigglecontrol::provider_fixture::RecordingOptions {
@@ -541,6 +547,8 @@ fn print_help() {
     println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
+    #[cfg(feature = "native-vision")]
+    println!("       wigglecontrol config-check-provider SESSION SETTINGS (browser-provider configuration only; no assets/acquisition)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
     #[cfg(feature = "native-vision")]

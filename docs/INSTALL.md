@@ -12,6 +12,12 @@ and task bundle, retains license/metadata and supports offline verified reuse.
 This is separate from the older native installation below; standalone configuration,
 launch, permissions/update/removal and receiving acceptance remain issue12 work.
 
+The provider now accepts [independent session/controller configuration](PROVIDER-CONFIG.md)
+without unused native hand models or ONNX Runtime paths. Validate it with
+`wigglecontrol config-check-provider SESSION SETTINGS`, without assets or acquisition.
+Native inference and opted-in ONNX visual macros retain their runtime requirements.
+This is a configuration component, not a complete standalone setup/installer.
+
 ## Build and artifacts
 
 Use the ordinary checkout with Rust 1.85 or later. Native vision requires libclang

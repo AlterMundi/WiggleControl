@@ -41,7 +41,10 @@ pub enum Pinch2dReference {
 #[serde(deny_unknown_fields)]
 pub struct SessionConfig {
     pub camera: String,
+    /// Required by native inference; a browser provider need not install ONNX.
+    #[serde(default)]
     pub models: String,
+    #[serde(default)]
     pub runtime: String,
     pub fps: u32,
     pub gain: f64,
@@ -265,6 +268,15 @@ impl SessionConfig {
         observation
     }
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
+        Self::load_backend(path, false)
+    }
+    /// Browser-supplied landmarks use the same camera/gesture configuration but
+    /// do not require native hand models or ONNX Runtime. Optional visual macros
+    /// validate their separate runtime requirement in provider::configured.
+    pub(crate) fn load_provider(path: &Path) -> Result<Self, Box<dyn Error>> {
+        Self::load_backend(path, true)
+    }
+    fn load_backend(path: &Path, provider: bool) -> Result<Self, Box<dyn Error>> {
         let data = fs::read(path)?;
         if data.len() > 8192 {
             return Err("session config too large".into());
@@ -337,8 +349,17 @@ impl SessionConfig {
         {
             return Err("recording_directory must be absolute".into());
         }
-        for p in [&config.camera, &config.models, &config.runtime] {
-            if !Path::new(p).is_absolute() {
+        if !Path::new(&config.camera).is_absolute() {
+            return Err("camera path must be absolute".into());
+        }
+        for p in [&config.models, &config.runtime] {
+            if p.is_empty() {
+                if !provider {
+                    return Err(
+                        "native inference requires explicit models and runtime paths".into(),
+                    );
+                }
+            } else if !Path::new(p).is_absolute() {
                 return Err("receiving paths must be absolute".into());
             }
         }

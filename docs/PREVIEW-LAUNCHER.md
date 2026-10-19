@@ -47,23 +47,66 @@ existing launch helper and `bundle.json` with checksums, selected bindings and
 preflight. Artifacts/configuration/assets remain at their explicit paths; they
 are not copied into a distributable release by this tool.
 
-## Explicit installation and operation
+## User installation, update and rollback
+
+`tools/manage_preview_launcher.py` installs a prepared bundle without root. It
+manages only the three named user units; it does not copy a release, grant camera/
+input permissions, enable boot services or start the controller during install.
 
 On the receiving user's graphical session, after checking that the selected name
 and loopback port do not conflict with another installation:
 
 ```sh
 preview_bundle=/absolute/private/preview-launcher
-systemctl --user link "$preview_bundle"/units/wigglecontrol-preview-mouse-*.service
-systemctl --user daemon-reload
-"$preview_bundle/open.sh"
+python3 tools/manage_preview_launcher.py install "$preview_bundle"
+python3 tools/manage_preview_launcher.py open mouse
 ```
 
 These are explicit installation/launch actions, separate from preparation.
-Do not use `--force` to replace another installation. The user's existing systemd
+The installation name comes from the prepared bundle's `--name`; substitute that
+name for `mouse` in subsequent commands. The user's existing systemd
 manager must have the receiving desktop's display environment; do not copy another
 host's Wayland socket name. Browser/graphics, normal-user camera/uinput permissions
 and desktop effects require receiving qualification before actual use.
+
+The manager keeps private selection/ownership state under
+`$XDG_STATE_HOME/wigglecontrol/preview-installations/NAME` (normally
+`~/.local/state/wigglecontrol/preview-installations/NAME`) and links units under
+`$XDG_CONFIG_HOME/systemd/user` (normally `~/.config/systemd/user`). Keep these
+locations stable. Files or loaded units belonging to another installation are
+refused before Stop or replacement. Earlier manually linked bundles are not
+silently adopted: remove their exact links after their scoped Stop or choose a
+new name and free port. Never force replacement of another installation.
+
+Prepare each update in a new stable directory with the same name, then select it:
+
+```sh
+python3 tools/manage_preview_launcher.py install /absolute/private/preview-launcher-v2
+python3 tools/manage_preview_launcher.py open mouse
+python3 tools/manage_preview_launcher.py stop mouse
+python3 tools/manage_preview_launcher.py rollback mouse
+python3 tools/manage_preview_launcher.py uninstall mouse
+```
+
+Updates and rollback stop only this installation's loaded source/worker/controls
+and leave the selected version off until explicit `open`. Installing the already
+selected, fully loaded version is a no-op. Selection uses one atomic `current`
+link and a retained `previous` link; rollback exchanges them after validating the
+previous bundle. A completed-reload receipt detects an interrupted selection even
+when systemd reports a stable link as its loaded fragment. Opening an interrupted
+selection is refused; reinstall that bundle to stop/reload its units. Failed
+activation restores prior selectors/links and reloads, without restarting input.
+
+Bundle files and binary/session/settings/warmup bindings are hash-checked before
+install, rollback and open. Treat these as immutable version inputs: after an
+intentional edit, prepare a new bundle rather than editing checksums. Runtime
+asset preflight remains in the Rust source. Profiles saved by calibration, browser
+profiles and private recordings are mutable runtime data and are not rewritten
+or deleted by this manager. Uninstall works even if a bound binary/configuration
+has disappeared; it stops/removes only the owned unit links, retaining selections,
+bundles and data. Reinstall can reuse them. No broad data purge is provided.
+
+## Manual operation
 
 Opening starts an idle source and independent detector, then opens controls.
 The generated wrappers require the endpoint's native run ID to match the selected
@@ -90,12 +133,9 @@ does not overwrite already observed closure. Old sources without `terminal_ready
 retain their prior compatibility behavior; new sources do not equate an early
 EOF sample with completed final publication.
 
-Before changing/removing linked units, end only this installation with `stop.sh`
-and confirm its source/worker are terminal. Remove the three selected links with
-`systemctl --user disable` using their exact names from `bundle.json`, then reload
-the user manager. Keep artifacts, accepted configuration/calibration, browser
-profiles and private recordings for intentional retention/rollback; this tool
-does not delete them or claim complete uninstall/rollback support.
+Use the manager commands above for scoped Stop, update, rollback and unit removal.
+The original bundle's `stop.sh` remains available for its exact three units.
+Neither route changes unrelated applications or the independent panel.
 
 ## Evidence and limits —2026-10-19
 
@@ -126,11 +166,26 @@ The retained control browser eventually reached the fixture's300-second resource
 limit; this test-only limit is absent from generated product units. No Start was
 clicked, model initialized, camera opened or input emitted in either fixture.
 
-This is a launcher-preparation component, not the completed Linux preview.
+Nine additional manager regressions cover version preservation, no automatic
+start, foreign file/link/loaded-unit refusal, failed reload recovery, changed
+bindings, concurrent unit replacement, invalid names/inventory, interrupted
+selectors with stable fragment links and removed-but-still-active units.
+
+Real VPS user-manager qualification prepared two camera-only calibration bundles
+with a nonexistent camera path and explicit synthetic blank warmup. Install,
+idempotent install, update, rollback, interrupted-selector refusal/recovery and
+uninstall pass. Source-only standby reached both selected ports/run IDs without
+preparation; update/rollback stopped it with exit0, zero capture and no input.
+Each version switch left all three units inactive/MainPID0. Bound files stayed
+byte-identical, no profile/recording was created, and removed units were not-found.
+The isolated test-only180-second/128MiB guard and selected links were removed.
+No worker, control browser, model or real sensor was started in this lifecycle
+qualification; earlier graphical idle/Stop evidence remains separate above.
+
+These are preparation and user-unit lifecycle components, not the completed Linux preview.
 Idle graphical lifecycle is now qualified on the VPS, not on the ThinkPad or Pi.
-Live detector/graphics performance, setup/guided calibration, pinned release
-assembly, input permissions, clean-host installation,
-update/removal/rollback and human acceptance remain in issue12/#13 and
+Live detector/graphics performance, physical guided calibration, pinned release
+assembly, input permissions, clean-host installation and human acceptance remain in issue12/#13 and
 [LINUX-PREVIEW.md](LINUX-PREVIEW.md). Existing Pi services/calibration/trials are
 unchanged. See [PROVIDER-CONFIG.md](PROVIDER-CONFIG.md) and
 [PROVIDER-ASSETS.md](PROVIDER-ASSETS.md) for the other completed source components.

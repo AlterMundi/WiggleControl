@@ -18,10 +18,15 @@ without unused native hand models or ONNX Runtime paths. Validate it with
 Native inference and opted-in ONNX visual macros retain their runtime requirements.
 This is a configuration component, not a complete standalone setup/installer.
 
-[Independent launcher preparation](PREVIEW-LAUNCHER.md) emits manual-only user
-units and open/stop wrappers using that configuration and the existing launch
-helper. Its real preflight and unit syntax are qualified without installation,
-browser/model/sensor/input activation. Full receiving qualification remains open.
+[Independent launcher preparation and user installation](PREVIEW-LAUNCHER.md)
+emit manual-only user units and open/stop wrappers using that configuration and
+the existing launch helper. The separate non-root manager supports scoped
+install/update/rollback/removal, preserving bundles/configuration/profiles and
+recordings; changing versions leaves input off. Actual VPS user-unit lifecycle
+and interrupted-update recovery are qualified with zero capture/input. These
+components do not yet assemble a release or grant kernel/camera permissions;
+clean-host and physical receiving qualification remain open. Do not use the
+older native installer below as if it installed the independent GPU preview.
 
 ## Build and artifacts
 

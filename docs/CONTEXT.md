@@ -1,5 +1,15 @@
 # Project context — 2026-10-13
 
+Independent user-unit installation —2026-10-19: a non-root manager selects
+prepared versioned bundles, stops only its three units on update/rollback, and
+leaves the selected version off. Hash-checked bindings, foreign-unit refusal,
+stable-link interrupted-reload detection and retained configuration/data support
+explicit rollback/removal/reinstall. Nine regressions and actual VPS two-version
+source-only standby/update/rollback/interruption/removal pass; zero capture/input,
+unchanged bound files, no profiles/recordings and test units removed. This closes
+user-unit lifecycle, not release assembly, permissions, clean-host installation
+or physical acceptance. No Pi state changed. See [PREVIEW-LAUNCHER.md](PREVIEW-LAUNCHER.md).
+
 Guided GPU calibration —2026-10-19: a manual camera-only provider mode connects
 the existing diagonal/Guide/four-corner/profile-store engines to GPU observations.
 Instruction paint acknowledges each stage; verified or failed attempts close

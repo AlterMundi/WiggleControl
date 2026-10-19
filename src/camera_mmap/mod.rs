@@ -33,7 +33,7 @@ pub struct Stream<'a> {
     capture_dequeued: bool,
 }
 
-impl<'a> Stream<'a> {
+impl Stream<'_> {
     pub fn with_buffers(dev: &Device, buf_type: Type, buf_count: u32) -> io::Result<Self> {
         let mut arena = Arena::new(dev.handle(), buf_type);
         let count = arena.allocate(buf_count)?;
@@ -66,7 +66,7 @@ impl<'a> Stream<'a> {
     }
 }
 
-impl<'a> Drop for Stream<'a> {
+impl Drop for Stream<'_> {
     fn drop(&mut self) {
         if !self.active {
             return;
@@ -87,7 +87,7 @@ impl<'a> Drop for Stream<'a> {
     }
 }
 
-impl<'a> StreamTrait for Stream<'a> {
+impl StreamTrait for Stream<'_> {
     type Item = [u8];
 
     fn start(&mut self) -> io::Result<()> {
@@ -119,7 +119,7 @@ impl<'a> StreamTrait for Stream<'a> {
     }
 }
 
-impl<'a, 'b> CaptureStream<'b> for Stream<'a> {
+impl<'b> CaptureStream<'b> for Stream<'_> {
     fn queue(&mut self, index: usize) -> io::Result<()> {
         let mut v4l2_buf = v4l2_buffer {
             index: index as u32,

@@ -8,7 +8,10 @@ ownership with the same library ABI/helpers and unchanged250ms Stop polling.
 Real-pipe camera-free regression and all251 native-feature tests, Clippy and
 packaging regressions pass; live retry, first frames/calibration and
 receiving deployment of this increment remain pending. MIT origin/notice retained.
-See [GPU-CALIBRATION.md](GPU-CALIBRATION.md#cata-first-frame-timeout-diagnosis-2026-10-19).
+Source48c7e79 built both CI candidates and passed replay; pinned Clippy reported
+six redundant lifetime declarations in the adapted modules. Followup elides those
+names; complete matching CI remains pending. See
+[GPU-CALIBRATION.md](GPU-CALIBRATION.md#cata-first-frame-timeout-diagnosis-2026-10-19).
 
 Offline delivery parity —2026-10-19: serialized pipeline replay now calls the
 live provider's final publication-age guard. A constructed 285ms-old held sample

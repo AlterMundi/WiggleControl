@@ -193,3 +193,10 @@ and its matching arena; the local adaptation retains that revision's provenance.
 
 Local validation: 251 native-feature tests, all-target native Clippy, formatting
 and the four archive-assembly regressions pass. No fixed-camera retry is implied.
+
+CI39218542025 built/tested the ARM64 and x86-64 candidates and passed replay;
+the separate native job failed Clippy1.85.1 on six redundant lifetime declarations
+in the adapted modules. Its actual job output was read before correction.
+The declarations now elide only those unused lifetime names; buffer logic and
+I/O are unchanged. Local Clippy1.95 had not reported those older-version lints.
+A matching CI rerun is required before claiming the complete check set passed.

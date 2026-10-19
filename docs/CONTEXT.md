@@ -13,8 +13,9 @@ imports an explicitly selected valid profile into a new private session/controll
 pair using live provider admission. Both workspace maps and output dimensions
 agree; other settings and all source/profile files are preserved. Existing or
 concurrently appearing destinations are not replaced. No assets/inference/sensors/
-input are opened. This closes profile-to-configuration preparation, not the still
-missing GPU guided-calibration connection or full installer. See
+input are opened. This closes profile-to-configuration preparation; GPU guided
+calibration is now connected above, while receiving qualification and the full
+installer remain open. See
 [PROVIDER-CONFIG.md](PROVIDER-CONFIG.md#import-a-selected-calibration-without-replacing-it).
 
 Physical scroll acceptance —2026-10-19: the separate53caf00 manual90-second

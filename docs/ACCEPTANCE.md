@@ -5,18 +5,18 @@ and [#13](https://github.com/AlterMundi/WiggleControl/issues/13). Its full integ
 screen/detail and basic-action scope is not yet accepted. Latest physical feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
 and [CONTEXT.md](CONTEXT.md).
 
-## Current release evidence —2026-10-19
+## Current release evidence —2026-10-21
 
 | Area | Established | Remaining release evidence |
 | --- | --- | --- |
 | Left/right clicks | Positive human first use; independent button routing/cleanup regressions | Labelled intended-click count, relaxed false actions and integrated tasks |
 | Natural double click | Earlier camera-free native desktop accepts300ms pairs, rejects500ms pairs | Natural physical double pinch with spatial stabilization and actual application effect |
 | Drag/release/loss | Earlier device/watchdog/application termination checks and bounded same-hand source regressions; sticky-folder incident closed on human acceptance | Ten intended completed drags, ordinary brief-loss recovery and explicit release in integrated use |
-| Detail | Positive human menu clicking and four observed modifier cycles | Small targets/text/slow drawing, stable rest/tiny motion, edges, transition comfort and sustained use |
+| Detail | Positive human menu clicking and modifier cycles; Legion feedback identifies bent-pinch drag loss, with a source correction and raw replay/regression evidence | Physical re-test of detail drag, small targets/text/slow drawing, stable rest/tiny motion, edges, transition comfort and sustained use |
 | Escape | Positive human first use;12 trusted application cancellations in the finite task | Labelled held/no-repeat/rearm, held-drag cancellation and ordinary-use false actions |
 | Scroll | Positive human first use; trusted two-axis wheel/content delivery | Full-page/integrated comfort and separately labelled release/rest/inertia cases; fine polish deferred by the human |
-| Calibration | Previously accepted saved diagonal/four-corner profile; new independent GPU guide/source regressions | Actual independent guide retry/cancel/four-corner Save without silent profile replacement |
-| Standalone distribution | Manual configuration, assets, user-unit lifecycle, scoped permission rollback and full ARM64/x86-64 candidate assembly have device-free/CI evidence | Clean receiver install/update/removal, post-boot permissions, real x86-64 GPU/camera/input, accepted tagged prerelease |
+| Calibration | Accepted Pi profile and independent Legion integrated/C920e Full HD six-stage/four-corner Save; old profile preserved | Actual independent retry/cancel qualification; no need to repeat accepted calibration just to launch the mouse |
+| Standalone distribution | Full ARM64/x86 packages and installation fixture pass CI; real Legion standalone install/calibration/input creation, current-run TV mapping and Cata removal observed | Post-boot permissions, integrated x86 desktop/comfort qualification, reusable multioutput mapping disposition and accepted tagged prerelease |
 | Comfort/performance | Positive qualitative human reports; retained software-only comparisons | At least18/20 intended clicks, ten drags,60s relaxed rest, five minutes seated; latest-increment cadence/latency/jitter/resources/thermal comparison |
 
 First-use acceptance is retained; it does not supply missing intent labels or

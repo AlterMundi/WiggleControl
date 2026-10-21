@@ -109,6 +109,16 @@ pub fn finger_ratio(points: [[f64; 3]; 4]) -> Option<f64> {
     }
     Some((distance(points[0], points[3]) / path).clamp(0.0, 1.0))
 }
+/// In already-confirmed detail, a bent pinching index/middle need not look
+/// extended in the image. Require both finite chains and at least one finger
+/// outside the fully folded class; an actual fist/ThumbOut remains ineligible.
+#[cfg(feature = "native-vision")]
+pub(crate) fn pinch_posture(config: Config, world: &[[f64; 3]; 21]) -> bool {
+    let index = finger_ratio(world[5..9].try_into().unwrap()).filter(|r| r.is_finite());
+    let middle = finger_ratio(world[9..13].try_into().unwrap()).filter(|r| r.is_finite());
+    matches!((index, middle), (Some(i), Some(m)) if i > config.folded_ratio || m > config.folded_ratio)
+}
+
 pub fn folded(config: Config, ring: [[f64; 3]; 4], little: [[f64; 3]; 4]) -> Option<bool> {
     let (ring, little) = (finger_ratio(ring)?, finger_ratio(little)?);
     if ring <= config.folded_ratio && little <= config.folded_ratio {
@@ -227,6 +237,20 @@ mod tests {
     use super::*;
     fn p(x: f64, y: f64) -> Point {
         Point { x, y }
+    }
+    #[cfg(feature = "native-vision")]
+    #[test]
+    fn contextual_pinch_pose_rejects_fist_unknown_and_nonfinite_chains() {
+        use crate::escape::{tests::world, Pose};
+        let cfg = Config::default();
+        assert!(pinch_posture(cfg, &world(Pose::Other)));
+        assert!(!pinch_posture(cfg, &world(Pose::ThumbOut)));
+        assert!(!pinch_posture(cfg, &[[0.0; 3]; 21]));
+        let mut invalid = world(Pose::Other);
+        invalid[7][0] = f64::NAN;
+        assert!(!pinch_posture(cfg, &invalid));
+        invalid[7][0] = f64::INFINITY;
+        assert!(!pinch_posture(cfg, &invalid));
     }
     #[test]
     fn transitions_follow_visible_position_and_screen_recovers_every_edge() {

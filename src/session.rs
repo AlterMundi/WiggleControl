@@ -210,8 +210,20 @@ impl SessionConfig {
         height: u32,
         source_us: u64,
     ) -> Observation {
+        self.observation_with_posture(detected, width, height, source_us, false)
+    }
+    fn observation_with_posture(
+        &self,
+        detected: Option<&crate::vision::DetectedHand>,
+        width: u32,
+        height: u32,
+        source_us: u64,
+        detail_pinch_posture: bool,
+    ) -> Observation {
         let mut observation = detected
-            .map(|hand| hand.observation(width, height, source_us))
+            .map(|hand| {
+                hand.observation_with_posture(width, height, source_us, detail_pinch_posture)
+            })
             .unwrap_or(Observation {
                 version: 1,
                 source_us,
@@ -773,11 +785,34 @@ pub(crate) fn observe_controller(
     config: &SessionConfig,
     controller: &mut crate::controller::Controller,
     now: u64,
-    observation: crate::touch_gestures::Frame,
+    mut observation: crate::touch_gestures::Frame,
     pose: Option<crate::macros::HandPose>,
     detected: &[crate::vision::DetectedHand],
     size: [u32; 2],
 ) -> crate::controller::Output {
+    let selected = controller.selected_pointer_hand(&observation);
+    let detail_pinch_posture = controller.active_detail_config().is_some_and(|settings| {
+        detected
+            .iter()
+            .find(|h| Some(h.id) == selected)
+            .is_some_and(|h| crate::detail::pinch_posture(settings, &h.world_landmarks))
+    });
+    if detail_pinch_posture {
+        if let Some(raw) = detected.iter().find(|h| Some(h.id) == selected) {
+            if let Some(interpreted) = observation.hands.iter_mut().find(|h| h.id == raw.id) {
+                *interpreted = config
+                    .observation_with_posture(
+                        Some(raw),
+                        size[0],
+                        size[1],
+                        observation.source_us,
+                        true,
+                    )
+                    .hand
+                    .expect("raw hand remains present");
+            }
+        }
+    }
     let evidence = controller
         .right_click_enabled()
         .then(|| {
@@ -787,7 +822,13 @@ pub(crate) fn observe_controller(
             middle.landmarks[8] = hand.landmarks[12];
             middle.world_landmarks[8] = hand.world_landmarks[12];
             let interpreted = config
-                .observation(Some(&middle), size[0], size[1], observation.source_us)
+                .observation_with_posture(
+                    Some(&middle),
+                    size[0],
+                    size[1],
+                    observation.source_us,
+                    detail_pinch_posture,
+                )
                 .hand?;
             Some(crate::pointer_buttons::Evidence {
                 hand_id: id,
@@ -1897,6 +1938,85 @@ mod tests {
                 .collect();
             assert_eq!(edges, edge.into_iter().collect::<Vec<_>>(), "source{t}");
         }
+    }
+
+    #[test]
+    fn detail_pinching_posture_preserves_raw_drag_without_admitting_a_fist() {
+        use crate::escape::Pose;
+        let config: SessionConfig = serde_json::from_value(serde_json::json!({
+            "camera":"/fictional/camera", "fps":10,"gain":2000,
+            "pinch_3d":false,"gesture_min_confidence":0.5,"pointer_drag_grace_ms":1000
+        }))
+        .unwrap();
+        let mut controller = crate::controller::Controller::new(crate::controller::Settings {
+            gestures: config.gestures(),
+            detail: Some(Default::default()),
+            right_click: true,
+            escape: Some(Default::default()),
+            ..Default::default()
+        })
+        .unwrap();
+        controller.start();
+        controller.select_hand(Some(7));
+        let mut frame = |t, folded, closed, fist, outside| {
+            let mut raw = fictional_hand(7, closed, 0.02);
+            raw.world_landmarks = crate::escape::tests::world(if fist {
+                Pose::ThumbOut
+            } else if folded {
+                Pose::Other
+            } else {
+                Pose::Neutral
+            });
+            if closed {
+                // A fictional projected pinch shortens wrist-to-tip distance.
+                // Its nondegenerate index chain is bent, not a fully curled fist.
+                raw.landmarks[6].y = 170.0;
+                if !fist {
+                    raw.world_landmarks[5..9].copy_from_slice(&[
+                        [-0.03, 0.0, 0.0],
+                        [-0.03, 0.01, 0.0],
+                        [-0.03, 0.02, 0.01],
+                        [-0.03, 0.015, 0.02],
+                    ]);
+                }
+            }
+            if outside {
+                raw.landmarks[20].x = -1.0;
+            }
+            let observation = crate::touch_gestures::Frame {
+                version: 1,
+                source_us: t,
+                ambiguous: false,
+                hands: vec![config.observation(Some(&raw), 640, 480, t).hand.unwrap()],
+            };
+            observe_controller(
+                &config,
+                &mut controller,
+                t,
+                observation,
+                None,
+                &[raw],
+                [640, 480],
+            )
+        };
+        frame(1, false, false, false, false);
+        frame(100_001, false, false, false, false);
+        frame(150_001, true, false, false, false);
+        assert!(frame(250_001, true, false, false, false).detail.is_some());
+        frame(300_001, true, true, false, false);
+        let pressed = frame(350_001, true, true, false, false);
+        assert!(pressed.button_down, "detail pinch must establish a button");
+        for t in (400_001..=3_000_001).step_by(50_000) {
+            let held = frame(t, true, true, false, false);
+            assert!(held.button_down, "raw detail drag lost at {t}: {held:?}");
+            assert_ne!(held.reason, Some("escape_holding"));
+        }
+        assert!(!frame(3_050_001, true, false, false, false).button_down);
+        assert!(!frame(3_100_001, true, true, true, false).button_down);
+        frame(3_150_001, true, false, false, false);
+        frame(3_200_001, true, true, false, false);
+        assert!(frame(3_250_001, true, true, false, false).button_down);
+        assert!(!frame(3_300_001, true, true, false, true).button_down);
     }
 
     #[test]

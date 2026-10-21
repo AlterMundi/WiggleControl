@@ -1,5 +1,45 @@
 # Project context — 2026-10-21
 
+Detail-drag follow-up — 2026-10-21: Nicolás accepted overall Legion operation as
+very good, then reported that detail-mode drag cuts off easily/almost does not
+work. This is an open #11 defect, not full release acceptance. Camera-free replay
+through the deployed555bac5 binary reproduces loss-grace expiry from retained
+raw landmarks. The detail episode reports26 escape_holding frames with unbound
+Escape pose: the projected open-finger gate rejects a bent pinching posture.
+The source follow-up admits a non-fully-folded index/middle only in confirmed
+detail, retaining framing, metric/identity/freshness checks and existing deadlines.
+Source bfeb4ac passes all four jobs in CI39591902336, including the new raw
+regression, native tests/Clippy and both package builds. Paired camera-free replay
+of10,221 output rows removes all26 detail escape_holding outputs and preserves
+the held button at the reproduced expiry. Total expiry transitions change5→3;
+button edge pairs change62→69. These are predictions, not labelled intent or app
+effects. This detail change is not installed; physical acceptance remains pending.
+
+Accepted C920e Full HD calibration completed all six guide stages/four corners,
+876 captures, error null and explicit Save. Import preserved the accepted profile
+bytes and the separate integrated-camera profile. The matching headless RTX mouse
+ran without camera/skeleton feedback rendering. Its unique new virtual mouse was
+mapped to the primary TV; the verified transform is run-specific. Persistent
+per-launch multioutput mapping remains unimplemented.
+
+The completed live session processed10,227 frames over692.63s and exited with
+error null, graceful Stop requested, one expired lease/eight skipped frames and
+all camera/input/worker resources closed; the virtual mouse was absent afterward.
+The Stop caller is not identified; do not attribute it to Nicolás. Available disk
+space measured later does not exclude earlier storage pressure or later cleanup.
+The original video footprint was4.17GB; #14 separately owns recording defaults
+and its authorized cleanup. Retained private metadata supports camera-free replay;
+do not assume the original video still exists. Post-Stop service properties lost
+historical counters, but the source-unit journal retains29.236 CPU seconds and a
+rounded4G cgroup memory peak. Those are unit-level accounting, not whole-pipeline
+CPU/RSS or current memory usage; no in-trial thermal sample was obtained.
+
+Offline review explains the previous incomplete diagonal measurement:22 of the
+last72 detected frames had a point outside the image, predominantly the middle
+fingertip. The final valid streak had seven frames, matching the seven retained
+samples. This explains incomplete sampling, not that older run's hidden worker
+exception. No framing/freshness threshold was relaxed.
+
 Recording policy superseded — 2026-10-21: Nicolas explicitly withdrew automatic
 trial video after Legion storage pressure. Ordinary mouse use/calibration and
 old directory-only configurations now default to recording off. Only explicit
@@ -11,7 +51,7 @@ preserving profiles/models and the synthetic review fixture. Source checks,
 receiving installation and a later human Start are separate evidence.
 
 
-Current receiving —2026-10-21: follow-up555bac5 passes all four jobs in
+Previous receiving preparation —2026-10-21: follow-up555bac5 passes all four jobs in
 CI39583883177, including native tests/Clippy and clean installation fixture.
 Complete ARM64/x86 archives pass external hashes and all250 file/mode checks;
 Legion independently verified and selected the x86 package. The new headless

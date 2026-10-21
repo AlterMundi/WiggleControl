@@ -2,7 +2,7 @@
 
 No-recording startup follow-up — 2026-10-21: the default-off change left virtual
 writer creation nested inside recorder creation in the standalone camera source.
-The deployed e71b843 and the otherwise-qualified e9110f4 candidate therefore do
+The deployed e71b843 and the CI-verified e9110f4 candidate therefore do
 not start mouse input when video is off. Preflight did not exercise acquisition.
 Do not use the earlier unexecuted e9110f4 update recipe or re-enable video as a
 workaround. A shared acquisition-factory regression reproduces zero writers for

@@ -1199,10 +1199,10 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         Ok(frames)
                     },
                     || {
-                        crate::session::controller_writer(
+                        Ok(crate::session::controller_writer(
                             &config,
                             (!until_stop).then_some(duration / 1_000_000 + 3),
-                        )
+                        )?)
                     },
                 )?;
                 writer = input_writer;

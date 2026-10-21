@@ -33,9 +33,12 @@ directory. Camera-only calibration requires explicit Start and all four corners
 before Save. Mouse use requires the administrator's separate input preparation
 and another manual Start. No capture or controller is enabled at boot.
 
-The current experimental path records camera video privately during Start; no
-microphone or upload is used. Stop closes capture; recordings remain. The guide
-explains continuous-session storage, scoped Stop, update/rollback and removal.
+Video recording is off by default, including calibration and ordinary mouse
+use. A recording directory alone is not opt-in. Only explicitly requested finite
+dataset samples record: maximum 30 seconds/256 MiB per take, 2 GiB total store and
+2 GiB free-space reserve. See [recording policy](docs/RECORDING.md). No microphone
+or upload is used. Stop closes capture; retained samples require intentional cleanup.
+The guide explains scoped Stop, update/rollback and removal.
 Keep physical input available. Confirm real input/camera closure before reversing
 permissions; failed removal is reported rather than replacing independent edits.
 

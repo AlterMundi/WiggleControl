@@ -13,16 +13,32 @@ regression, native tests/Clippy and both package builds. Paired camera-free repl
 of10,221 output rows removes all26 detail escape_holding outputs and preserves
 the held button at the reproduced expiry. Total expiry transitions change5→3;
 button edge pairs change62→69. These are predictions, not labelled intent or app
-effects. Receiving555bac5 is unchanged; physical acceptance remains pending.
+effects. This detail change is not installed; physical acceptance remains pending.
 
 The completed live session processed10,227 frames over692.63s and exited with
 error null, graceful Stop requested and all camera/input/worker resources closed.
 The Stop caller is not identified; do not attribute it to Nicolás. Available disk
 space measured later does not exclude an earlier storage-pressure event/cleanup.
-The4.17GB retained video footprint is tracked by #14's separate recording-policy
-change. Saved calibration remains accepted. The native goal stays active.
+The original video footprint was4.17GB; #14 separately owns recording defaults
+and its authorized cleanup. The private metadata copy supports camera-free replay;
+do not assume the original video still exists. Saved calibration remains accepted.
+The native goal stays active.
 
-Current receiving —2026-10-21: follow-up555bac5 passes all four jobs in
+Accepted calibration evidence: the saved C920e Full HD profile completed all six
+guide stages/four corners,876 captures, error null and explicit Save. It was
+imported without changing the accepted profile bytes before the desktop trial.
+Recording policy superseded — 2026-10-21: Nicolas explicitly withdrew automatic
+trial video after Legion storage pressure. Ordinary mouse use/calibration and
+old directory-only configurations now default to recording off. Only explicit
+finite dataset samples may record: 30 seconds/256 MiB per take, 2 GiB store and 2 GiB
+free-space reserve. Exhaustion uses existing capture/input cleanup; never restart
+acquisition through this update. See [RECORDING.md](RECORDING.md). Authorized
+cleanup removed 6 unreferenced Legion takes (~4.50GiB) and 22 Pi takes (~4.13GiB),
+preserving profiles/models and the synthetic review fixture. Source checks,
+receiving installation and a later human Start are separate evidence.
+
+
+Previous receiving preparation —2026-10-21: follow-up555bac5 passes all four jobs in
 CI39583883177, including native tests/Clippy and clean installation fixture.
 Complete ARM64/x86 archives pass external hashes and all250 file/mode checks;
 Legion independently verified and selected the x86 package. The new headless

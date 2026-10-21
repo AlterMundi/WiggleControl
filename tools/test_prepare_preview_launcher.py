@@ -53,6 +53,18 @@ class LauncherTests(unittest.TestCase):
             for invalid in (kwargs | {'seconds': 90}, kwargs | {'calibration_profile': Path('relative.json')}):
                 with self.assertRaises(ValueError): launcher.prepare(**invalid)
 
+    def test_legacy_recording_preflight_cannot_enable_unbounded_or_long_capture(self):
+        for seconds in [0, 90, 30]:
+            with tempfile.TemporaryDirectory() as tmp:
+                kwargs, proof = self.fixture(Path(tmp), seconds=seconds)
+                proof['recording_configured'] = True
+                with patch.object(launcher.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(proof), '')):
+                    if seconds == 30:
+                        launcher.prepare(**kwargs)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'Recording is explicit'):
+                            launcher.prepare(**kwargs)
+
     def fixture(self, root, seconds=90):
         for name in ('native', 'browser', 'session.json', 'settings.json', 'warmup.jpg'):
             (root / name).write_text('fixture')

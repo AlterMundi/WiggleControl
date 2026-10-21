@@ -167,9 +167,9 @@ preflight. Original native workflows remain supported.
 The owned `/provider/view` warms the graph only through `/provider/warmup`, an
 explicit selected synthetic JPEG with its own response marker. It never warms on
 the current preview/camera image. Only after worker-ready does the producer start
-640×480 MJPEG/30 capture with the existing driver-monotonic timestamp validation
-and private recorder. Every captured raw frame is recorded before the latest
-mailbox can drop it; publication/kernel-frame counts and drops remain distinct.
+640×480 MJPEG/30 capture with the existing driver-monotonic timestamp validation. Only an explicitly
+requested finite dataset sample records raw frames before the latest mailbox
+can drop them; ordinary operation and calibration do not record video; publication/kernel-frame counts and drops remain distinct.
 The worker consumes the latest available frame when ready, rather than applying
 the legacy synchronous config.fps throttle. No driver timestamp is replaced by
 browser, receipt or decode time. Independent camera and writer deadlines bound

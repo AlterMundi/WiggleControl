@@ -32,6 +32,13 @@ input. Partial retained samples remain available; nothing is silently deleted
 or overwritten. The reserve check uses the actual directory file descriptor and
 unprivileged available blocks. It fails visibly when filesystem observation fails.
 
+The camera runtime starts an explicitly requested input writer independently of
+recorder creation. Disabling video must not disable the mouse. Failure to create
+an explicitly requested dataset or input writer still fails the session and uses
+its existing cleanup. `/provider/config` reports `recording_active` from the live
+dataset sink; this is separate from configured recording and diagnostic stdout.
+Controls display Video off/on/unknown from that value and request no images.
+
 ## Existing footage and evidence
 
 Nicolas authorized deleting accumulated footage unless linked to a concrete code

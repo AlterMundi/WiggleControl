@@ -111,8 +111,15 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  await vm.runInContext('poll()',context);
  assert.match(element('state').textContent,/Opening camera.*Mouse enabled/);
  assert.match(element('operation').textContent,/Opening camera.*90 seconds/);
- config.camera_opened=true;config.mode='pointer';config.remaining_ms=87_123;
+ config.camera_opened=true;config.mode='pointer';config.remaining_ms=87_123;config.recording_active=false;
  await vm.runInContext('poll()',context);assert.match(element('operation').textContent,/SCREEN.*88 seconds/);
+ assert.match(element('state').textContent,/Video off/);
+ assert.doesNotMatch(element('state').textContent,/Recording locally/);
+ config.recording_active=true;await vm.runInContext('poll()',context);
+ assert.match(element('state').textContent,/Video recording/);
+ delete config.recording_active;await vm.runInContext('poll()',context);
+ assert.match(element('state').textContent,/Video state unknown/);
+ config.recording_active=false;await vm.runInContext('poll()',context);
  config.detail_active=true;await vm.runInContext('poll()',context);
  assert.match(element('operation').textContent,/DETAIL.*88 seconds/);
  config.escape_feedback={candidate:'thumb_out',armed:true,hold_elapsed_us:350000,hold_required_us:700000};
@@ -148,7 +155,7 @@ console.log('Finite countdown/detail status stay image-free; task setup cannot s
 for(const ackFails of [false,true]){
  const elements=new Map(),calls=[];let holdNext=false,rejectLate,paints=0;
  const element=id=>{if(!elements.has(id))elements.set(id,{textContent:'',disabled:true});return elements.get(id)};
- const config={run_id:'terminal',active:true,prepared:false,camera_opened:false,system_input:false,terminal_ready:false};
+ const config={run_id:'terminal',active:true,prepared:false,camera_opened:false,system_input:false,terminal_ready:false,recording_active:false};
  const context=vm.createContext({document:{getElementById:element},AbortSignal:{timeout:()=>null},setTimeout:()=>{},
   requestAnimationFrame:cb=>{paints++;cb();},
   fetch:async(path,options)=>{
@@ -170,7 +177,7 @@ for(const ackFails of [false,true]){
  assert(!calls.includes('/provider/terminal-visible'));
  config.terminal_ready=true;await vm.runInContext('poll()',context);
  assert.equal(element('operation').textContent,'Session ended');
- assert.equal(element('state').textContent,'Session ended · Camera off · Mouse off');
+ assert.equal(element('state').textContent,'Session ended · Camera off · Mouse off · Video off');
  assert.match(element('message').textContent,/Final result retained/);
  assert.equal(context.wiggleControlTerminalReceipt.acknowledged,!ackFails);
  rejectLate(Error('Listener closed'));await late;

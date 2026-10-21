@@ -449,5 +449,6 @@ for standalone touch. Calibration/prayer sampling freshness remains separate.
 For an explicitly requested manual continuous session, use
 `run-calibrated-until-stop CONFIG PORT PROFILE` and the receiving
 `hand-overlay-until-stop PORT`. These have no exit countdown; Stop/EOF/error
-releases input. Recordings rotate indexed512 MiB segments. Existing finite
-commands keep their duration bounds; no auto-start/restart is installed.
+releases input. Normal operation defaults to video off; explicit finite dataset
+samples follow [RECORDING.md](RECORDING.md). Existing finite commands keep their
+duration bounds; no auto-start/restart is installed.

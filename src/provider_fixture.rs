@@ -49,6 +49,7 @@ struct State {
     finishing: bool,
     terminal_visible: bool,
     camera_opened: bool,
+    recording_active: bool,
     input_started: bool,
     writer_reaped: bool,
     eof: bool,
@@ -334,7 +335,7 @@ impl Extension for Bridge {
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
-                "width":self.dimensions[0],"height":self.dimensions[1],"camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
+                "width":self.dimensions[0],"height":self.dimensions[1],"camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,"recording_active":state.recording_active,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
                 "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
                 "terminal_ready":state.finishing,
@@ -928,6 +929,19 @@ struct RunOptions<'a> {
     source: Source,
     preflight: bool,
 }
+/// Keep startup factories camera-free in tests; the returned writer is owned by
+/// the normal runtime cleanup, independently of an optional dataset recorder.
+fn prepare_acquisition<R, W, E>(
+    recording: bool,
+    input: bool,
+    record: impl FnOnce() -> Result<R, E>,
+    writer: impl FnOnce() -> Result<W, E>,
+) -> Result<(Option<R>, Option<W>), E> {
+    let frames = if recording { Some(record()?) } else { None };
+    let input_writer = if input { Some(writer()?) } else { None };
+    Ok((frames, input_writer))
+}
+
 struct Journal<'a> {
     stdout: std::io::StdoutLock<'a>,
     recording: Option<crate::recording::Output>,
@@ -1157,43 +1171,51 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     .as_ref()
                     .is_none_or(|c| c.lock().unwrap().running())
             {
-                let recording_frames = if camera_source && config.recording_enabled {
-                    let base = Path::new(config.recording_directory.as_ref().unwrap());
-                    let (frames, observations, dir) = crate::recording::create(
-                        base,
-                        monotonic_us()?,
-                        &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
+                let (recording_frames, input_writer) = prepare_acquisition(
+                    camera_source && config.recording_enabled,
+                    camera_source && inject,
+                    || -> Result<_, Box<dyn Error>> {
+                        let base = Path::new(config.recording_directory.as_ref().unwrap());
+                        let (frames, observations, dir) = crate::recording::create(
+                            base,
+                            monotonic_us()?,
+                            &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
                             "model_sha256":MODEL,"package_version":"1.1.1","max_hands":max_hands,
                             "presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":visual_classifier.is_some(),"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_threshold_lower_bound"},
                             "width":dimensions[0],"height":dimensions[1],"camera_fps":30,"freshness_ms":config.freshness_ms,
                             "input_requested":inject,"human_labels":"separate; predictions are not ground truth"}),
-                    )?;
-                    for (name, path) in [
-                        ("config.json", session),
-                        ("controller-settings.json", settings),
-                    ] {
-                        frames.metadata(name, &fs::read(path)?)?;
-                    }
-                    fs::write(
-                        base.join("last-recording.path"),
-                        dir.as_os_str().as_encoded_bytes(),
-                    )?;
-                    journal.recording = Some(observations);
-                    if inject {
-                        let mut child = crate::session::controller_writer(
+                        )?;
+                        for (name, path) in [
+                            ("config.json", session),
+                            ("controller-settings.json", settings),
+                        ] {
+                            frames.metadata(name, &fs::read(path)?)?;
+                        }
+                        fs::write(
+                            base.join("last-recording.path"),
+                            dir.as_os_str().as_encoded_bytes(),
+                        )?;
+                        journal.recording = Some(observations);
+                        Ok(frames)
+                    },
+                    || {
+                        Ok(crate::session::controller_writer(
                             &config,
                             (!until_stop).then_some(duration / 1_000_000 + 3),
-                        )?;
-                        writer_output = child.stdin.take();
-                        writer = Some(child);
-                        bridge.state.lock().unwrap().input_started = true;
-                    }
-                    Some(frames)
-                } else {
-                    None
-                };
+                        )?)
+                    },
+                )?;
+                writer = input_writer;
+                if let Some(child) = &mut writer {
+                    writer_output = child.stdin.take();
+                    bridge.state.lock().unwrap().input_started = true;
+                }
                 started = Some(Instant::now());
-                bridge.state.lock().unwrap().acquisition_started = started;
+                {
+                    let mut state = bridge.state.lock().unwrap();
+                    state.acquisition_started = started;
+                    state.recording_active = journal.recording.is_some();
+                }
                 let initial = controller.start_at(monotonic_us()?);
                 crate::session::write_controller_mapped(
                     &mut writer_output,
@@ -1605,6 +1627,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         // join has returned, including on panic: the producer's camera fd is gone.
         // Mailbox.opened is retained acquisition history, not current activity.
         s.camera_opened = false;
+        s.recording_active = false;
         s.writer_reaped = writer_reaped;
     }
     // Capture is joined and input released. Keep terminal diagnostics available
@@ -1720,6 +1743,86 @@ fn metadata(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn acquisition_starts_input_independently_of_optional_recording() {
+        use std::cell::Cell;
+        for recording in [false, true] {
+            for input in [false, true] {
+                let records = Cell::new(0);
+                let writers = Cell::new(0);
+                let result = prepare_acquisition(
+                    recording,
+                    input,
+                    || {
+                        records.set(records.get() + 1);
+                        Ok::<_, &str>("frames")
+                    },
+                    || {
+                        writers.set(writers.get() + 1);
+                        Ok::<_, &str>("writer")
+                    },
+                )
+                .unwrap();
+                assert_eq!(records.get(), usize::from(recording));
+                assert_eq!(
+                    writers.get(),
+                    usize::from(input),
+                    "recording={recording}, input={input}"
+                );
+                assert_eq!(result.0.is_some(), recording);
+                assert_eq!(result.1.is_some(), input);
+            }
+        }
+    }
+
+    #[test]
+    fn acquisition_failure_preserves_error_and_does_not_start_input_after_recorder_failure() {
+        use std::cell::Cell;
+        let writers = Cell::new(0);
+        let failed_record = prepare_acquisition(
+            true,
+            true,
+            || Err::<(), _>("record failed"),
+            || {
+                writers.set(writers.get() + 1);
+                Ok(())
+            },
+        );
+        assert_eq!(failed_record.unwrap_err(), "record failed");
+        assert_eq!(writers.get(), 0);
+        let failed_input = prepare_acquisition(
+            false,
+            true,
+            || -> Result<(), &str> { panic!("disabled recording factory ran") },
+            || Err::<(), _>("writer failed"),
+        );
+        assert_eq!(failed_input.unwrap_err(), "writer failed");
+    }
+
+    #[test]
+    fn recording_status_reports_the_live_sink_separately_from_camera_and_eof() {
+        let bridge = Bridge::new(BTreeMap::new(), 300_000, "record-status".into(), 1);
+        for (camera, recording, eof) in [
+            (false, false, false),
+            (true, false, false),
+            (true, true, false),
+            (true, true, true),
+            (false, false, true),
+        ] {
+            {
+                let mut state = bridge.state.lock().unwrap();
+                state.camera_opened = camera;
+                state.recording_active = recording;
+                state.eof = eof;
+            }
+            let value: Value = serde_json::from_slice(
+                &bridge.respond("GET", "/provider/config", b"").unwrap().body,
+            )
+            .unwrap();
+            assert_eq!(value["recording_active"], recording);
+        }
+    }
+
     #[test]
     fn full_hd_jpeg_and_frame_lease_keep_native_dimensions() {
         let mut bytes = Vec::new();

@@ -70,8 +70,14 @@ controller output additionally reflects this contextual interpretation.
 
 A fictional raw-landmark regression exercises detail selection, a bent pinch,
 more than two seconds of held drag, explicit opening, a fist and out-of-frame
-loss. Physical acceptance of this fix is still pending; the receiving555bac5
-installation has not changed.
+loss. CI39591902336 passes all four jobs on source bfeb4ac, including this regression,
+native tests/Clippy and both package builds. Paired camera-free semantic replay
+of10,221 output rows removes26 detail escape_holding outputs and retains the
+button where the original expires. Overall expiry transitions change5→3 and
+button edge pairs62→69; this is not human intent or application acceptance.
+Physical acceptance remains pending; the receiving555bac5 installation has not
+changed. A local build was cancelled during severe host I/O pressure; it is not
+counted as a passing check.
 
 ## Continuous mapping
 

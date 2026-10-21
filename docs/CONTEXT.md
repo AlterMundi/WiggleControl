@@ -8,8 +8,12 @@ raw landmarks. The detail episode reports26 escape_holding frames with unbound
 Escape pose: the projected open-finger gate rejects a bent pinching posture.
 The source follow-up admits a non-fully-folded index/middle only in confirmed
 detail, retaining framing, metric/identity/freshness checks and existing deadlines.
-A raw-landmark regression and paired replay are being validated. Receiving555bac5
-is unchanged; do not restart capture or claim a tested physical fix yet.
+Source bfeb4ac passes all four jobs in CI39591902336, including the new raw
+regression, native tests/Clippy and both package builds. Paired camera-free replay
+of10,221 output rows removes all26 detail escape_holding outputs and preserves
+the held button at the reproduced expiry. Total expiry transitions change5→3;
+button edge pairs change62→69. These are predictions, not labelled intent or app
+effects. Receiving555bac5 is unchanged; physical acceptance remains pending.
 
 The completed live session processed10,227 frames over692.63s and exited with
 error null, graceful Stop requested and all camera/input/worker resources closed.

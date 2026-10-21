@@ -121,7 +121,7 @@ Omitted workspace means the full normalized image, not a human-accepted
 calibration. Preserve/import the accepted workspace in both `touch_workspace`
 (session) and `workspace` (controller); cursor-output and gesture parameters must
 also agree in both files. Do not replace an existing profile with these examples.
-Recording is disabled by default. Dataset recording requires an explicit opt-in and finite1..30-second trial; see [recording policy](RECORDING.md). The
+Recording is disabled by default. Dataset recording requires an explicit opt-in and finite 1..30-second trial; see [recording policy](RECORDING.md). The
 checker reports whether recording is configured, without exposing its directory.
 Pinch distances are model estimates, not calibrated physical measurements.
 

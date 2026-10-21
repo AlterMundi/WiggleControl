@@ -1607,6 +1607,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         s.camera_opened = false;
         s.writer_reaped = writer_reaped;
     }
+    // Capture is joined and input released. Keep terminal diagnostics available
+    // on stdout even when the dataset budget (or its filesystem) is exhausted.
+    journal.recording = None;
     let mut terminal = metadata(&config, &final_state, &feedback, monotonic_us()?, 0, true);
     terminal["active"] = false.into();
     terminal["trial_seconds"] = bridge.trial_seconds.into();

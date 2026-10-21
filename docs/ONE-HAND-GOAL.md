@@ -75,9 +75,13 @@ Coordinate new desktop injection with owned scratch tasks, never human files.
 Nicolás reports concurrent realtime-conversation tests on the Pi: continue
 camera-free development/replay off-Pi and leave receiving tests/deployment to a
 coordinated window; do not pause the whole goal or interrupt the other project.
-Serialize resource/performance tests even when sensors differ. Camera acquisition requires fresh human readiness/manual Start and the established
-private trial recording; research/replay stays camera-free. Do not leave a sensor
-session running after its requested scope or install automatic capture/restarts.
+Serialize resource/performance tests even when sensors differ. Camera acquisition
+requires fresh human readiness/manual Start. The 2026-10-21 recording policy in
+[RECORDING.md](RECORDING.md) supersedes automatic trial video retention: ordinary
+mouse use and calibration default to no video; dataset recording needs an explicit
+request and a finite budgeted sample. Research/replay stays camera-free. Do not
+leave a sensor session running after its requested scope or install automatic
+capture/restarts.
 
 Show useful experiment progress when the desktop is available, without spending
 work solely on demonstrations or stealing the screen from the human. Keep optional

@@ -25,8 +25,11 @@ per-launch multioutput mapping remains unimplemented.
 The completed live session processed10,227 frames over692.63s and exited with
 error null, graceful Stop requested, one expired lease/eight skipped frames and
 all camera/input/worker resources closed; the virtual mouse was absent afterward.
-The Stop caller is not identified; do not attribute it to Nicolás. Available disk
-space measured later does not exclude earlier storage pressure or later cleanup.
+The storage-intervention runbook now identifies the Stop: its operator measured
+this run writing about6 MiB/s and sent the normal scoped graceful Stop, receiving
+HTTP200 and observing the unit/recording growth end. It was an emergency storage
+intervention, not an observed source crash or an intentional human Stop in the
+mouse trial. Later free space does not reconstruct all earlier disk occupancy.
 The original video footprint was4.17GB; #14 separately owns recording defaults
 and its authorized cleanup. Retained private metadata supports camera-free replay;
 do not assume the original video still exists. Post-Stop service properties lost

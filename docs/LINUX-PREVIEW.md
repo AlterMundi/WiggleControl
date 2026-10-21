@@ -107,8 +107,9 @@ coordinated comparison, not a requirement to buy hardware or hide current limits
 
 Verify a clean standalone installation, update/config preservation, input/key
 permissions and uninstall/rollback. Distribute pinned source-bound artifacts,
-checksums and third-party licenses. Explain sensor and recording behavior; retain
-private recording-enabled research trials without bundling personal footage or
+checksums and third-party licenses. Explain sensor and recording behavior:
+ordinary mouse use/calibration default to video off; explicitly requested dataset
+samples follow [RECORDING.md](RECORDING.md). Never bundle personal footage or
 configuration. Publish a tagged GitHub prerelease after scoped qualification;
 select its exact version at delivery. CI artifacts are not a published release.
 

@@ -816,6 +816,17 @@ impl DetectedHand {
             .all(|p| p.x >= 0.0 && p.y >= 0.0 && p.x < width as f64 && p.y < height as f64)
     }
     pub fn observation(&self, width: u32, height: u32, source_us: u64) -> crate::Observation {
+        self.observation_with_posture(width, height, source_us, false)
+    }
+    /// A contextual detail posture can replace only the open-finger gate.
+    /// Framing and all later metric/confidence/source checks still apply.
+    pub(crate) fn observation_with_posture(
+        &self,
+        width: u32,
+        height: u32,
+        source_us: u64,
+        detail_pinch_posture: bool,
+    ) -> crate::Observation {
         let points = &self.landmarks;
         let metric = width.max(height) as f64;
         let in_view = self.in_view(width, height);
@@ -826,7 +837,7 @@ impl DetectedHand {
             .iter()
             .filter(|(tip, pip)| extended(*tip, *pip))
             .count();
-        let eligible = in_view && (extended(8, 6) || others >= 2);
+        let eligible = in_view && (extended(8, 6) || others >= 2 || detail_pinch_posture);
         let center = XY {
             x: (points[5].x + points[17].x) / 2.0,
             y: (points[5].y + points[17].y) / 2.0,

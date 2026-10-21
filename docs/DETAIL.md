@@ -49,6 +49,30 @@ refuses it on the relative path. Legacy exclusive `precision` mode is unchanged.
 Preflight reports the configured candidate; optional feedback labels active Detail
 without requiring video/skeleton rendering in mouse-only use.
 
+## Bent pinch posture follow-up — 2026-10-21
+
+Nicolás reports good overall Legion operation, but detail drag cuts off easily.
+A camera-free replay through the deployed Full HD build reproduces loss-grace
+expiry while the thumb/index measurement stays closed. The projected open-finger
+gate rejects a bent pinching index when the remaining fingers are folded. During
+an existing drag the Escape transition path labels this `escape_holding` even
+though its positive Escape classifier reports an unbound pose.
+
+The source follow-up qualifies posture only for the selected hand in already
+confirmed detail. Both index/middle world chains must be finite/nondegenerate,
+and at least one must be outside the fully folded class using the existing
+folded threshold. This replaces only the projected open-finger gate. Full framing,
+metric validation, confidence, identity, source freshness, pinch confirmation,
+explicit release and the independent writer remain unchanged. A fully folded
+fist/ThumbOut cannot qualify by this rule. Normal screen-mode eligibility is
+unchanged. Base `hands` journal evidence remains the ordinary posture estimate;
+controller output additionally reflects this contextual interpretation.
+
+A fictional raw-landmark regression exercises detail selection, a bent pinch,
+more than two seconds of held drag, explicit opening, a fist and out-of-frame
+loss. Physical acceptance of this fix is still pending; the receiving555bac5
+installation has not changed.
+
 ## Continuous mapping
 
 The modifier operates after saved workspace mapping and before the existing

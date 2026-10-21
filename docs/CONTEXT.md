@@ -1,5 +1,23 @@
 # Project context — 2026-10-21
 
+Detail-drag follow-up — 2026-10-21: Nicolás accepted overall Legion operation as
+very good, then reported that detail-mode drag cuts off easily/almost does not
+work. This is an open #11 defect, not full release acceptance. Camera-free replay
+through the deployed555bac5 binary reproduces loss-grace expiry from retained
+raw landmarks. The detail episode reports26 escape_holding frames with unbound
+Escape pose: the projected open-finger gate rejects a bent pinching posture.
+The source follow-up admits a non-fully-folded index/middle only in confirmed
+detail, retaining framing, metric/identity/freshness checks and existing deadlines.
+A raw-landmark regression and paired replay are being validated. Receiving555bac5
+is unchanged; do not restart capture or claim a tested physical fix yet.
+
+The completed live session processed10,227 frames over692.63s and exited with
+error null, graceful Stop requested and all camera/input/worker resources closed.
+The Stop caller is not identified; do not attribute it to Nicolás. Available disk
+space measured later does not exclude an earlier storage-pressure event/cleanup.
+The4.17GB retained video footprint is tracked by #14's separate recording-policy
+change. Saved calibration remains accepted. The native goal stays active.
+
 Current receiving —2026-10-21: follow-up555bac5 passes all four jobs in
 CI39583883177, including native tests/Clippy and clean installation fixture.
 Complete ARM64/x86 archives pass external hashes and all250 file/mode checks;

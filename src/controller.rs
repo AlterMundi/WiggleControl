@@ -267,6 +267,11 @@ impl Controller {
     pub fn detail_config(&self) -> Option<crate::detail::Config> {
         self.detail_config
     }
+    #[cfg(feature = "native-vision")]
+    pub(crate) fn active_detail_config(&self) -> Option<crate::detail::Config> {
+        self.detail_config
+            .filter(|_| self.mode == Mode::Pointer && self.detail.active())
+    }
     pub fn scroll_config(&self) -> Option<crate::scroll::Config> {
         self.scroll_config
     }

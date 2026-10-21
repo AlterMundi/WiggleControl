@@ -412,3 +412,22 @@ compositor. Other supported clients, session locks, native grabs/popups and
 wheel-only handoff remain unqualified in#5. The selected WiggleControl runtime,
 45/65mm thresholds and saved calibration were preserved; this does not qualify
 live camera mode switching or the full controller roadmap.
+
+
+## Hold delivery at the deadline —2026-10-21
+
+A Legion mouse run ended after509 captured frames when the native writer rejected
+an existing drag Hold. The final recorded observations kept a detected hand while
+Escape suppression retained the original drag source; the producer then expired
+that drag. An ordered Hold issued one microsecond before the deadline and received
+after it reproduces the same writer error without camera or input injection.
+
+The writer now drains that established, timely-issued Hold by releasing exactly
+once and remaining unarmed, including when its own deadline tick already released
+the button. It retains only that expired source/deadline/mode until the next normal
+transition or release. A subsequent neutral transition and fresh open/close can
+continue the stream; expiry cannot press or move the pointer. Source substitution,
+deadline extension, stale/future/duplicate delivery, unestablished presses and an
+independent watchdog timeout retain their rejection behavior. The camera-free
+regression covers both writer scheduling orders and subsequent valid interaction.
+This is separate from the human-resolved stuck-folder issue8 and does not reopen it.

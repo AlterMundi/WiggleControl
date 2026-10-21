@@ -41,6 +41,9 @@ pub enum Pinch2dReference {
 #[serde(deny_unknown_fields)]
 pub struct SessionConfig {
     pub camera: String,
+    /// Native MJPEG capture size; provider geometry and recording retain these pixels.
+    #[serde(default = "default_camera_resolution")]
+    pub camera_resolution: [u32; 2],
     /// Required by native inference; a browser provider need not install ONNX.
     #[serde(default)]
     pub models: String,
@@ -103,6 +106,15 @@ pub struct SessionConfig {
     pub pointer_release_confirmation: Option<crate::ReleaseConfig>,
     #[serde(default)]
     pub pointer_cursor_output: Option<crate::cursor::Config>,
+}
+fn default_camera_resolution() -> [u32; 2] {
+    [640, 480]
+}
+pub(crate) fn validate_camera_resolution(size: [u32; 2]) -> Result<(), &'static str> {
+    if !(16..=1920).contains(&size[0]) || !(16..=1080).contains(&size[1]) {
+        return Err("camera_resolution must be within16x16..1920x1080");
+    }
+    Ok(())
 }
 fn default_pair_separation_widths() -> f64 {
     0.8
@@ -282,6 +294,7 @@ impl SessionConfig {
             return Err("session config too large".into());
         }
         let config: Self = serde_json::from_slice(&data)?;
+        validate_camera_resolution(config.camera_resolution)?;
         if let Some(cursor) = config.pointer_cursor_output {
             cursor.validate()?;
             if !config.provider_absolute_pointer {
@@ -423,6 +436,7 @@ pub(crate) fn camera(
     deadline: Option<Instant>,
 ) -> thread::JoinHandle<()> {
     let path = config.camera.clone();
+    let resolution = config.camera_resolution;
     thread::spawn(move || {
         let work = (|| -> Result<(), Box<dyn Error>> {
             let device = Device::with_path(path)
@@ -431,14 +445,15 @@ pub(crate) fn camera(
             let mut format = device
                 .format()
                 .map_err(|e| io::Error::new(e.kind(), format!("camera get format: {e}")))?;
-            format.width = 640;
-            format.height = 480;
+            let [width, height] = resolution;
+            format.width = width;
+            format.height = height;
             format.fourcc = v4l::FourCC::new(b"MJPG");
-            let actual = device
-                .set_format(&format)
-                .map_err(|e| io::Error::new(e.kind(), format!("camera set 640x480 MJPEG: {e}")))?;
-            if actual.width != 640 || actual.height != 480 || actual.fourcc != format.fourcc {
-                return Err("camera did not accept 640x480 MJPEG".into());
+            let actual = device.set_format(&format).map_err(|e| {
+                io::Error::new(e.kind(), format!("camera set {width}x{height} MJPEG: {e}"))
+            })?;
+            if actual.width != width || actual.height != height || actual.fourcc != format.fourcc {
+                return Err(format!("camera did not accept {width}x{height} MJPEG").into());
             }
             device
                 .set_params(&v4l::video::capture::Parameters::with_fps(30))
@@ -1026,7 +1041,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":640,"height":480,"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_2d_reference":config.pinch_2d_reference,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":config.camera_resolution[0],"height":config.camera_resolution[1],"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_2d_reference":config.pinch_2d_reference,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -1235,12 +1250,12 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
             let mut reader =
                 image::ImageReader::new(Cursor::new(&frame.bytes)).with_guessed_format()?;
             let mut limits = image::Limits::default();
-            limits.max_image_width = Some(640);
-            limits.max_image_height = Some(480);
-            limits.max_alloc = Some(8 * 1024 * 1024);
+            limits.max_image_width = Some(config.camera_resolution[0]);
+            limits.max_image_height = Some(config.camera_resolution[1]);
+            limits.max_alloc = Some(32 * 1024 * 1024);
             reader.limits(limits);
             let image = reader.decode()?.to_rgb8();
-            if image.width() != 640 || image.height() != 480 {
+            if [image.width(), image.height()] != config.camera_resolution {
                 return Err("decoded camera dimensions changed".into());
             }
             let decode_ms = decode_started.elapsed().as_secs_f64() * 1000.0;

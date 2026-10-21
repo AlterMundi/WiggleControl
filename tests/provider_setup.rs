@@ -341,3 +341,41 @@ fn rejected_imports_preserve_the_previous_profile_and_leave_no_partial_configura
     );
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn capture_resolution_is_validated_without_camera_access_and_survives_import() {
+    let root = fixture("capture-resolution");
+    let path = root.join("session.json");
+    let mut session = value(&path);
+    session["camera_resolution"] = json!([1920, 1080]);
+    fs::write(&path, session.to_string()).unwrap();
+    let output = root.join("hd-import");
+    let result = prepare(&root, &output);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(
+        value(&output.join("session.json"))["camera_resolution"],
+        json!([1920, 1080])
+    );
+    for invalid in [
+        json!([0, 1080]),
+        json!([1921, 1080]),
+        json!([1920, 1081]),
+        json!([1920]),
+        json!(["1920", 1080]),
+    ] {
+        session["camera_resolution"] = invalid;
+        fs::write(&path, session.to_string()).unwrap();
+        assert!(!Command::new(env!("CARGO_BIN_EXE_wigglecontrol"))
+            .arg("config-check-provider")
+            .arg(&path)
+            .arg(root.join("settings.json"))
+            .status()
+            .unwrap()
+            .success());
+    }
+    fs::remove_dir_all(root).unwrap();
+}

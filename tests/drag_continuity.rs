@@ -383,3 +383,43 @@ fn drag_grace_cannot_keep_touch_contacts_or_an_unestablished_mouse_press_alive()
     );
     assert!(touch.command(frame(200_001, vec![])).contacts.is_empty());
 }
+
+#[test]
+fn a_live_hold_that_arrives_after_its_deadline_releases_without_ending_the_stream() {
+    for tick_first in [false, true] {
+        let mut p = Pipeline::new();
+        for now in (100_001..=1_000_001).step_by(50_000) {
+            p.step(now, frame(now, vec![]));
+        }
+        let issued = 1_060_000;
+        let output = p.controller.command(Command::Tick { now_us: issued });
+        let hold = p
+            .publisher
+            .absolute_packet(&output, issued, None, Workspace::default())
+            .unwrap()
+            .unwrap();
+        let mut releases = 0;
+        if tick_first {
+            releases += usize::from(button(&p.delivery.tick(1_060_001, WATCHDOG).unwrap(), 0));
+        }
+        // The ordered packet was live when published; queue/scheduling latency
+        // takes it across the fixed drag deadline before the writer receives it.
+        let batch = p.delivery.apply(1_060_002, hold, 2000.0, WATCHDOG).unwrap();
+        releases += usize::from(button(&batch, 0));
+        assert_eq!(releases, 1);
+        assert!(!button(&batch, 1));
+        let (out, _, batch) = p.step(1_060_003, Command::Tick { now_us: 1_060_003 });
+        assert!(out.transition && !out.button_down);
+        assert!(!button(&batch, 1));
+        assert!(
+            !p.step(1_100_001, frame(1_100_001, vec![hand(7, false)]))
+                .0
+                .button_down
+        );
+        p.step(1_150_001, frame(1_150_001, vec![hand(7, true)]));
+        assert!(button(
+            &p.step(1_200_001, frame(1_200_001, vec![hand(7, true)])).2,
+            1
+        ));
+    }
+}

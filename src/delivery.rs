@@ -345,6 +345,7 @@ pub struct State {
     now: Option<u64>,
     received: Option<u64>,
     hold_until: Option<u64>,
+    expired_hold: Option<(u64, u64, Mode)>,
     absolute_source: bool,
 }
 fn invalid(message: &'static str) -> io::Error {
@@ -354,6 +355,7 @@ impl State {
     pub fn release(&mut self) -> Batch {
         self.ready = false;
         self.hold_until = None;
+        self.expired_hold = None;
         self.absolute_source = false;
         Batch {
             mouse: self.mouse.release(),
@@ -366,17 +368,27 @@ impl State {
             return Err(invalid("delivery clock regressed"));
         }
         self.now = Some(now);
-        Ok(
-            if self
-                .received
-                .is_some_and(|t| now.saturating_sub(t) >= watchdog_us)
-                || self.hold_until.is_some_and(|deadline| now >= deadline)
-            {
-                self.release()
-            } else {
-                Batch::default()
-            },
-        )
+        let watchdog = self
+            .received
+            .is_some_and(|t| now.saturating_sub(t) >= watchdog_us);
+        if watchdog || self.hold_until.is_some_and(|deadline| now >= deadline) {
+            // Retain only this established drag's expired deadline, so an
+            // already-published Hold can be drained without reopening a press.
+            // An independent watchdog release deliberately retains no such proof.
+            let expired = (!watchdog && self.mouse.is_held())
+                .then(|| {
+                    self.source
+                        .zip(self.hold_until)
+                        .zip(self.mode)
+                        .map(|((source, until), mode)| (source, until, mode))
+                })
+                .flatten();
+            let batch = self.release();
+            self.expired_hold = expired;
+            Ok(batch)
+        } else {
+            Ok(Batch::default())
+        }
     }
     pub fn apply(
         &mut self,
@@ -497,6 +509,28 @@ impl State {
                 mode,
                 ..
             } => {
+                let retired = self.expired_hold.filter(|(source, _, previous_mode)| {
+                    *source == source_us && *previous_mode == mode
+                });
+                let original_deadline = self.hold_until.or(retired.map(|(_, until, _)| until));
+                if until_us <= now
+                    && issued < until_us
+                    && source_us <= issued
+                    && until_us <= source_us.saturating_add(2_000_000)
+                    && original_deadline.is_none_or(|deadline| until_us <= deadline)
+                    && matches!(mode, Mode::Pointer | Mode::Precision)
+                    && self.mode == Some(mode)
+                    && self.source == Some(source_us)
+                    && previously_received.is_some_and(|t| now.saturating_sub(t) < watchdog_us)
+                    && ((previously_armed && self.mouse.is_held()) || retired.is_some())
+                {
+                    // Receipt crossed the deadline, despite publication before
+                    // it. Release exactly once and stay unarmed; the producer's
+                    // normal neutral transition can continue this same stream.
+                    let batch = self.release();
+                    self.expired_hold = Some((source_us, until_us, mode));
+                    return Ok(batch);
+                }
                 if !self.ready
                     || !self.mouse.is_held()
                     || !matches!(mode, Mode::Pointer | Mode::Precision)

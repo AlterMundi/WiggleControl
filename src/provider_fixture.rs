@@ -110,6 +110,7 @@ impl State {
 struct Bridge {
     calibration: Option<Arc<Mutex<crate::provider_calibration::Run>>>,
     camera_source: bool,
+    dimensions: [u32; 2],
     recorded_source: bool,
     input_requested: bool,
     warmup: Vec<u8>,
@@ -160,6 +161,7 @@ impl Bridge {
         Self {
             calibration: None,
             camera_source: false,
+            dimensions: [640, 480],
             recorded_source: false,
             input_requested: false,
             warmup: Vec::new(),
@@ -321,7 +323,7 @@ impl Extension for Bridge {
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
-                "camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
+                "width":self.dimensions[0],"height":self.dimensions[1],"camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
                 "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
                 "terminal_ready":state.finishing,
@@ -519,7 +521,7 @@ impl Extension for Bridge {
                     lease.issued_us = now;
                     s.lease = Some(lease.clone());
                     let ticket = json!({"run_id":self.run_id,"sequence":lease.sequence,"source_us":lease.frame.source_us,"issued_us":lease.issued_us,
-                        "width":640,"height":480,"capture_sequence":lease.frame.sequence});
+                        "width":self.dimensions[0],"height":self.dimensions[1],"capture_sequence":lease.frame.sequence});
                     Ok(ExtensionResponse {
                         status: "200 OK",
                         mime: "image/jpeg",
@@ -671,15 +673,18 @@ fn jpeg(path: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     jpeg_bytes(fs::read(path)?)
 }
 fn jpeg_bytes(data: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> {
+    jpeg_bytes_for(data, [640, 480])
+}
+fn jpeg_bytes_for(data: Vec<u8>, dimensions: [u32; 2]) -> Result<Vec<u8>, Box<dyn Error>> {
     if !data.starts_with(&[0xff, 0xd8, 0xff]) {
         return Err("fixture requires prepared JPEG images".into());
     }
     if image::ImageReader::new(io::Cursor::new(&data))
         .with_guessed_format()?
         .into_dimensions()?
-        != (640, 480)
+        != (dimensions[0], dimensions[1])
     {
-        return Err("fixture requires640x480 JPEG".into());
+        return Err("JPEG dimensions differ from selected source".into());
     }
     Ok(data)
 }
@@ -823,12 +828,12 @@ pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>
         return Err("recording manifest exceeds16KiB".into());
     }
     let metadata: Value = serde_json::from_slice(&fs::read(manifest)?)?;
-    if metadata["schema"] != "wigglecontrol.recording/v1"
-        || metadata["width"] != 640
-        || metadata["height"] != 480
-    {
-        return Err("recorded replay requires recording/v1 at640x480".into());
+    if metadata["schema"] != "wigglecontrol.recording/v1" {
+        return Err("recorded replay requires recording/v1".into());
     }
+    let dimensions: [u32; 2] =
+        serde_json::from_value(json!([metadata["width"], metadata["height"]]))?;
+    crate::session::validate_camera_resolution(dimensions)?;
     let reader = crate::recording::Reader::open(options.recording)?;
     let epoch = reader.rows()[0].source_us;
     let start = options
@@ -862,6 +867,7 @@ pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>
             reader,
             indices,
             duration,
+            dimensions,
         },
         preflight: false,
     })
@@ -881,6 +887,7 @@ enum Source {
         reader: crate::recording::Reader,
         indices: Vec<usize>,
         duration: u64,
+        dimensions: [u32; 2],
     },
 }
 struct RunOptions<'a> {
@@ -962,14 +969,20 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     if camera_source && config.recording_directory.is_none() {
         return Err("camera worker trials require private recording_directory".into());
     }
-    let (mut frames, duration, mut playback) = match source {
-        Source::Fixture { frames, duration } => (frames, duration, None),
-        Source::Camera { seconds, .. } => (Vec::new(), seconds * 1_000_000, None),
+    let (mut frames, duration, mut playback, dimensions) = match source {
+        Source::Fixture { frames, duration } => (frames, duration, None, [640, 480]),
+        Source::Camera { seconds, .. } => (
+            Vec::new(),
+            seconds * 1_000_000,
+            None,
+            config.camera_resolution,
+        ),
         Source::Recorded {
             reader,
             indices,
             duration,
-        } => (Vec::new(), duration, Some((reader, indices))),
+            dimensions,
+        } => (Vec::new(), duration, Some((reader, indices)), dimensions),
     };
     let until_stop = camera_source && duration == 0;
     let mut bridge = Bridge::new(
@@ -979,6 +992,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         max_hands,
     );
     bridge.calibration = calibration.clone();
+    bridge.dimensions = dimensions;
     bridge.presence_floor = presence_floor;
     bridge.presence_scores = config.provider_presence_scores;
     bridge.absolute_pointer = config.provider_absolute_pointer;
@@ -996,7 +1010,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     if preflight {
         println!(
             "{}",
-            json!({"preflight":"ok","camera_opened":false,"system_input":false,"calibration":calibration.is_some(),
+            json!({"preflight":"ok","camera_resolution":dimensions,"camera_opened":false,"system_input":false,"calibration":calibration.is_some(),
             "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
             "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"scroll":controller.scroll_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
@@ -1028,6 +1042,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         "camera_opened":false,"system_input":false,"input_requested":inject,"presence_scores":config.provider_presence_scores,"presence_floor":presence_floor,"source_kind":if camera_source {"kernel_monotonic_camera"}else if recorded_source {"recorded_frame_republication"}else{"synthetic_encoded_frame_publish"}}),
     )?;
     let mut feedback = Feedback {
+        dimensions,
         jpeg: initial_jpeg,
         source_us: 0,
         raw: Vec::new(),
@@ -1118,7 +1133,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         &json!({"schema":"wigglecontrol.recording/v1","perception_backend":"tasks_gpu_worker",
                             "model_sha256":MODEL,"package_version":"1.1.1","max_hands":max_hands,
                             "presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"visual_macros":visual_classifier.is_some(),"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_threshold_lower_bound"},
-                            "width":640,"height":480,"camera_fps":30,"freshness_ms":config.freshness_ms,
+                            "width":dimensions[0],"height":dimensions[1],"camera_fps":30,"freshness_ms":config.freshness_ms,
                             "input_requested":inject,"human_labels":"separate; predictions are not ground truth"}),
                     )?;
                     for (name, path) in [
@@ -1195,7 +1210,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                                 if let Some((reader, ids)) = &mut recorded {
                                     let index = ids[i];
                                     let original = reader.rows()[index].clone();
-                                    let bytes = jpeg_bytes(reader.frame(index)?)?;
+                                    let bytes =
+                                        jpeg_bytes_for(reader.frame(index)?, shared.dimensions)?;
                                     shared.publish_recorded(
                                         Frame {
                                             bytes,
@@ -1293,8 +1309,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     sequence: lease.sequence,
                     source_us: lease.frame.source_us,
                     now_us: now,
-                    width: 640,
-                    height: 480,
+                    width: dimensions[0],
+                    height: dimensions[1],
                     hands: submission.hands,
                 };
                 let found = tracker.observe(&packet)?;
@@ -1307,7 +1323,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     } else if let Some(hand) = hand {
                         if hand.confidence < presence_floor {
                             "Calibration: low hand confidence"
-                        } else if !hand.in_view(640, 480) {
+                        } else if !hand.in_view(dimensions[0], dimensions[1]) {
                             "Calibration: hand partly outside camera; move inward"
                         } else {
                             "Calibration: hand visible; hold steady"
@@ -1319,7 +1335,12 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         .filter(|_| reason == "Calibration: hand visible; hold steady")
                         .and_then(|h| {
                             config
-                                .observation(Some(h), 640, 480, packet.source_us)
+                                .observation(
+                                    Some(h),
+                                    dimensions[0],
+                                    dimensions[1],
+                                    packet.source_us,
+                                )
                                 .hand
                                 .map(|h| h.cursor)
                         });
@@ -1334,7 +1355,11 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 let hands: Vec<_> = found
                     .hands
                     .iter()
-                    .filter_map(|h| config.observation(Some(h), 640, 480, packet.source_us).hand)
+                    .filter_map(|h| {
+                        config
+                            .observation(Some(h), dimensions[0], dimensions[1], packet.source_us)
+                            .hand
+                    })
                     .collect();
                 let observation = touch_gestures::Frame {
                     version: 1,
@@ -1344,7 +1369,13 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 };
                 let classifier_started = Instant::now();
                 let (pose, visual_pose) = if let Some(classifier) = &mut visual_classifier {
-                    classifier.classify(&controller, &observation, &found.hands, 640, 480)?
+                    classifier.classify(
+                        &controller,
+                        &observation,
+                        &found.hands,
+                        dimensions[0],
+                        dimensions[1],
+                    )?
                 } else {
                     (None, None)
                 };
@@ -1359,7 +1390,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     observation,
                     pose,
                     &found.hands,
-                    [640, 480],
+                    dimensions,
                 );
                 feedback.recorded_time_ms = lease.recorded.as_ref().and_then(|r| {
                     recording_epoch.map(|first| (r.source_us - first) as f64 / 1000.0)
@@ -1593,6 +1624,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
 }
 
 struct Feedback {
+    dimensions: [u32; 2],
     jpeg: Vec<u8>,
     source_us: u64,
     raw: Vec<Value>,
@@ -1628,7 +1660,7 @@ fn metadata(
         hand.as_object_mut().unwrap().remove("world_landmarks");
     }
     let mut data = json!({"active":true,"ui_fixture":true,"input_enabled":false,"input_available":false,"recording":false,
-        "width":640,"height":480,"source_us":source,"sequence":sequence,"age_ms":age,"frame_age_ms":age,
+        "width":feedback.dimensions[0],"height":feedback.dimensions[1],"source_us":source,"sequence":sequence,"age_ms":age,"frame_age_ms":age,
         "fresh":source>0&&age<(config.freshness_ms as f64),"freshness_ms":config.freshness_ms,"remaining_ms":remaining,
         "test_phase":if started {"testing"}else{"preparing"},"decode_ms":0,"inference_ms":0,
         "provider_transport":true,"presence_scores":config.provider_presence_scores,"confidence_kind":if config.provider_presence_scores {"presence_score_or_configured_floor"}else{"configured_presence_threshold_lower_bound"},"frame_to_meaning_ms":meaning.saturating_sub(source)as f64/1000.0,
@@ -1654,6 +1686,47 @@ fn metadata(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn full_hd_jpeg_and_frame_lease_keep_native_dimensions() {
+        let mut bytes = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new(&mut bytes)
+            .encode_image(&image::RgbImage::new(1920, 1080))
+            .unwrap();
+        assert!(jpeg_bytes_for(bytes.clone(), [1920, 1080]).is_ok());
+        assert!(jpeg_bytes_for(bytes.clone(), [640, 480]).is_err());
+        let mut b = Bridge::new(BTreeMap::new(), 300_000, "hd".into(), 1);
+        b.dimensions = [1920, 1080];
+        b.state.lock().unwrap().ready = true;
+        b.publish(Frame {
+            bytes,
+            source_us: monotonic_us().unwrap(),
+            sequence: 1,
+        })
+        .unwrap();
+        let config: Value =
+            serde_json::from_slice(&b.respond("GET", "/provider/config", b"").unwrap().body)
+                .unwrap();
+        assert_eq!(
+            (config["width"].as_u64(), config["height"].as_u64()),
+            (Some(1920), Some(1080))
+        );
+        let lease = b.respond("GET", "/provider/frame", b"").unwrap();
+        assert_eq!(lease.status, "200 OK");
+        let ticket: Value = serde_json::from_str(
+            lease
+                .headers
+                .trim()
+                .strip_prefix("X-Wiggle-Source: ")
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            (ticket["width"].as_u64(), ticket["height"].as_u64()),
+            (Some(1920), Some(1080))
+        );
+        assert!(jpeg_bytes_for(lease.body, [1920, 1080]).is_ok());
+    }
+
     use super::*;
     #[test]
     fn calibration_routes_are_run_bound_manual_camera_only_and_cannot_save_before_review() {

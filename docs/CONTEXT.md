@@ -1,16 +1,51 @@
 # Project context — 2026-10-13
 
+Full HD/RTX increment —2026-10-21: Nicolás requests recalibration with the C920e,
+then explicitly corrects the retained640x480 capture and asks for native Full HD
+and effective RTX acceleration. The640x480 C920e calibration was stopped; retain
+the accepted integrated-camera profile. Configurable native capture now propagates
+through format negotiation, leases, geometry, preview, recording and replay;
+old configurations retain640x480. All257 native Rust tests pass locally, including
+the native1920x1080 JPEG/lease, configuration import and late-Hold regressions;
+calibration JavaScript and all eight launcher preparation tests also pass.
+Native all-target Clippy also passes with warnings denied. Source-bound CI
+packaging and Full HD receiving deployment remain pending. Nicolás is using
+Legion for a game; continue off-host and wait for his return before desktop,
+camera or GPU work there.
+
+On source80cf8a5, a camera-free headless check with the existing desktop GPU
+selector processed31 recorded frames without browser drops and reported NVIDIA
+RTX2060/OpenGL. The matching Intel-headless check processed30. In this short,
+single-pass comparison, median worker inference was41.75ms on Intel vs12.5ms on
+RTX; synthetic warmup was0.92s vs2.35s. This is compatibility/limited timing evidence,
+not Full HD live-camera performance or a human comfort measurement. The receiving
+browser mode can therefore be headless; the earlier visible fallback is unnecessary
+on Legion. Existing desktop selection is used; no driver/system GPU changes.
+
+The first actual mouse session failed at the writer's Hold deadline boundary.
+A camera-free ordered-but-late Hold reproduces the exact rejection; its correction
+and regression are part of this increment. See
+[the delivery boundary](CONTROLLER-NATIVE.md#hold-delivery-at-the-deadline-2026-10-21)
+and [capture configuration](PROVIDER-CONFIG.md#native-full-hd-capture).
+
+
 Legion calibration accepted —2026-10-21: Nicolás reports successful calibration.
 The actual source terminal confirms all six guide steps/four corners complete,
 explicit Save,617 captured frames/zero expiry, errornull, camera and worker closed,
 and no system input started. The saved profile matches the primary3840x2160 TV.
-Its accepted workspace was imported with the packaged helper; the manual until-
-Stop mouse bundle is prepared/installed but not opened. Normal-user uinput access
-is still absent: the existing administrator-permission action is pending, followed
-by verification and X11 mapping of only the new virtual mouse to the selected TV.
+Its accepted workspace was imported with the packaged helper. The human then
+ran the supported input preparation; normal-user uinput write access is observed.
+The first manual mouse run created its virtual device but exited with the
+late-Hold failure described above before output mapping could be applied.
+Only the new virtual mouse still needs X11 mapping to the selected TV, followed
+by physical desktop acceptance. Mouse units are stopped for the requested
+C920e recalibration. Do not repeat the completed administrator-permission step.
 Calibration acceptance does not establish desktop mouse or GPU performance
 qualification. Do not repeat calibration merely to advance the mouse setup.
 
+
+Earlier dated preparation below is retained evidence; the current state above
+supersedes its pending access, GPU and integrated-camera calibration steps.
 
 Legion preparation —2026-10-21: the same source80cf8a549950 x86 candidate is now
 installed on Legion; external archive hash and all250 file/mode checks pass.

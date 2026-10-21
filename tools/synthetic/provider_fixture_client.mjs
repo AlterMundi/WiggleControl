@@ -72,6 +72,7 @@ const run = async()=>{
     if(ticket.run_id!==runId)throw Error('Source run changed');
     const blob=await response.blob();const fetched=performance.now();
     const image=await createImageBitmap(blob);const decoded=performance.now();
+    if(image.width!==ticket.width||image.height!==ticket.height){image.close();throw Error('Leased JPEG dimensions differ from source');}
     let inferred;
     try{inferred=await model.infer(image,ticket.source_us);}finally{image.close();}
     const completed=performance.now();

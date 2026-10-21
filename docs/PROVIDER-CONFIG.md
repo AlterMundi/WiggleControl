@@ -51,6 +51,27 @@ explicitly configured because the current experimental camera path requires it;
 only later manual Start opens recording/capture. No microphone or upload is used.
 See the [source setup walkthrough](PREVIEW-QUICKSTART.md) for the connected flow.
 
+### Native Full HD capture
+
+The session may explicitly select `"camera_resolution": [1920, 1080]` before
+preparing its hash-bound launcher. Omitted resolution preserves640x480 for
+existing installations. Supported dimensions are16..1920 by16..1080; the selected
+camera must accept that exact MJPEG format. Unsupported negotiation is an error,
+never a silent resize or an upscaled low-resolution image. Capture remains30FPS;
+`fps` controls the10..20Hz processing cadence independently.
+
+These capture dimensions are distinct from `pointer_output`, which describes the
+selected display. Browser frame leases, landmark geometry, preview metadata and
+recording manifests retain the selected native capture dimensions. Recorded GPU
+replay validates the manifest and each JPEG's matching dimensions. The synthetic
+startup reference stays explicitly640x480 and never supplies calibration samples.
+
+After changing camera or field of view, use a new calibration/configuration and
+retain the previously accepted profile. Importing a saved calibration preserves
+the selected camera resolution. A receiving browser/GPU choice is independent:
+use the existing launcher browser executable hook and verify the actual model
+renderer rather than inferring NVIDIA use from installed hardware.
+
 ### Lower-level 3D configuration example
 
 The following files select the optional3D pinch path and minimal cursor defaults.

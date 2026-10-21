@@ -4,9 +4,9 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync('tools/provider_calibration.html','utf8').split('<script>')[1].split('</script>')[0].replace(/poll\(\);\s*$/,'');
 const elements=new Map(),requests=[],revoked=[],timers=new Map();let next=0,frameCount=0,blobResolve;
-const el=id=>{if(!elements.has(id))elements.set(id,{hidden:false,attrs:{},textContent:'',removeAttribute(k){delete this[k]},setAttribute(k,v){this.attrs[k]=v},toggleAttribute(k,v){if(v)this.attrs[k]='';else delete this.attrs[k]}});return elements.get(id)};
+const el=id=>{if(!elements.has(id))elements.set(id,{hidden:false,style:{setProperty(k,v){this[k]=v}},attrs:{},textContent:'',removeAttribute(k){delete this[k]},setAttribute(k,v){this.attrs[k]=v},toggleAttribute(k,v){if(v)this.attrs[k]='';else delete this.attrs[k]}});return elements.get(id)};
 const calibration={phase:'idle',guide:null,review:{corner_target:null},target:null,has_frame:false,camera_closed:true,saved:false};
-const config={run_id:'camera-test',active:true,prepared:false,camera_opened:false,system_input:false,calibration};
+const config={width:1920,height:1080,run_id:'camera-test',active:true,prepared:false,camera_opened:false,system_input:false,calibration};
 let frame={provider_run_id:'camera-test',camera_opened:true,synthetic_frame:false,fresh:true,age_ms:60,freshness_ms:300};
 const context=vm.createContext({document:{getElementById:el,body:{classList:{toggle(){}}},documentElement:{}},AbortSignal:{timeout:()=>null},performance:{now:()=>0},innerWidth:1366,innerHeight:712,screen:{width:1366,height:768},requestAnimationFrame:f=>f(),
  URL:{createObjectURL(){return 'blob:frame-'+(++frameCount)},revokeObjectURL:u=>revoked.push(u)},
@@ -19,6 +19,7 @@ const context=vm.createContext({document:{getElementById:el,body:{classList:{tog
  }});
 vm.runInContext(source,context);
 await vm.runInContext('poll()',context);assert(!requests.includes('/frame'),'Idle cannot acquire preview frames');
+assert.equal(el('camera-panel').style['--camera-aspect'],'1920/1080');assert.match(el('camera-label').textContent,/1920 × 1080/);
 config.prepared=true;calibration.phase='waiting';calibration.camera_closed=false;calibration.guide={phase:'waiting',step:0};
 await vm.runInContext('poll()',context);assert(!requests.includes('/frame'),'Preparation cannot show a warmup image as a camera frame');
 config.camera_opened=true;calibration.has_frame=true;

@@ -13,7 +13,7 @@
 <p id="gesture-help">Open thumb/index to begin. Pinch to click; hold and move to drag.</p>
 <p id="lifetime-help">You can close this window. The mouse keeps running until Stop.</p>
 <p><a href="/provider/feedback" target="_blank" rel="noopener">Open camera feedback</a></p>
-<p>Camera recording stays local. Closing feedback stops only its display.</p>
+<p>Normal use records no video. Explicit dataset samples stay local. Closing feedback stops only its display.</p>
 </main>
 <script>
 let runId=null,busy=false,ended=false;
@@ -24,7 +24,8 @@ const get=id=>document.getElementById(id);
 async function poll(){if(ended)return;try{
  const r=await fetch('/provider/config',{cache:'no-store',signal:AbortSignal.timeout(1500)});if(!r.ok)throw Error('State unavailable');const c=await r.json();
  if(runId&&runId!==c.run_id)throw Error('Session changed. Reopen the mouse controls.');runId=c.run_id;const sourceEnded=!c.active;ended=sourceEnded&&c.camera_opened===false&&c.system_input===false&&c.terminal_ready!==false;
- get('state').textContent=ended?(c.error?'Session ended: '+c.error:'Session ended · Camera off · Mouse off'):sourceEnded?`Session ending · Camera ${c.camera_opened?'active':'off'} · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'}`:c.camera_opened?`Camera active · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'} · Recording locally`:c.prepared?(c.system_input===true?'Opening camera · Mouse enabled · Recording locally':'Preparing detector · Camera off · Mouse off'):'Ready · Camera off · Mouse off';
+ const video=c.recording_active===true?'Video recording':c.recording_active===false?'Video off':'Video state unknown';
+ get('state').textContent=(ended?(c.error?'Session ended: '+c.error:'Session ended · Camera off · Mouse off'):sourceEnded?`Session ending · Camera ${c.camera_opened?'active':'off'} · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'}`:c.camera_opened?`Camera active · Mouse ${c.system_input===true?'enabled':c.system_input===false?'off':'state unknown'}`:c.prepared?(c.system_input===true?'Opening camera · Mouse enabled':'Preparing detector · Camera off · Mouse off'):'Ready · Camera off · Mouse off')+` · ${video}`;
  const finite=Number.isFinite(c.trial_seconds)&&c.trial_seconds>0;
  const duration=finite?(Number.isFinite(c.remaining_ms)?`${Math.ceil(c.remaining_ms/1000)} seconds remaining`:'Waiting for acquisition clock'):'Until Stop';
  const mode=c.scroll_feedback?.inertia?'SCROLL · INERTIA':c.scroll_feedback?.active||c.mode==='scroll'?'SCROLL':c.detail_active?'DETAIL':'SCREEN';

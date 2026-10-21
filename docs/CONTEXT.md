@@ -1,5 +1,24 @@
 # Project context — 2026-10-21
 
+No-recording startup follow-up — 2026-10-21: the default-off change left virtual
+writer creation nested inside recorder creation in the standalone camera source.
+The deployed e71b843 and the otherwise-qualified e9110f4 candidate therefore do
+not start mouse input when video is off. Preflight did not exercise acquisition.
+Do not use the earlier unexecuted e9110f4 update recipe or re-enable video as a
+workaround. A shared acquisition-factory regression reproduces zero writers for
+recording=false/input=true, then passes after separating those decisions. Recorder
+failure still prevents input startup, and writer failure propagates normally.
+
+The source follow-up also exposes actual recording_active through the existing
+cheap status endpoint. Controls distinguish Video off, Video recording and unknown
+instead of inferring recording from an open camera. Its regression reproduced the
+old false Recording locally label, then checks off/on/unknown and terminal retention.
+The qualification page uses configured gesture bindings and labels its counter
+as drag releases rather than claiming completed tasks. Full CI and receiving
+qualification remain separate. Legion is currently unreachable by SSH through
+the established VPN route; no camera/source restart or update was attempted.
+
+
 Detail-drag follow-up — 2026-10-21: Nicolás accepted overall Legion operation as
 very good, then reported that detail-mode drag cuts off easily/almost does not
 work. This is an open #11 defect, not full release acceptance. Camera-free replay

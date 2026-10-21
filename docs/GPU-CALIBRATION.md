@@ -1,5 +1,15 @@
 # Independent guided GPU calibration
 
+Human target change —2026-10-21: Nicolás rejects Cata's camera for continued
+use and requests uninstalling WiggleControl there and moving the trial to Legion.
+Cata's last recorded calibration reached upper-right review but timed out without
+verification or Save; it is not an accepted calibration. Cata is no longer a
+pending physical-test target. Retain its camera-free baseline and private trial
+evidence; qualify Legion's actual GPU renderer, camera and desktop independently.
+Legion staging is pending receiving SSH account confirmation. This supersedes
+earlier instructions to repeat the Cata calibration.
+
+
 The browser GPU worker feeds the existing Rust diagonal sampling, four-corner
 review and profile store. Calibration is camera-only: it cannot create a virtual
 mouse or keyboard. Its separate controls show instructions, the mirrored camera

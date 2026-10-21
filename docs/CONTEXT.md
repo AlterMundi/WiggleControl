@@ -1,5 +1,15 @@
 # Project context — 2026-10-13
 
+Human target change —2026-10-21: Nicolás rejects Cata's camera for continued
+use and requests uninstalling WiggleControl there and moving the trial to Legion.
+Cata's last recorded calibration reached upper-right review but timed out without
+verification or Save; it is not an accepted calibration. Cata is no longer a
+pending physical-test target. Retain its camera-free baseline and private trial
+evidence; qualify Legion's actual GPU renderer, camera and desktop independently.
+Legion staging is pending receiving SSH account confirmation. This supersedes
+earlier instructions to repeat the Cata calibration.
+
+
 Hardware comparison —2026-10-21: Nicolás offers Cata and Legion for matched
 performance/physical trials. Source80cf8a5's camera-free ten-second recorded
 replay on Cata completed107/107 hand frames without drops: inference median22.2ms,

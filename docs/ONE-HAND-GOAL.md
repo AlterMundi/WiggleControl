@@ -24,7 +24,9 @@ retroactively completed.
   behavior, pinned/licensed assets, upgrade/uninstall/rollback and a tagged GitHub
   prerelease with honest supported environments and limits.
 - Initial physical scope is Pi 5/labwc/Wayland. Prepare/test Linux x86-64 on the
-  offered ThinkPad with its actual resources and coordinated human readiness.
+  offered Legion with its actual resources and coordinated human readiness.
+  On2026-10-21 the human withdrew Cata because of its camera quality; preserve
+  its measurements/recordings, uninstall there, and continue qualification on Legion.
   Windows/macOS and multipoint remain later work.
 
 ## Implementation judgment and retained work

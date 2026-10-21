@@ -14,12 +14,21 @@ feedback must remain separate from the detector; video/skeleton rendering is
 not required for mouse use.
 
 Initial physical qualification uses the existing Raspberry Pi 5/labwc/Wayland
-single 1080p environment. Nicolás offers the ThinkPad for the Linux x86-64
-qualification: prepare a matching artifact/install path, then record its actual
-hardware, distribution, desktop, camera and GPU/backend behavior. Do not infer
-camera access, immediate desktop availability or the exact ThinkPad model from
+single 1080p environment. The current human-selected Linux x86-64 target is
+Legion, replacing Cata on2026-10-21. Prepare a matching artifact/install path,
+then record its actual hardware, distribution, desktop, camera and GPU/backend
+behavior. Do not infer camera access or immediate desktop availability from
 this offer. Qualify a clean standalone installation, not only a prepared host.
 Only list platform combinations supported by observed results in the release.
+
+Human target change —2026-10-21: Nicolás rejects Cata's camera for continued
+use and requests uninstalling WiggleControl there and moving the trial to Legion.
+Cata's last recorded calibration reached upper-right review but timed out without
+verification or Save; it is not an accepted calibration. Cata is no longer a
+pending physical-test target. Retain its camera-free baseline and private trial
+evidence; qualify Legion's actual GPU renderer, camera and desktop independently.
+Legion staging is pending receiving SSH account confirmation. This supersedes
+earlier instructions to repeat the Cata calibration.
 
 The existing selected beta uses a headless Chromium GPU detector with Rust
 gesture interpretation and Linux input delivery. Reuse that working path and
@@ -68,7 +77,7 @@ Linux build does not establish Windows or macOS support.
 | --- | --- | --- |
 | 1 | Complete button selection, natural double click, gesture scroll and one-shot Escape; select nonconflicting bindings | [#10](https://github.com/AlterMundi/WiggleControl/issues/10) |
 | 2 | Integrate held detail into the actual calibrated absolute path; stable rest, small motion and action-boundary transitions | [#11](https://github.com/AlterMundi/WiggleControl/issues/11) |
-| 3 | Standalone Linux installation/launch/rollback, selected GPU assets and independent configuration; ARM64 and offered ThinkPad x86-64 qualification | [#12](https://github.com/AlterMundi/WiggleControl/issues/12) |
+| 3 | Standalone Linux installation/launch/rollback, selected GPU assets and independent configuration; ARM64 and offered Legion x86-64 qualification | [#12](https://github.com/AlterMundi/WiggleControl/issues/12) |
 | 4 | Integrated application/human qualification, measured software performance and honest current documentation/prerelease | [#13](https://github.com/AlterMundi/WiggleControl/issues/13) |
 | Dependency | Actual normal-user input readiness after a coordinated boot, without capture | [#4](https://github.com/AlterMundi/WiggleControl/issues/4) |
 | Dependency | Resolve or explicitly disposition the finite-trial Frame rejection from observed evidence | [#9](https://github.com/AlterMundi/WiggleControl/issues/9) |

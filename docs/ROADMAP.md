@@ -11,13 +11,20 @@ and Windows/macOS ports remain later work.
 Exploratory product concepts, including infrared operation with optional passive
 wearables, are retained in [IDEAS.md](IDEAS.md).
 
-Next performance experiment —2026-10-21: compare Cata and Legion using the same
-source/model/configuration and retained clip, then physical calibration/desktop
-use on each with fresh readiness. Separate actual GPU inference, CPU/transport,
-observation cadence and cursor filtering. Cata's first camera-free measurement
-is retained in [GPU-CALIBRATION.md](GPU-CALIBRATION.md#matched-hardware-comparison--2026-10-21);
-Legion staging/measurement remains pending. Faster hardware is a measured
-comparison, not a prerequisite for completing the existing Cata calibration.
+Performance experiment —2026-10-21: Cata's camera-free baseline is retained in
+[GPU-CALIBRATION.md](GPU-CALIBRATION.md#matched-hardware-comparison--2026-10-21).
+Next run the same source/model/configuration and retained clip on Legion, then
+qualify its physical camera/desktop with fresh readiness. Separate actual GPU
+inference, CPU/transport, observation cadence and cursor filtering.
+
+Human target change —2026-10-21: Nicolás rejects Cata's camera for continued
+use and requests uninstalling WiggleControl there and moving the trial to Legion.
+Cata's last recorded calibration reached upper-right review but timed out without
+verification or Save; it is not an accepted calibration. Cata is no longer a
+pending physical-test target. Retain its camera-free baseline and private trial
+evidence; qualify Legion's actual GPU renderer, camera and desktop independently.
+Legion staging is pending receiving SSH account confirmation. This supersedes
+earlier instructions to repeat the Cata calibration.
 
 The opt-in [held-detail implementation](DETAIL.md) modifies calibrated absolute
 motion independently of left/right buttons. A separate sourcef21a48b Pi trial
@@ -46,7 +53,7 @@ the new human-requested goal after the old goal was cleared. The broader touchsc
 and dated implementation/receiving checkpoints below remain historical evidence,
 not additional gates on this Linux preview.
 
-Updated 2026-10-19. This is the current development entry point. The original
+Updated 2026-10-21. This is the current development entry point. The original
 six-milestone design remains in [DEVELOPMENT.md](DEVELOPMENT.md); dated receiving
 evidence remains in [QUALIFICATION.md](QUALIFICATION.md) and human acceptance in
 [ACCEPTANCE.md](ACCEPTANCE.md). [CONTEXT.md](CONTEXT.md) preserves history.

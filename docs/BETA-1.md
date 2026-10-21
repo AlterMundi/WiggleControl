@@ -1,5 +1,18 @@
 # Beta 1 — one-hand desktop control
 
+Current Linux preview —2026-10-21: use [the standalone quickstart](PREVIEW-QUICKSTART.md)
+for current installation and [CONTEXT.md](CONTEXT.md) for source/receiving evidence.
+Normal mouse use, hand trials and calibration default to video off; explicitly
+requested finite datasets follow [RECORDING.md](RECORDING.md). The detail-drag
+correction is merged through #16. Follow-up #17 separates input startup from
+optional recording and reports actual video state; its ae67f77 source passes all
+four CI jobs. Receiving adoption and a new physical test remain pending.
+
+The dated Pi increments below retain historical behavior, configurations and
+measurements. They do not select current gesture bindings, resource availability
+or recording policy; the current controls list the configured gestures.
+
+
 Source-only two-finger candidate —2026-10-18: [mouse actions](MOUSE-ACTIONS.md)
 now connect thumb/index to left and thumb/middle to right under explicit
 controller `right_click:true`, default false. Matching finger metrics, selected
@@ -74,7 +87,8 @@ Losing the detector's frame requests/results for five seconds now ends capture
 and input through the existing cleanup. This is separate from hand loss and its
 shorter cursor/held-input rules. An absent hand with a connected detector keeps
 the session usable. Manual standby stays indefinite; no automatic restart or
-startup capture is added. Private recording remains enabled for human trials.
+startup capture is added. This historical increment enabled trial recording;
+the current policy above supersedes that default.
 
 This increment follows human feedback that the latest calibration was precise
 and comfortable but felt slow. Closing the old combined view killed its detector
@@ -94,7 +108,8 @@ and WG1 remain rollback; the verified workspace and gesture settings are unchang
 
 The independent controls are ready for fresh human Start. The control window can
 be closed after starting; reopening it through `tools/mouse_launcher.py open`
-does not restart the detector or held input. Private recording remains enabled.
+does not restart the detector or held input. Recording was enabled in that
+historical receiving increment; current normal use defaults to video off.
 Physical comfort and comparative performance in this mode remain untested.
 Removing preview work is not evidence that inference or end-to-end latency improved.
 
@@ -103,7 +118,8 @@ Removing preview work is not evidence that inference or end-to-end latency impro
 The receiving dashboard entry opens the beta's feedback/control view. The manual
 server can wait idle; it opens no model, camera, recorder or virtual device until
 the human presses **Start Beta1**. Startup warms the graph on a separately labelled
-public synthetic image. Private recording and actual camera/input begin afterward.
+public synthetic image. Actual camera/input begin afterward. Current video
+recording remains off unless an explicit finite dataset sample was requested.
 The preparation deadline starts on Start, not when the idle page was opened.
 
 Use the desktop with the feedback window retained/minimized. Pause disables input

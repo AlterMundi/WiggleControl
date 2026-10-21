@@ -14,8 +14,10 @@ cheap status endpoint. Controls distinguish Video off, Video recording and unkno
 instead of inferring recording from an open camera. Its regression reproduced the
 old false Recording locally label, then checks off/on/unknown and terminal retention.
 The qualification page uses configured gesture bindings and labels its counter
-as drag releases rather than claiming completed tasks. Full CI and receiving
-qualification remain separate. Legion is currently unreachable by SSH through
+as drag releases rather than claiming completed tasks. All four CI jobs39597712920 pass on source ae67f77, including native tests,
+Clippy, installation fixture and both package builds. Updated packaged guidance
+also supersedes historical always-recording instructions. Receiving qualification
+remains separate. Legion is currently unreachable by SSH through
 the established VPN route; no camera/source restart or update was attempted.
 
 

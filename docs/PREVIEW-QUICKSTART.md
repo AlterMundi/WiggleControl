@@ -137,5 +137,5 @@ here purges that data, starts capture at boot or requires Matrix/integrators.
 
 The pending [release acceptance](LINUX-PREVIEW.md#release-acceptance) includes real
 calibration/desktop tasks, post-boot input readiness, clean standalone installation,
-ThinkPad, measured resources/comfort and source-bound tagged artifacts. A passed
+Linux x86-64, measured resources/comfort and source-bound tagged artifacts. A passed
 camera-free preparation chain does not establish those outcomes.

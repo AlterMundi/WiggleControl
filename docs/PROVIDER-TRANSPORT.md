@@ -157,7 +157,7 @@ wigglecontrol provider-camera SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG 
 Preflight validates the matched policy, pinned assets and synthetic JPEG without
 opening a listener, camera, recorder or input device. It does not establish camera
 availability, writer permissions or physical accuracy. Duration must be1..90seconds;
-recording_directory is required. MAX_HANDS is explicit1/2 for the entire session.
+recording_directory is optional unless a finite dataset sample is explicitly enabled; see [recording policy](RECORDING.md). MAX_HANDS is explicit1/2 for the entire session.
 The live command requires a fresh human ready acknowledgment after receiving
 preparation; --inject additionally enables the existing system writer for that
 coordinated desktop trial. Omitting it retains local meaning/feedback only.
@@ -167,9 +167,9 @@ preflight. Original native workflows remain supported.
 The owned `/provider/view` warms the graph only through `/provider/warmup`, an
 explicit selected synthetic JPEG with its own response marker. It never warms on
 the current preview/camera image. Only after worker-ready does the producer start
-640×480 MJPEG/30 capture with the existing driver-monotonic timestamp validation
-and private recorder. Every captured raw frame is recorded before the latest
-mailbox can drop it; publication/kernel-frame counts and drops remain distinct.
+640×480 MJPEG/30 capture with the existing driver-monotonic timestamp validation. Only an explicitly
+requested finite dataset sample records raw frames before the latest mailbox
+can drop them; ordinary operation and calibration do not record video; publication/kernel-frame counts and drops remain distinct.
 The worker consumes the latest available frame when ready, rather than applying
 the legacy synchronous config.fps throttle. No driver timestamp is replaced by
 browser, receipt or decode time. Independent camera and writer deadlines bound

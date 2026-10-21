@@ -69,7 +69,8 @@ def preflight(spec):
     if not (proof.get('preflight')=='ok' and proof.get('manual_start') is True and
             proof.get('trial_seconds')==spec['seconds'] and proof.get('until_stop') is False and
             proof.get('camera_opened') is False and proof.get('system_input') is False and
-            proof.get('acquisition_started') is False and proof.get('recording_configured') is True and
+            proof.get('acquisition_started') is False and type(proof.get('recording_configured')) is bool and
+            (proof['recording_configured'] is False or spec['seconds'] <= 30) and
             proof.get('absolute_pointer') is True and proof.get('max_hands')==1):
         raise ValueError('Selected provider did not confirm the manual finite no-acquisition contract')
     return proof

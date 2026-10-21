@@ -60,7 +60,7 @@ class TrialTests(unittest.TestCase):
     def test_automatic_or_unbounded_native_preflight_is_not_accepted_as_manual_finite(self):
         proof={'preflight':'ok','manual_start':False,'trial_seconds':45,'until_stop':False,
                'camera_opened':False,'system_input':False,'acquisition_started':False,
-               'recording_configured':True,'absolute_pointer':True,'max_hands':1}
+               'recording_configured':False,'absolute_pointer':True,'max_hands':1}
         spec={'binary':'/selected','session':'/session','settings':'/settings','assets':'/assets',
               'warmup':'/warmup','seconds':45,'port':8876}
         result=subprocess.CompletedProcess([],0,json.dumps(proof),'')

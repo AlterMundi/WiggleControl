@@ -54,11 +54,13 @@ for readiness while still building or leave them waiting after they reply.
 Timed trials must show a conspicuous running indicator and producer-tied
 countdown, with terminal state and retained result on completion.
 
-Nicolás requested on2026-10-14 that every human gesture trial retain video for
-offline iteration. Use the selected private recording-enabled trial config;
-keep raw frames/timestamps, predictions and human labels separate. This does
-not authorize startup capture or waive fresh human ready for a finite trial.
-Recordings stay outside Git; do not substitute predicted states for annotation.
+Nicolás superseded automatic trial video retention on 2026-10-21 after an
+unbounded recording exhausted Legion storage. Ordinary use and calibration must
+not record video by default. Capture dataset samples only on explicit request:
+finite maximum 30 seconds, 256 MiB per take, 2 GiB per recording directory and
+2 GiB filesystem free-space reserve. Directory configuration alone is not opt-in.
+Preserve only retained footage linked to concrete code tests when doing authorized
+cleanup; keep private recordings outside Git. Do not restart stopped acquisition.
 
 Nicolás explicitly selected manual continuous usage on2026-10-14: when the human
 requests input until they say to exit, use the named until-stop session/renderer

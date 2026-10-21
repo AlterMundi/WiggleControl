@@ -82,7 +82,8 @@ fn fresh_preview_uses_explicit_resources_and_keeps_tuning_through_calibration_im
     );
     let report: Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(report["calibrated"], false);
-    assert_eq!(report["recording_configured"], true);
+    assert_eq!(report["recording_configured"], false);
+
     for field in [
         "camera_opened",
         "system_input",
@@ -98,6 +99,7 @@ fn fresh_preview_uses_explicit_resources_and_keeps_tuning_through_calibration_im
     let session = value(&output.join("session.json"));
     let settings = value(&output.join("settings.json"));
     assert_eq!(session["camera"], "/fictional/unavailable-camera");
+    assert_eq!(session["recording_enabled"], false);
     assert_eq!(session["recording_directory"], recordings.to_str().unwrap());
     assert_eq!(session["pointer_output"], json!([1920, 1080]));
     assert_eq!(session["pinch_3d"], false);

@@ -3,10 +3,94 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
+    os::fd::AsRawFd,
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 pub const MAX_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Dataset samples are explicit, finite and small; ordinary input never records.
+pub const MAX_TAKE_BYTES: u64 = 256 * 1024 * 1024;
+pub const MAX_DIRECTORY_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+pub const MIN_FREE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+struct Budget {
+    used: u64,
+    remaining: u64,
+    began: Instant,
+    directory: File,
+    exhausted: bool,
+}
+impl Budget {
+    fn check(&mut self, requested: u64, available: u64) -> io::Result<()> {
+        if self.exhausted
+            || requested > self.remaining
+            || self.used.saturating_add(requested) > MAX_TAKE_BYTES
+            || available < MIN_FREE_BYTES.saturating_add(requested)
+            || self.began.elapsed() >= Duration::from_secs(30)
+        {
+            self.exhausted = true;
+            return Err(io::Error::other("dataset recording stopped: duration, storage budget or free-space reserve reached; retained data preserved"));
+        }
+        Ok(())
+    }
+    fn available(&self) -> io::Result<u64> {
+        let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // The live directory FD selects the actual recording filesystem.
+        if unsafe { libc::fstatvfs(self.directory.as_raw_fd(), stat.as_mut_ptr()) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let stat = unsafe { stat.assume_init() };
+        u64::try_from(u128::from(stat.f_bavail) * u128::from(stat.f_frsize))
+            .map_err(io::Error::other)
+    }
+}
+/// Shares the take/directory budget across video, frame index and observations.
+pub struct Output {
+    file: File,
+    budget: Arc<Mutex<Budget>>,
+}
+impl Write for Output {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let mut budget = self
+            .budget
+            .lock()
+            .map_err(|_| io::Error::other("recording budget unavailable"))?;
+        let available = budget.available()?;
+        budget.check(bytes.len() as u64, available)?;
+        let written = self.file.write(bytes)?;
+        budget.used += written as u64;
+        budget.remaining -= written as u64;
+        Ok(written)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+fn retained_bytes(root: &Path) -> io::Result<u64> {
+    let mut bytes = 0u64;
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for item in fs::read_dir(dir)? {
+            let item = item?;
+            let metadata = item.path().symlink_metadata()?;
+            if metadata.is_dir() {
+                pending.push(item.path());
+            } else if metadata.is_file() {
+                bytes = bytes.saturating_add(metadata.len());
+            } else {
+                return Err(io::Error::other(
+                    "recording store contains unsupported entry",
+                ));
+            }
+            if bytes >= MAX_DIRECTORY_BYTES {
+                return Ok(bytes);
+            }
+        }
+    }
+    Ok(bytes)
+}
 
 /// Encode before touching an unbuffered file/pipe: serde's streaming serializer
 /// otherwise turns the JSON fields into many separate writes on the hot path.
@@ -113,8 +197,8 @@ impl Reader {
 pub struct Frames {
     dir: PathBuf,
     segment: u32,
-    video: File,
-    index: File,
+    video: Output,
+    index: Output,
     offset: u64,
     last: Option<u64>,
 }
@@ -129,17 +213,41 @@ pub fn create(
     base: &Path,
     stamp: u64,
     manifest: &serde_json::Value,
-) -> io::Result<(Frames, File, PathBuf)> {
+) -> io::Result<(Frames, Output, PathBuf)> {
     fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
         .create(base)?;
+    let directory = File::open(base)?;
+    // Held for the whole recording lifetime; two takes cannot spend the same budget.
+    if unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err(io::Error::other(
+            "recording store already has an active take",
+        ));
+    }
+    let existing = retained_bytes(base)?;
+    let mut budget = Budget {
+        used: 0,
+        remaining: MAX_DIRECTORY_BYTES.saturating_sub(existing),
+        began: Instant::now(),
+        directory,
+        exhausted: false,
+    };
+    let available = budget.available()?;
+    budget.check(1, available)?;
+    let budget = Arc::new(Mutex::new(budget));
+    let output = |path: &Path| -> io::Result<Output> {
+        Ok(Output {
+            file: private_file(path)?,
+            budget: budget.clone(),
+        })
+    };
     let dir = base.join(format!("trial-{stamp}-{}", std::process::id()));
     fs::DirBuilder::new().mode(0o700).create(&dir)?;
-    let video = private_file(&dir.join("video.mjpeg"))?;
-    let index = private_file(&dir.join("frames.jsonl"))?;
-    let observations = private_file(&dir.join("observations.jsonl"))?;
-    serde_json::to_writer_pretty(private_file(&dir.join("manifest.json"))?, manifest)?;
+    let video = output(&dir.join("video.mjpeg"))?;
+    let index = output(&dir.join("frames.jsonl"))?;
+    let observations = output(&dir.join("observations.jsonl"))?;
+    serde_json::to_writer_pretty(output(&dir.join("manifest.json"))?, manifest)?;
     Ok((
         Frames {
             dir: dir.clone(),
@@ -154,6 +262,16 @@ pub fn create(
     ))
 }
 impl Frames {
+    pub fn metadata(&self, name: &str, bytes: &[u8]) -> io::Result<()> {
+        if !matches!(name, "config.json" | "controller-settings.json") || bytes.len() > 64 * 1024 {
+            return Err(io::Error::other("invalid recording metadata"));
+        }
+        Output {
+            file: private_file(&self.dir.join(name))?,
+            budget: self.video.budget.clone(),
+        }
+        .write_all(bytes)
+    }
     pub fn append(&mut self, bytes: &[u8], source_us: u64, sequence: u32) -> io::Result<()> {
         if bytes.is_empty()
             || bytes.len() > 2 * 1024 * 1024
@@ -166,7 +284,10 @@ impl Frames {
                 .segment
                 .checked_add(1)
                 .ok_or_else(|| io::Error::other("recording segment overflow"))?;
-            self.video = private_file(&self.dir.join(format!("video-{}.mjpeg", self.segment)))?;
+            self.video = Output {
+                file: private_file(&self.dir.join(format!("video-{}.mjpeg", self.segment)))?,
+                budget: self.video.budget.clone(),
+            };
             self.offset = 0;
         }
         self.video.write_all(bytes)?;
@@ -185,6 +306,45 @@ impl Frames {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dataset_budget_is_shared_latched_and_checks_free_reserve_and_duration() {
+        let base = std::env::temp_dir().join(format!("wiggle-budget-{}", std::process::id()));
+        let (mut frames, mut observations, dir) =
+            create(&base, 31, &serde_json::json!({})).unwrap();
+        let budget = frames.video.budget.clone();
+        budget.lock().unwrap().used = MAX_TAKE_BYTES - 2;
+        let before = fs::read(dir.join("observations.jsonl")).unwrap();
+        assert!(observations.write_all(b"too much").is_err());
+        assert!(frames.append(b"x", 100, 1).is_err());
+        assert_eq!(fs::read(dir.join("observations.jsonl")).unwrap(), before);
+        assert_eq!(fs::metadata(dir.join("video.mjpeg")).unwrap().len(), 0);
+        assert!(create(&base, 32, &serde_json::json!({})).is_err());
+        let mut guard = budget.lock().unwrap();
+        guard.exhausted = false;
+        guard.used = 0;
+        assert!(guard.check(2, MIN_FREE_BYTES + 1).is_err());
+        guard.exhausted = false;
+        guard.began = Instant::now() - Duration::from_secs(31);
+        assert!(guard.check(1, u64::MAX).is_err());
+        drop(guard);
+        drop(budget);
+        drop(frames);
+        drop(observations);
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[test]
+    fn full_dataset_store_refuses_new_take_without_deleting_retained_evidence() {
+        let base = std::env::temp_dir().join(format!("wiggle-store-budget-{}", std::process::id()));
+        fs::create_dir_all(&base).unwrap();
+        let retained = base.join("retained.mjpeg");
+        let file = private_file(&retained).unwrap();
+        file.set_len(MAX_DIRECTORY_BYTES).unwrap();
+        assert!(create(&base, 33, &serde_json::json!({})).is_err());
+        assert_eq!(fs::metadata(retained).unwrap().len(), MAX_DIRECTORY_BYTES);
+        assert_eq!(fs::read_dir(&base).unwrap().count(), 1);
+        fs::remove_dir_all(base).unwrap();
+    }
 
     struct Counting<W> {
         inner: W,

@@ -930,7 +930,7 @@ struct RunOptions<'a> {
 }
 struct Journal<'a> {
     stdout: std::io::StdoutLock<'a>,
-    recording: Option<std::fs::File>,
+    recording: Option<crate::recording::Output>,
 }
 impl Journal<'_> {
     fn emit(&mut self, value: Value) -> io::Result<()> {
@@ -993,9 +993,6 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         Source::Recorded { reader, .. } => Some(reader.rows()[0].source_us),
         _ => None,
     };
-    if camera_source && config.recording_directory.is_none() {
-        return Err("camera worker trials require private recording_directory".into());
-    }
     let (mut frames, duration, mut playback, dimensions) = match source {
         Source::Fixture { frames, duration } => (frames, duration, None, [640, 480]),
         Source::Camera { seconds, .. } => (
@@ -1012,6 +1009,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         } => (Vec::new(), duration, Some((reader, indices)), dimensions),
     };
     let until_stop = camera_source && duration == 0;
+    if camera_source {
+        config.validate_recording((!until_stop).then_some(duration / 1_000_000))?;
+    }
     let mut bridge = Bridge::new(
         assets(asset_root)?,
         config.gestures().stale_us,
@@ -1038,7 +1038,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         println!(
             "{}",
             json!({"preflight":"ok","camera_resolution":dimensions,"camera_opened":false,"system_input":false,"calibration":calibration.is_some(),
-            "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_directory.is_some(),"max_hands":max_hands,
+            "until_stop":until_stop,"manual_start":manual_start,"trial_seconds":bridge.trial_seconds,"absolute_pointer":config.provider_absolute_pointer,"recording_configured":config.recording_enabled && config.recording_directory.is_some(),"max_hands":max_hands,
             "model_sha256":MODEL,"presence_floor":presence_floor,"presence_scores":config.provider_presence_scores,"detail":controller.detail_config(),"escape":controller.escape_config(),"scroll":controller.scroll_config(),"right_click":controller.right_click_enabled(),"right_click_dominance_ratio":controller.right_click_dominance_ratio(),"visual_macros":controller.visual_policy().is_some(),"input_requested":inject,"acquisition_started":false})
         );
         return Ok(());
@@ -1157,7 +1157,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     .as_ref()
                     .is_none_or(|c| c.lock().unwrap().running())
             {
-                let recording_frames = if camera_source {
+                let recording_frames = if camera_source && config.recording_enabled {
                     let base = Path::new(config.recording_directory.as_ref().unwrap());
                     let (frames, observations, dir) = crate::recording::create(
                         base,
@@ -1172,8 +1172,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         ("config.json", session),
                         ("controller-settings.json", settings),
                     ] {
-                        crate::recording::private_file(&dir.join(name))?
-                            .write_all(&fs::read(path)?)?;
+                        frames.metadata(name, &fs::read(path)?)?;
                     }
                     fs::write(
                         base.join("last-recording.path"),
@@ -1608,6 +1607,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         s.camera_opened = false;
         s.writer_reaped = writer_reaped;
     }
+    // Capture is joined and input released. Keep terminal diagnostics available
+    // on stdout even when the dataset budget (or its filesystem) is exhausted.
+    journal.recording = None;
     let mut terminal = metadata(&config, &final_state, &feedback, monotonic_us()?, 0, true);
     terminal["active"] = false.into();
     terminal["trial_seconds"] = bridge.trial_seconds.into();
@@ -2218,13 +2220,25 @@ mod tests {
     }
 
     #[test]
-    fn camera_policy_rejects_missing_recording_before_loading_assets_or_starting_io() {
+    fn old_directory_only_config_does_not_enable_recording_and_opt_in_is_finite() {
+        let mut config: SessionConfig = serde_json::from_value(json!({"camera":"/not-acquired",
+            "fps":10,"gain":2000,"recording_directory":"/not-created"}))
+        .unwrap();
+        assert!(!config.recording_enabled);
+        assert!(config.validate_recording(None).is_ok());
+        config.recording_enabled = true;
+        assert!(config.validate_recording(None).is_err());
+        assert!(config.validate_recording(Some(31)).is_err());
+        assert!(config.validate_recording(Some(30)).is_ok());
+    }
+    #[test]
+    fn explicit_dataset_rejects_missing_directory_before_loading_assets_or_starting_io() {
         let root =
             std::env::temp_dir().join(format!("wiggle-camera-policy-{}", std::process::id()));
         fs::create_dir(&root).unwrap();
         let session = root.join("session.json");
         let settings = root.join("settings.json");
-        fs::write(&session, br#"{"camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded","fps":10,"gain":2000,"gesture_min_confidence":0.5}"#).unwrap();
+        fs::write(&session, br#"{"camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded","fps":10,"gain":2000,"gesture_min_confidence":0.5,"recording_enabled":true}"#).unwrap();
         let config = SessionConfig::load(&session).unwrap();
         fs::write(
             &settings,
@@ -2249,7 +2263,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("require private recording_directory"));
+            .contains("dataset recording requires"));
         fs::remove_dir_all(root).unwrap();
     }
     #[test]

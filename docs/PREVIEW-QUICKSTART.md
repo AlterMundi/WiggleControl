@@ -92,7 +92,7 @@ python3 tools/manage_preview_launcher.py open mouse
 
 `--seconds 0` explicitly selects use until Stop. A new finite trial can instead
 select1..90 seconds; idle preparation does not consume its acquisition clock.
-Only Start prepares the detector and opens camera/recording/input. Closing the
+Only Start prepares the detector and opens camera/input. Video recording is off by default. Closing the
 control window does not stop the independent detector; reopen with `open mouse`.
 Use the page's Stop or the following scoped command to end it:
 
@@ -110,13 +110,12 @@ remain available independently.
 
 ## Recording, updates and removal
 
-The current experimental camera path requires explicit private recording, for
-both calibration and mouse use. Start records camera JPEGs/timestamps and retained
-controller evidence under the chosen directory; no microphone or upload is used.
-Use a private storage location with capacity for the selected session. Continuous
-sessions rotate512MiB segments; rotation is not a total-retention limit. Stop
-closes capture, but recordings remain until intentionally removed. Predictions
-in journals are not human intent labels. Config preparation itself records nothing.
+Video is off by default for calibration, finite trials and ordinary/until-Stop
+mouse use. Existing recording_directory settings alone do not enable it. Explicit
+small dataset samples require recording_enabled=true and a finite 1..30-second
+trial, with 256 MiB per take, 2 GiB store and 2 GiB free-space reserve. Limits use
+existing session-error cleanup; samples are never silently deleted. See
+[recording policy](RECORDING.md). Predictions are not human intent labels.
 
 Prepare every update as a new bundle with the same installation name and retained
 old artifact/configuration paths. Do not edit hash-bound version inputs in place.

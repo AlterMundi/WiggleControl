@@ -57,8 +57,10 @@ The session may explicitly select `"camera_resolution": [1920, 1080]` before
 preparing its hash-bound launcher. Omitted resolution preserves640x480 for
 existing installations. Supported dimensions are16..1920 by16..1080; the selected
 camera must accept that exact MJPEG format. Unsupported negotiation is an error,
-never a silent resize or an upscaled low-resolution image. Capture remains30FPS;
-`fps` controls the10..20Hz processing cadence independently.
+never a silent resize or an upscaled low-resolution image. Capture requests30FPS; measure actual driver timestamps rather than assuming
+that rate is achieved. The native inference path uses `fps` for its10..20Hz
+processing cadence. The browser provider consumes the latest available frame
+with one inference in flight; its actual cadence depends on capture and processing.
 
 These capture dimensions are distinct from `pointer_output`, which describes the
 selected display. Browser frame leases, landmark geometry, preview metadata and

@@ -100,7 +100,7 @@ void(async()=>{
   try{await run();}
   catch(error){window.wiggleProviderResult={state:'error',error:String(error)};
     text('capture-status','Provider error · '+error.message);
-    try{await post('/provider/stop');}catch{}
+    try{await post('/provider/stop',{worker_error:String(error).slice(0,512)});}catch{}
   }finally{
     let acknowledged=false;
     try{if(model){await model.close();acknowledged=true;}}

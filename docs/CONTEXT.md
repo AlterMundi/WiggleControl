@@ -1,4 +1,22 @@
-# Project context — 2026-10-13
+# Project context — 2026-10-21
+
+Latest receiving —2026-10-21: sourcef912990 passes all four jobs in
+CI39581049723. Both complete ARM64/x86 packages pass external SHA256 and all250
+file/mode checks; Legion independently verified and installed the x86 package.
+Its separate C920e configuration requests native1920x1080 with a headless worker
+selected through the existing RTX desktop route. The human manually started it:
+589 retained frames have actual1920x1080 JPEG headers, with no system input.
+Calibration stopped at the second diagonal without Save; no accepted profile
+was replaced. Terminal error is only "provider worker requested cancellation";
+the originating browser exception was not retained by that version.
+
+Follow-up: retire HTTP frame leases before joining the camera thread, while
+reporting camera closure only after the join. A250ms close wait can exceed the
+200ms meaning-receipt deadline; this is a concrete race in that ordering, not
+proof of this physical run's original browser exception. A regression exercises
+that boundary. Worker cancellation now carries its bounded run-scoped diagnostic
+to the source terminal/journal. Follow-up validation and deployment remain open.
+Nicolás closed the failed window and requests notification before repeating.
 
 Full HD/RTX increment —2026-10-21: Nicolás requests recalibration with the C920e,
 then explicitly corrects the retained640x480 capture and asks for native Full HD
@@ -8,10 +26,9 @@ through format negotiation, leases, geometry, preview, recording and replay;
 old configurations retain640x480. All257 native Rust tests pass locally, including
 the native1920x1080 JPEG/lease, configuration import and late-Hold regressions;
 calibration JavaScript and all eight launcher preparation tests also pass.
-Native all-target Clippy also passes with warnings denied. Source-bound CI
-packaging and Full HD receiving deployment remain pending. Nicolás is using
-Legion for a game; continue off-host and wait for his return before desktop,
-camera or GPU work there.
+Native all-target Clippy also passes with warnings denied. Those results belong
+to sourcef912990; the receiving attempt and newer follow-up are described above.
+The human deferred booting his game and authorized this immediate Legion test.
 
 On source80cf8a5, a camera-free headless check with the existing desktop GPU
 selector processed31 recorded frames without browser drops and reported NVIDIA

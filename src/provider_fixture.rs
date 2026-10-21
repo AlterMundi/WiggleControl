@@ -42,6 +42,7 @@ struct State {
     preparing: Option<Instant>,
     ready: bool,
     cancelled: bool,
+    worker_error: Option<String>,
     stop_requested: bool,
     calibration_retry_requested: bool,
     closed: bool,
@@ -228,6 +229,16 @@ impl Bridge {
         s.last_issued = s.captured;
         self.changed.notify_all();
     }
+    fn retire_calibration_frames(&self) {
+        let mut s = self.state.lock().unwrap();
+        // End HTTP leases before joining a capture thread that may still be
+        // polling. Its receipt deadline must not turn normal closure into503.
+        s.latest = None;
+        s.lease = None;
+        s.submission = None;
+        s.last_issued = s.captured;
+        self.changed.notify_all();
+    }
 }
 impl Extension for Bridge {
     fn handles(&self, path: &str) -> bool {
@@ -352,6 +363,7 @@ impl Extension for Bridge {
                     run_id: String,
                     #[serde(default)]
                     graceful: bool,
+                    worker_error: Option<String>,
                 }
                 let run: Run = match serde_json::from_slice(body) {
                     Ok(v) => v,
@@ -369,6 +381,17 @@ impl Extension for Bridge {
                     return Ok(reply(
                         "400 Bad Request",
                         json!({"error":"graceful applies only to Stop"}),
+                    ));
+                }
+                if run.worker_error.as_ref().is_some_and(|error| {
+                    path != "/provider/stop"
+                        || run.graceful
+                        || error.is_empty()
+                        || error.chars().count() > 512
+                }) {
+                    return Ok(reply(
+                        "400 Bad Request",
+                        json!({"error":"bounded worker failure applies only to cancellation"}),
                     ));
                 }
                 if path == "/provider/prepare" {
@@ -410,7 +433,11 @@ impl Extension for Bridge {
                 } else if run.graceful {
                     self.state.lock().unwrap().stop_requested = true;
                 } else {
-                    self.state.lock().unwrap().cancelled = true;
+                    let mut state = self.state.lock().unwrap();
+                    state.cancelled = true;
+                    if state.worker_error.is_none() {
+                        state.worker_error = run.worker_error;
+                    }
                 }
                 self.changed.notify_all();
                 Ok(reply("200 OK", json!({"accepted":true})))
@@ -1068,7 +1095,11 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             {
                 let state = bridge.state.lock().unwrap();
                 if state.cancelled {
-                    return Err("provider worker requested cancellation".into());
+                    return Err(match &state.worker_error {
+                        Some(error) => format!("provider worker requested cancellation: {error}"),
+                        None => "provider worker requested cancellation".into(),
+                    }
+                    .into());
                 }
                 if state.stop_requested {
                     break;
@@ -1099,6 +1130,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 };
                 if close_camera {
                     capture_stop.store(true, Ordering::Relaxed);
+                    bridge.retire_calibration_frames();
                     if let Some(p) = producer.take() {
                         p.join()
                             .map_err(|_| "calibration camera producer panicked")?;
@@ -1898,6 +1930,58 @@ mod tests {
         assert!(s.cancelled && !s.stop_requested);
     }
     #[test]
+    fn worker_failure_detail_is_bounded_run_scoped_and_retained() {
+        let b = Bridge::new(BTreeMap::new(), 300_000, "failed".into(), 1);
+        for (path, body, status) in [
+            (
+                "/provider/stop",
+                json!({"run_id":"other","worker_error":"wrong run"}),
+                "409 Conflict",
+            ),
+            (
+                "/provider/ready",
+                json!({"run_id":"failed","worker_error":"wrong action"}),
+                "400 Bad Request",
+            ),
+            (
+                "/provider/stop",
+                json!({"run_id":"failed","graceful":true,"worker_error":"wrong reason"}),
+                "400 Bad Request",
+            ),
+            (
+                "/provider/stop",
+                json!({"run_id":"failed","worker_error":"x".repeat(513)}),
+                "400 Bad Request",
+            ),
+        ] {
+            assert_eq!(
+                b.respond("POST", path, body.to_string().as_bytes())
+                    .unwrap()
+                    .status,
+                status
+            );
+            assert!(!b.state.lock().unwrap().cancelled);
+        }
+        let detail = "Meaning receipt rejected: meaning receipt delayed";
+        assert_eq!(
+            b.respond(
+                "POST",
+                "/provider/stop",
+                json!({"run_id":"failed","worker_error":detail})
+                    .to_string()
+                    .as_bytes()
+            )
+            .unwrap()
+            .status,
+            "200 OK"
+        );
+        b.respond("POST", "/provider/stop", br#"{"run_id":"failed"}"#)
+            .unwrap();
+        let state = b.state.lock().unwrap();
+        assert!(state.cancelled && !state.stop_requested);
+        assert_eq!(state.worker_error.as_deref(), Some(detail));
+    }
+    #[test]
     fn lightweight_control_status_has_no_preparation_countdown_and_retains_terminal_truth() {
         let mut bridge = Bridge::new(BTreeMap::new(), 300_000, "control".into(), 1);
         bridge.manual_start = true;
@@ -2260,6 +2344,7 @@ mod tests {
     #[test]
     fn calibration_closure_expires_an_inflight_result_without_failing_the_worker() {
         let b = bridge();
+        b.state.lock().unwrap().camera_opened = true;
         b.respond("POST", "/provider/ready", br#"{"run_id":"test-1"}"#)
             .unwrap();
         publish(&b, 8);
@@ -2279,8 +2364,18 @@ mod tests {
             assert!(Instant::now() < deadline);
             thread::sleep(Duration::from_millis(1));
         }
-        b.close_calibration_capture();
+        b.retire_calibration_frames();
+        assert!(b.state.lock().unwrap().camera_opened);
+        // The capture thread can need longer to join than the HTTP receipt
+        // deadline. In-flight work must already be expired while it closes.
+        thread::sleep(Duration::from_millis(250));
         assert_eq!(response.join().unwrap().status, "410 Gone");
+        assert_eq!(
+            b.respond("GET", "/provider/frame", &[]).unwrap().status,
+            "204 No Content"
+        );
+        b.close_calibration_capture();
+        assert!(!b.state.lock().unwrap().camera_opened);
         let s = b.state.lock().unwrap();
         assert!(
             s.ready,

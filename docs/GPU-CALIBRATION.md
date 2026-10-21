@@ -333,8 +333,43 @@ Then measure higher observation cadence with an appropriate source, transport/
 decode overhead, and cursor jitter/lag separately. GPU delegate inference,
 CPU/frame handling, and gesture/output behavior need separate conclusions.
 
-Legion replay and fresh physical calibration/desktop comparisons are pending.
-The current blocker for staging Legion is the receiving SSH account; its catalog
-reports an RTX2060, but no fresh device/driver/renderer measurement has been made.
-The four-corner fullscreen camera review and explicit Save on Cata also remain
-pending human acceptance; this benchmark does not complete that qualification.
+Cata was subsequently withdrawn by the human and uninstalled after verified
+private evidence retention. It is no longer a pending physical trial. Legion
+installation and integrated-camera calibration succeeded; desktop acceptance
+and the new C920e Full HD calibration remain separate tasks.
+
+### Legion headless Intel/RTX comparison
+
+Source80cf8a5 processed the same2.5-second integrated-camera recording on Legion
+with the installed Chrome153, pinned model and actual headless worker. This clip
+is different from the ten-second Cata baseline above. Existing desktop selection
+reported Intel UHD CML/Mesa by default and NVIDIA RTX2060/OpenGL615.71.09 when
+explicitly offloaded. Results are a short single pass, not sustained qualification:
+
+| Stage | Intel headless | RTX headless |
+| --- | ---: | ---: |
+| Received frames / browser drops | 30 / 0 | 31 / 0 |
+| Median worker inference | 41.75ms | 12.5ms |
+| Median JPEG decode | 3.3ms | 2.7ms |
+| Synthetic graph warmup | 0.92s | 2.35s |
+
+The existing launcher browser-executable hook can use the receiving desktop's
+GPU selector. No new driver or system GPU configuration is needed on this host.
+The earlier visible/minimized fallback is unnecessary for this observed setup.
+Do not infer a new host's headless compatibility or model renderer from GPU name.
+
+### First native Full HD capture
+
+Sourcef912990's C920e trial retained589 actual1920x1080 JPEG frames over40.23s,
+with67.938ms median exposure interval. Of587 processed frames,552 contained
+a detected hand. Median exposure-to-lease was37.126ms and exposure-to-meaning
+75.702ms/p95100.913ms. These are live-source timings, not directly comparable
+to the recorded-publication timing above.30FPS was requested; the observed
+source cadence was roughly15Hz. Its cause is not established by this sample.
+
+The trial reached the second diagonal but failed measurement and then terminated
+with a generic worker cancellation. No profile was saved or input started.
+Capture closure retired the HTTP lease only after joining a camera thread whose
+poll interval can exceed the200ms receipt deadline. The follow-up retires leases
+before the join and retains bounded originating worker exceptions. Its regression
+and a fresh manual physical retry must remain separate from this run's outcome.

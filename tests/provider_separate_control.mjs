@@ -6,6 +6,22 @@ const source=fs.readFileSync('tools/synthetic/provider_fixture_client.mjs','utf8
  .replace("import {workerSource} from '/provider/worker-tools.mjs';",'');
 const script=source.slice(0,source.indexOf('void(async()=>'))+'globalThis.runForTest=run;';
 {
+ const calls=[];
+ const context=vm.createContext({location:{origin:'http://127.0.0.1:8876'},window:{},
+  document:{querySelector:()=>({}),getElementById:()=>null},AbortSignal:{timeout:()=>null},
+  fetch:async(path,options)=>{
+   if(path==='/provider/config')return {json:async()=>({run_id:'failed-run'})};
+   if(path==='/hand_landmarker.task')throw Error('model failure '+'.'.repeat(900));
+   calls.push({path,body:JSON.parse(options.body)});return {ok:true};
+  }});
+ vm.runInContext(source,context);await new Promise(setImmediate);
+ assert.deepEqual(calls.map(c=>c.path),['/provider/stop','/provider/closed']);
+ assert.equal(calls[0].body.run_id,'failed-run');
+ assert.match(calls[0].body.worker_error,/model failure/);
+ assert.equal(calls[0].body.worker_error.length,512);
+ assert.equal(calls[1].body.acknowledged,false);
+}
+{
  const context=vm.createContext({location:{origin:'http://127.0.0.1:8876'},window:{wiggleProviderTrace:[],wiggleProviderTraceDiscarded:0}});
  vm.runInContext(script,context);
  vm.runInContext('for(let sequence=0;sequence<12000;sequence++)appendTiming({sequence});',context);

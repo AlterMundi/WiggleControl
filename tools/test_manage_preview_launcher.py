@@ -61,7 +61,7 @@ class LifecycleTests(unittest.TestCase):
         (root / 'assets').mkdir()
         proof = {'preflight': 'ok', 'manual_start': True, 'camera_opened': False,
                  'system_input': False, 'acquisition_started': False,
-                 'absolute_pointer': True, 'max_hands': 1, 'recording_configured': True,
+                 'absolute_pointer': True, 'max_hands': 1, 'recording_configured': False,
                  'until_stop': True, 'trial_seconds': None}
         with patch.object(preparation.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(proof), '')):
             preparation.prepare(binary=root / 'binary', browser=root / 'browser',

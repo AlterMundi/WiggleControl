@@ -306,7 +306,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "palm_deduplication":config.palm_deduplication,
                 "pinch_close_ratio":config.pinch_close_ratio,
                 "pinch_open_ratio":config.pinch_open_ratio,
-                "pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"recording_enabled":config.recording_directory.is_some(),"freshness_ms":config.freshness_ms,
+                "pinch_3d":config.pinch_3d,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"recording_enabled":config.recording_enabled && config.recording_directory.is_some(),"freshness_ms":config.freshness_ms,
                     "touch_workspace": {
                         "min": config.touch_workspace.min, "max": config.touch_workspace.max
                     }

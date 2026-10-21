@@ -359,7 +359,7 @@ pub fn check_config(session: &Path, settings: &Path) -> Result<(), Box<dyn Error
         serde_json::json!({"schema":"wigglecontrol.provider-config/v1","valid":true,
             "camera_opened":false,"system_input":false,"inference_initialized":false,
             "absolute_pointer":config.provider_absolute_pointer,
-            "recording_configured":config.recording_directory.is_some(),
+            "recording_configured":config.recording_enabled && config.recording_directory.is_some(),
             "onnx_runtime_required":controller.visual_policy().is_some(),
             "presence_floor":config.gestures().min_confidence,
             "right_click":controller.right_click_enabled(),

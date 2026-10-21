@@ -157,7 +157,7 @@ wigglecontrol provider-camera SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG 
 Preflight validates the matched policy, pinned assets and synthetic JPEG without
 opening a listener, camera, recorder or input device. It does not establish camera
 availability, writer permissions or physical accuracy. Duration must be1..90seconds;
-recording_directory is required. MAX_HANDS is explicit1/2 for the entire session.
+recording_directory is optional unless a finite dataset sample is explicitly enabled; see [recording policy](RECORDING.md). MAX_HANDS is explicit1/2 for the entire session.
 The live command requires a fresh human ready acknowledgment after receiving
 preparation; --inject additionally enables the existing system writer for that
 coordinated desktop trial. Omitting it retains local meaning/feedback only.

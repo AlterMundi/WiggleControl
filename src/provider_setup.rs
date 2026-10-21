@@ -115,10 +115,11 @@ pub fn fresh(
     let settings: Value = serde_json::from_str(include_str!("../packaging/preview-settings.json"))?;
     session["camera"] = json!(camera);
     session["recording_directory"] = json!(recordings);
+    session["recording_enabled"] = json!(false);
     session["pointer_output"] = json!([width, height]);
     let report = json!({"schema":"wigglecontrol.preview-config/v1",
         "prepared":true,"calibrated":false,"camera_opened":false,"system_input":false,
-        "inference_initialized":false,"installed":false,"recording_configured":true,
+        "inference_initialized":false,"installed":false,"recording_configured":false,
         "session":"session.json","settings":"settings.json","output":[width,height]});
     publish_pair(&session, &settings, None, output, &report)
 }

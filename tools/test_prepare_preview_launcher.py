@@ -66,7 +66,7 @@ class LauncherTests(unittest.TestCase):
         kwargs.update(seconds=seconds, port=18876)
         proof = {'preflight': 'ok', 'manual_start': True, 'camera_opened': False,
                  'system_input': False, 'acquisition_started': False, 'absolute_pointer': True,
-                 'max_hands': 1, 'recording_configured': True,
+                 'max_hands': 1, 'recording_configured': False,
                  'until_stop': seconds == 0, 'trial_seconds': seconds or None}
         return kwargs, proof
 

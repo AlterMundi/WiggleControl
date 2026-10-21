@@ -71,6 +71,9 @@ pub struct SessionConfig {
     pub pinch_open_m: f64,
     #[serde(default)]
     pub recording_directory: Option<String>,
+    /// Explicit finite dataset capture; a directory alone never enables recording.
+    #[serde(default)]
+    pub recording_enabled: bool,
     #[serde(default)]
     pub pointer_output: Option<[u32; 2]>,
     #[serde(default)]
@@ -138,6 +141,16 @@ fn default_open_ratio() -> f64 {
     Config::default().open_ratio
 }
 impl SessionConfig {
+    pub fn validate_recording(&self, seconds: Option<u64>) -> Result<(), Box<dyn Error>> {
+        if self.recording_enabled
+            && (self.recording_directory.is_none()
+                || seconds.is_none_or(|s| !(1..=30).contains(&s)))
+        {
+            return Err("dataset recording requires an explicit directory and finite 1..30 second trial; ordinary/until-stop use never records".into());
+        }
+        Ok(())
+    }
+
     pub fn pinch_metric_name(&self) -> &'static str {
         if self.pinch_3d {
             "estimated_world_meters"
@@ -962,6 +975,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     }
     let meter = crate::metrics::Meter::start();
     let config = SessionConfig::load(path)?;
+    config.validate_recording((!until_stop).then_some(seconds))?;
     if config.pointer_cursor_output.is_some() {
         return Err(
             "cursor output is supported by the explicit camera-worker provider workflow".into(),
@@ -1041,7 +1055,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
     } else {
         seconds
     };
-    let recording = config.recording_directory.as_ref().map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":config.camera_resolution[0],"height":config.camera_resolution[1],"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_2d_reference":config.pinch_2d_reference,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
+    let recording = config.recording_directory.as_ref().filter(|_| config.recording_enabled).map(|base|crate::recording::create(Path::new(base),monotonic_us()?,&serde_json::json!({"schema":"wigglecontrol.recording/v1","width":config.camera_resolution[0],"height":config.camera_resolution[1],"camera_fps":30,"processing_fps":config.fps,"freshness_ms":config.freshness_ms,"pinch_onset_max_screen_ratio":config.pinch_onset_max_screen_ratio,"pinch_3d":config.pinch_3d,"pinch_2d_reference":config.pinch_2d_reference,"pinch_close_m":config.pinch_close_m,"pinch_open_m":config.pinch_open_m,"pinch_close_ratio":config.pinch_close_ratio,"pinch_open_ratio":config.pinch_open_ratio,"pair_separation_widths":config.pair_separation_widths,"palm_deduplication":config.palm_deduplication,"dual_crop":config.dual_crop,"secondary_model":config.secondary_model,"gesture_min_confidence":config.gestures().min_confidence,"input_enabled":inject,"human_labels":"separate; prompts and predictions are not ground truth"}))).transpose()?;
     let (recording_frames, mut recording_observations) =
         if let Some((frames, observations, dir)) = recording {
             fs::write(
@@ -1052,10 +1066,8 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
         } else {
             (None, None)
         };
-    if let Some(base) = &config.recording_directory {
-        let marker = fs::read_to_string(Path::new(base).join("last-recording.path"))?;
-        crate::recording::private_file(&Path::new(marker.trim()).join("config.json"))?
-            .write_all(&fs::read(path)?)?;
+    if let Some(frames) = &recording_frames {
+        frames.metadata("config.json", &fs::read(path)?)?;
     }
     let mut writer = if inject && controller.is_some() {
         Some(controller_writer(
@@ -1107,14 +1119,11 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
         if let Some(preview) = &preview {
             preview.enable_controller_controls();
         }
-        if let (Some(settings), Some(base)) = (controller_path, &config.recording_directory) {
-            let marker = fs::read_to_string(Path::new(base).join("last-recording.path"))?;
-            crate::recording::private_file(
-                &Path::new(marker.trim()).join("controller-settings.json"),
-            )?
-            .write_all(&fs::read(settings)?)?;
+        if let (Some(settings), Some(frames)) = (controller_path, &recording_frames) {
+            frames.metadata("controller-settings.json", &fs::read(settings)?)?;
         }
     }
+
     let mailbox = Arc::new(Mutex::new(Mailbox::default()));
     let capture_deadline = (!until_stop).then(|| {
         preview_clock
@@ -1359,7 +1368,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                     "confirmation_elapsed_ms":state.confirmation_elapsed_us/1000,"confirmation_required_ms":config.gestures().confirm_us/1000,
                     "close_ratio":config.pinch_close_ratio,"open_ratio":config.pinch_open_ratio,"blocked_reason":state.reason,
                     "test_phase":if until_stop {"manual"} else if prepared {"testing"} else {"preparing"},
-                    "recording":config.recording_directory.is_some(), "source_us":frame.source_us,
+                    "recording":config.recording_enabled && config.recording_directory.is_some(), "source_us":frame.source_us,
                     "frame_age_ms":now.saturating_sub(frame.source_us) as f64/1000.0,
                     "controller":state, "visual_macros":visual_classifier.is_some(),
                     "visual_pose":visual_state,"classifier_ms":classifier_ms, "pointer_model":"relative",
@@ -1584,7 +1593,7 @@ fn run_mode(path: &Path, options: Options<'_>) -> Result<(), Box<dyn Error>> {
                         "prayer":{"enabled":config.prayer_enabled,"available":config.prayer_enabled && preview_clock.as_ref().is_some_and(|c|c.started.is_some()) && calibration.as_ref().is_some_and(|c|c.gesture_entry_available()),"state":prayer.state()},
                         "calibration":calibration.as_ref().map(|c|c.state()),
                         "screen_target":calibration.as_ref().and_then(|c|c.last_target).map(|p|[p.x,p.y]),
-                        "source_us":frame.source_us,"consumer_us":now,"recording":config.recording_directory.is_some(),
+                        "source_us":frame.source_us,"consumer_us":now,"recording":config.recording_enabled && config.recording_directory.is_some(),
                         "world_landmarks":hand.as_ref().map(|h|h.world_landmarks),
                         "world_pinch_distance_m":hand.as_ref().map(|h|h.world_pinch_distance_m()),
                         "sequence": frame.sequence, "width":image.width(), "height":image.height(),

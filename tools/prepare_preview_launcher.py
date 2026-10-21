@@ -82,10 +82,12 @@ def prepare(*, binary, browser, session, settings, assets, warmup, output, port,
     proof = json.loads(result.stdout)
     expected = {'preflight': 'ok', 'manual_start': True, 'camera_opened': False,
                 'system_input': False, 'acquisition_started': False,
-                'absolute_pointer': True, 'max_hands': 1, 'recording_configured': True,
+                'absolute_pointer': True, 'max_hands': 1,
                 'until_stop': seconds == 0, 'trial_seconds': 150 if calibration_profile else seconds or None}
     if calibration_profile is not None:
         expected.update(calibration=True, input_requested=False)
+    if type(proof.get('recording_configured')) is not bool or (proof['recording_configured'] and (seconds == 0 or calibration_profile is not None or seconds > 30)):
+        raise ValueError('Recording is explicit finite dataset use only (1..30 seconds)')
     if any(type(proof.get(k)) is not type(v) or proof.get(k) != v for k, v in expected.items()):
         raise ValueError('Selected provider did not confirm manual-only no-acquisition preflight')
     output.parent.mkdir(parents=True, exist_ok=True)

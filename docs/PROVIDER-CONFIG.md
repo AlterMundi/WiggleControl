@@ -48,7 +48,7 @@ The generated pair has the full default workspace and `calibrated:false`; it is
 for [guided calibration](GPU-CALIBRATION.md), not immediate accepted mouse use.
 After Save, import that profile with `prepare-provider-config` below. Recording is
 explicitly configured because the current experimental camera path requires it;
-only later manual Start opens recording/capture. No microphone or upload is used.
+only later manual Start opens capture. Video recording is off unless explicitly selected for a finite dataset sample. No microphone or upload is used.
 See the [source setup walkthrough](PREVIEW-QUICKSTART.md) for the connected flow.
 
 ### Native Full HD capture
@@ -121,7 +121,7 @@ Omitted workspace means the full normalized image, not a human-accepted
 calibration. Preserve/import the accepted workspace in both `touch_workspace`
 (session) and `workspace` (controller); cursor-output and gesture parameters must
 also agree in both files. Do not replace an existing profile with these examples.
-The current camera-worker path requires private recording configuration. The
+Recording is disabled by default. Dataset recording requires an explicit opt-in and finite1..30-second trial; see [recording policy](RECORDING.md). The
 checker reports whether recording is configured, without exposing its directory.
 Pinch distances are model estimates, not calibrated physical measurements.
 

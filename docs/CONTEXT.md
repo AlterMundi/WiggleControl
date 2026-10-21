@@ -1,5 +1,15 @@
 # Project context — 2026-10-13
 
+Hardware comparison —2026-10-21: Nicolás offers Cata and Legion for matched
+performance/physical trials. Source80cf8a5's camera-free ten-second recorded
+replay on Cata completed107/107 hand frames without drops: inference median22.2ms,
+publication-to-meaning38.3ms/p9546.5ms, source interval95.3ms. Actual renderer is
+Intel HD4000. This separates processing from source cadence; it is not measured
+camera-to-display latency. Both scoped diagnostic units are stopped, no camera/
+input/profile change. Legion SSH account/staging and actual renderer comparison
+remain pending. See [the measurement and next steps](GPU-CALIBRATION.md#matched-hardware-comparison--2026-10-21).
+
+
 Calibration visibility update —2026-10-19: Nicolás requests seeing the camera
 during calibration and actual fullscreen four-corner review. Controls now show
 the existing mirrored camera preview while acquisition is active and clear it

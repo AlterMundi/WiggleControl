@@ -11,6 +11,14 @@ and Windows/macOS ports remain later work.
 Exploratory product concepts, including infrared operation with optional passive
 wearables, are retained in [IDEAS.md](IDEAS.md).
 
+Next performance experiment —2026-10-21: compare Cata and Legion using the same
+source/model/configuration and retained clip, then physical calibration/desktop
+use on each with fresh readiness. Separate actual GPU inference, CPU/transport,
+observation cadence and cursor filtering. Cata's first camera-free measurement
+is retained in [GPU-CALIBRATION.md](GPU-CALIBRATION.md#matched-hardware-comparison--2026-10-21);
+Legion staging/measurement remains pending. Faster hardware is a measured
+comparison, not a prerequisite for completing the existing Cata calibration.
+
 The opt-in [held-detail implementation](DETAIL.md) modifies calibrated absolute
 motion independently of left/right buttons. A separate sourcef21a48b Pi trial
 completed90s; Nicolás reports very good detail use with intentional clicking in

@@ -259,3 +259,47 @@ specific generic worker-cancellation cause in an older physical trial.
 No camera controls, inference model, mouse-delivery freshness or accepted
 calibration profile are changed by these corrections. Fresh physical diagonal/
 four-corner acceptance remains required after deployment.
+
+
+## Matched hardware comparison — 2026-10-21
+
+Nicolás offers Cata and Legion side by side to distinguish hardware gains from
+remaining software work. Start with one retained ten-second hand recording,
+identical source80cf8a549950, model/assets, one-hand configuration and original
+frame timing. Use the packaged `provider-recording` command and its actual worker;
+this opens neither camera nor virtual input. Retain worker traces, source journal,
+actual browser GPU renderer and process accounting privately. A recorded replay
+is not a camera-to-display latency or human comfort measurement.
+
+Cata completed107 frames, detected a hand in all107 and discarded none. The
+actual browser renderer was ANGLE/Mesa Intel HD4000. Results in milliseconds:
+
+| Stage | Median | p95 |
+| --- | ---: | ---: |
+| Frame fetch | 3.4 | 3.7 |
+| JPEG decode | 3.1 | 3.5 |
+| Worker inference | 22.2 | 23.4 |
+| Result POST, including receipt | 5.8 | 8.8 |
+| Recorded source publication to meaning | 38.3 | 46.5 |
+| Recorded source interval | 95.3 | 96.5 |
+
+Warmup's three synthetic inferences took2.55s. Worker-unit peak memory was746MiB;
+this includes Chromium's process group, not just the model. The replay source
+used68MiB peak. These stages overlap and the table is not an additive latency
+budget. Maximum publication-to-meaning latency was80.5ms. Both temporary units
+were stopped after measurement; the selected calibration launcher was unchanged,
+no camera/input opened, no new recording or saved calibration was created.
+
+The clip's roughly10.5Hz source cadence limits new position information even
+when inference finishes sooner. Prediction can interpolate motion but does not
+supply new observations. Compare Legion with this same clip first; record which
+GPU Chromium actually selects rather than assuming the installed NVIDIA is used.
+Then measure higher observation cadence with an appropriate source, transport/
+decode overhead, and cursor jitter/lag separately. GPU delegate inference,
+CPU/frame handling, and gesture/output behavior need separate conclusions.
+
+Legion replay and fresh physical calibration/desktop comparisons are pending.
+The current blocker for staging Legion is the receiving SSH account; its catalog
+reports an RTX2060, but no fresh device/driver/renderer measurement has been made.
+The four-corner fullscreen camera review and explicit Save on Cata also remain
+pending human acceptance; this benchmark does not complete that qualification.

@@ -23,8 +23,9 @@ Cata's last recorded calibration reached upper-right review but timed out withou
 verification or Save; it is not an accepted calibration. Cata is no longer a
 pending physical-test target. Retain its camera-free baseline and private trial
 evidence; qualify Legion's actual GPU renderer, camera and desktop independently.
-Legion staging is pending receiving SSH account confirmation. This supersedes
-earlier instructions to repeat the Cata calibration.
+Legion now has the verified candidate and fullscreen calibration open in manual
+idle. Fresh physical acceptance, administrator input preparation and selected
+output mapping remain. This supersedes earlier instructions to repeat Cata.
 
 The opt-in [held-detail implementation](DETAIL.md) modifies calibrated absolute
 motion independently of left/right buttons. A separate sourcef21a48b Pi trial

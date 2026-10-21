@@ -1,5 +1,18 @@
 # Project context — 2026-10-13
 
+Legion preparation —2026-10-21: the same source80cf8a549950 x86 candidate is now
+installed on Legion; external archive hash and all250 file/mode checks pass.
+The existing Chrome153/X11 desktop is reused. Camera-only calibration is open
+in manual idle with camera/input off, errornull and no saved profile. Its owned
+fullscreen window is observed at0,0/3840x2160 on the primary TV; the laptop panel
+remains enabled and unchanged. Fresh human camera/framing/four-corner/Save
+acceptance is pending. Normal-user uinput access is absent, so administrator input
+preparation and mapping to the selected output remain before desktop mouse use.
+The actual model GPU renderer and matched replay are not yet measured on Legion;
+NVIDIA presence alone does not establish that the model uses it. Chrome153 vs
+Cata Chromium144 must also be recorded as a comparison variable.
+
+
 Human target change —2026-10-21: Nicolás rejects Cata's camera for continued
 use and requests uninstalling WiggleControl there and moving the trial to Legion.
 Cata's last recorded calibration reached upper-right review but timed out without

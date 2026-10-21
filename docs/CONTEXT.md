@@ -1,5 +1,17 @@
 # Project context — 2026-10-13
 
+Legion calibration accepted —2026-10-21: Nicolás reports successful calibration.
+The actual source terminal confirms all six guide steps/four corners complete,
+explicit Save,617 captured frames/zero expiry, errornull, camera and worker closed,
+and no system input started. The saved profile matches the primary3840x2160 TV.
+Its accepted workspace was imported with the packaged helper; the manual until-
+Stop mouse bundle is prepared/installed but not opened. Normal-user uinput access
+is still absent: the existing administrator-permission action is pending, followed
+by verification and X11 mapping of only the new virtual mouse to the selected TV.
+Calibration acceptance does not establish desktop mouse or GPU performance
+qualification. Do not repeat calibration merely to advance the mouse setup.
+
+
 Legion preparation —2026-10-21: the same source80cf8a549950 x86 candidate is now
 installed on Legion; external archive hash and all250 file/mode checks pass.
 The existing Chrome153/X11 desktop is reused. Camera-only calibration is open

@@ -1,5 +1,16 @@
 # Project context — 2026-10-21
 
+Recording policy superseded — 2026-10-21: Nicolas explicitly withdrew automatic
+trial video after Legion storage pressure. Ordinary mouse use/calibration and
+old directory-only configurations now default to recording off. Only explicit
+finite dataset samples may record: 30 seconds/256 MiB per take, 2 GiB store and 2 GiB
+free-space reserve. Exhaustion uses existing capture/input cleanup; never restart
+acquisition through this update. See [RECORDING.md](RECORDING.md). Authorized
+cleanup removed 6 unreferenced Legion takes (~4.50GiB) and 22 Pi takes (~4.13GiB),
+preserving profiles/models and the synthetic review fixture. Source checks,
+receiving installation and a later human Start are separate evidence.
+
+
 Current receiving —2026-10-21: follow-up555bac5 passes all four jobs in
 CI39583883177, including native tests/Clippy and clean installation fixture.
 Complete ARM64/x86 archives pass external hashes and all250 file/mode checks;

@@ -1,7 +1,7 @@
 # Explicit small dataset recordings
 
 Nicolas changed the recording policy on 2026-10-21 after a continuous mouse run
-wrote approximately 21 GiB/hour on Legion. The 512 MiB limit applied per segment;
+was measured writing about 6 MiB/s on Legion (about 21 GiB/hour if sustained). The 512 MiB limit applied per segment;
 rotation did not cap the take. Ordinary operation must not accumulate video.
 
 ## Selected policy

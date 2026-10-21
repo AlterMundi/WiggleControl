@@ -9,6 +9,12 @@ evidence; qualify Legion's actual GPU renderer, camera and desktop independently
 Legion staging is pending receiving SSH account confirmation. This supersedes
 earlier instructions to repeat the Cata calibration.
 
+Cata removal is now observed complete: the supported manager removed its three
+user-unit links; all three read not-found/inactive. Owned installed versions,
+browser profiles, configurations and recordings were removed from Cata after a
+private archive passed all92 file SHA256 comparisons. No system browser, network
+or other application was removed. Legion installation remains pending SSH access.
+
 
 Hardware comparison —2026-10-21: Nicolás offers Cata and Legion for matched
 performance/physical trials. Source80cf8a5's camera-free ten-second recorded

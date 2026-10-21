@@ -1,6 +1,17 @@
 # Project context — 2026-10-21
 
-Latest receiving —2026-10-21: sourcef912990 passes all four jobs in
+Current receiving —2026-10-21: follow-up555bac5 passes all four jobs in
+CI39583883177, including native tests/Clippy and clean installation fixture.
+Complete ARM64/x86 archives pass external hashes and all250 file/mode checks;
+Legion independently verified and selected the x86 package. The new headless
+RTX calibration bundle is open on the primary3840x2160 TV in actual fullscreen.
+Observed idle: width1920/height1080, errornull, preparation/worker/camera/input off.
+A fresh manual Start is the next physical action; no new calibration acceptance
+or desktop mouse qualification is claimed. The integrated-camera profile remains
+accepted and preserved; the C920e-HD profile is not yet saved. The native goal
+remains active.
+
+Previous Full HD attempt —2026-10-21: sourcef912990 passes all four jobs in
 CI39581049723. Both complete ARM64/x86 packages pass external SHA256 and all250
 file/mode checks; Legion independently verified and installed the x86 package.
 Its separate C920e configuration requests native1920x1080 with a headless worker
@@ -13,10 +24,11 @@ the originating browser exception was not retained by that version.
 Follow-up: retire HTTP frame leases before joining the camera thread, while
 reporting camera closure only after the join. A250ms close wait can exceed the
 200ms meaning-receipt deadline; this is a concrete race in that ordering, not
-proof of this physical run's original browser exception. A regression exercises
+proof of this physical run's original browser exception. The passing regression exercises
 that boundary. Worker cancellation now carries its bounded run-scoped diagnostic
-to the source terminal/journal. Follow-up validation and deployment remain open.
-Nicolás closed the failed window and requests notification before repeating.
+to the source terminal/journal. The independently built follow-up is selected as
+described above; its fresh manual physical retry remains open. Nicolás closed
+the failed window and was notified after replacement/idle verification.
 
 Full HD/RTX increment —2026-10-21: Nicolás requests recalibration with the C920e,
 then explicitly corrects the retained640x480 capture and asks for native Full HD

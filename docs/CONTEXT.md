@@ -15,18 +15,31 @@ the held button at the reproduced expiry. Total expiry transitions change5→3;
 button edge pairs change62→69. These are predictions, not labelled intent or app
 effects. This detail change is not installed; physical acceptance remains pending.
 
-The completed live session processed10,227 frames over692.63s and exited with
-error null, graceful Stop requested and all camera/input/worker resources closed.
-The Stop caller is not identified; do not attribute it to Nicolás. Available disk
-space measured later does not exclude an earlier storage-pressure event/cleanup.
-The original video footprint was4.17GB; #14 separately owns recording defaults
-and its authorized cleanup. The private metadata copy supports camera-free replay;
-do not assume the original video still exists. Saved calibration remains accepted.
-The native goal stays active.
+Accepted C920e Full HD calibration completed all six guide stages/four corners,
+876 captures, error null and explicit Save. Import preserved the accepted profile
+bytes and the separate integrated-camera profile. The matching headless RTX mouse
+ran without camera/skeleton feedback rendering. Its unique new virtual mouse was
+mapped to the primary TV; the verified transform is run-specific. Persistent
+per-launch multioutput mapping remains unimplemented.
 
-Accepted calibration evidence: the saved C920e Full HD profile completed all six
-guide stages/four corners,876 captures, error null and explicit Save. It was
-imported without changing the accepted profile bytes before the desktop trial.
+The completed live session processed10,227 frames over692.63s and exited with
+error null, graceful Stop requested, one expired lease/eight skipped frames and
+all camera/input/worker resources closed; the virtual mouse was absent afterward.
+The Stop caller is not identified; do not attribute it to Nicolás. Available disk
+space measured later does not exclude earlier storage pressure or later cleanup.
+The original video footprint was4.17GB; #14 separately owns recording defaults
+and its authorized cleanup. Retained private metadata supports camera-free replay;
+do not assume the original video still exists. Post-Stop service properties lost
+historical counters, but the source-unit journal retains29.236 CPU seconds and a
+rounded4G cgroup memory peak. Those are unit-level accounting, not whole-pipeline
+CPU/RSS or current memory usage; no in-trial thermal sample was obtained.
+
+Offline review explains the previous incomplete diagonal measurement:22 of the
+last72 detected frames had a point outside the image, predominantly the middle
+fingertip. The final valid streak had seven frames, matching the seven retained
+samples. This explains incomplete sampling, not that older run's hidden worker
+exception. No framing/freshness threshold was relaxed.
+
 Recording policy superseded — 2026-10-21: Nicolas explicitly withdrew automatic
 trial video after Legion storage pressure. Ordinary mouse use/calibration and
 old directory-only configurations now default to recording off. Only explicit

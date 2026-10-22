@@ -49,4 +49,12 @@ context.document.fullscreenElement={};
 await vm.runInContext('poll()',context);
 assert.equal(requests.filter(p=>p==='/provider/calibration/step').length,before+1);
 assert(requests.every(p=>['/provider/config','/provider/calibration/step','/frame'].includes(p)),'Showing feedback never requests capture or injection');
+// An uncertain child closure cannot become an off/recording assertion.
+config.camera_opened=null;config.recording_active=false;calibration.camera_closed=false;
+await vm.runInContext('poll()',context);
+assert.match(el('state').textContent,/Camera state unknown.*Mouse off.*Video off/);
+assert.equal(el('save').disabled,true);assert.equal(el('retry').disabled,true);
+assert.doesNotMatch(el('state').textContent,/Recording locally/);
+config.camera_opened=true;config.recording_active=true;
+await vm.runInContext('poll()',context);assert.match(el('state').textContent,/Video recording/);
 console.log('Calibration camera: observed-only preview, closure/late-frame cleanup, run/freshness gates and fullscreen corner acknowledgment');

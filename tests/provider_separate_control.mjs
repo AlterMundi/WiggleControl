@@ -141,6 +141,10 @@ console.log('Detached detector waits for explicit Start; controls never load fra
  config.active=false;config.camera_opened=true;config.system_input=null;
  await vm.runInContext('poll()',context);
  assert.match(element('state').textContent,/Session ending.*Camera active.*Mouse state unknown/);
+ config.camera_opened=null;await vm.runInContext('poll()',context);
+ assert.match(element('state').textContent,/Session ending.*Camera state unknown.*Mouse state unknown/);
+ assert.doesNotMatch(element('state').textContent,/Camera off/);
+ config.camera_opened=true;
  assert.match(element('operation').textContent,/Waiting for camera\/input closure/);
  assert.equal(element('start').disabled,true);assert.equal(element('stop').disabled,false);
  config.camera_opened=false;config.system_input=false;

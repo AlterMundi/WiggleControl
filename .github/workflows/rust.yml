@@ -40,6 +40,8 @@ jobs:
       - run: python3 tools/test_one_hand_trial.py
       - run: python3 tools/test_trace_absolute_drag.py --binary target/debug/wigglecontrol
       - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --features provider-runtime --lib --test provider_runtime
+      - run: cargo clippy --locked --features provider-runtime --all-targets -- -D warnings
 
   windows-core:
     name: windows-x64-shared-core
@@ -53,6 +55,8 @@ jobs:
       - run: cargo test --locked --lib --test controller --test controller_cli --test portable_output --test windows_writer
       - run: cargo check --locked --bin wigglecontrol --bin wigglecontrol-simulate
       - run: cargo clippy --locked --lib --test controller --test controller_cli --test portable_output --test windows_writer -- -D warnings
+      - run: cargo test --locked --features provider-runtime --lib --test provider_runtime
+      - run: cargo clippy --locked --features provider-runtime --lib --test provider_runtime -- -D warnings
 
   native-vision:
     runs-on: ubuntu-latest

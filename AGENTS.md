@@ -22,7 +22,10 @@ do not implement another Windows gesture engine or silently resume the cleared
 Linux native goal. Windows support requires actual receiving qualification.
 Current source boundaries and replay/CI scope: docs/PLATFORM-LAYER.md. Reuse
 landmarks/tracking/output and the shared calibration/controller modules; Linux
-input paths are compatibility reexports of platform/linux.
+input paths are compatibility reexports of platform/linux. `session_config` owns
+shared configuration/controller admission; `provider-runtime` exposes camera-free
+configured raw-provider replay on both platforms. `native-vision` still includes
+Linux capture. Do not enable V4L/Unix session code to make Windows use the provider.
 
 Use real monotonic timestamps. Bound messages/queues, validate observations and
 release held buttons/contacts on loss, stale data, stop or process failure.

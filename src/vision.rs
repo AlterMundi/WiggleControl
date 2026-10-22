@@ -153,13 +153,7 @@ struct TrackedHand {
     hand: DetectedHand,
     secondary_roi: Option<Roi>,
 }
-#[derive(Clone, Copy, Default, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PalmDeduplication {
-    #[default]
-    Roi,
-    PalmLandmarks,
-}
+pub use crate::session_config::PalmDeduplication;
 struct PalmProposal {
     roi: Roi,
     landmarks: [XY; 7],

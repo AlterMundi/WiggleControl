@@ -86,7 +86,7 @@ impl VisualClassifier {
         &mut self,
         controller: &crate::controller::Controller,
         observation: &crate::touch_gestures::Frame,
-        detected: &[crate::vision::DetectedHand],
+        detected: &[crate::landmarks::DetectedHand],
         width: u32,
         height: u32,
     ) -> Result<(Option<crate::macros::HandPose>, Option<VisualState>), Box<dyn Error>> {
@@ -201,7 +201,7 @@ impl Classifier {
     }
     pub fn predict_hand(
         &mut self,
-        hand: &crate::vision::DetectedHand,
+        hand: &crate::landmarks::DetectedHand,
         width: u32,
         height: u32,
     ) -> Result<Prediction, Box<dyn Error>> {
@@ -248,6 +248,7 @@ pub fn replay(model: &Path, runtime: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[cfg(feature = "native-vision")]
 pub fn check_image(image: &Path, config: &Path, model: &Path) -> Result<(), Box<dyn Error>> {
     let config = crate::session::SessionConfig::load(config)?;
     ort::init_from(&config.runtime).commit()?;

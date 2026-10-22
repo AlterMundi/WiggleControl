@@ -43,6 +43,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => (),
     }
+    #[cfg(feature = "provider-runtime")]
+    match args.first().map(String::as_str) {
+        Some("config-check-provider") if args.len() == 3 => {
+            return wigglecontrol::provider::check_config(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+            );
+        }
+        Some("provider-replay") if args.len() == 4 => {
+            return wigglecontrol::provider::replay(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+                args[3].parse()?,
+            );
+        }
+        _ => (),
+    }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
         Some("provider-calibrate" | "provider-calibrate-preflight") if args.len() == 7 => {
@@ -73,12 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::path::Path::new(&args[4]),
             );
         }
-        Some("config-check-provider") if args.len() == 3 => {
-            return wigglecontrol::provider::check_config(
-                std::path::Path::new(&args[1]),
-                std::path::Path::new(&args[2]),
-            );
-        }
+
         Some("provider-recording") if args.len() == 10 => {
             return wigglecontrol::provider_fixture::run_recording(
                 wigglecontrol::provider_fixture::RecordingOptions {
@@ -152,13 +164,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.get(6).map(|s| s.parse()).transpose()?.unwrap_or(2),
             );
         }
-        Some("provider-replay") if args.len() == 4 => {
-            return wigglecontrol::provider::replay(
-                std::path::Path::new(&args[1]),
-                std::path::Path::new(&args[2]),
-                args[3].parse()?,
-            );
-        }
+
         Some("controller-sequence") if args.len() == 4 => {
             return wigglecontrol::sequence::check_controller(
                 std::path::Path::new(&args[1]),
@@ -598,7 +604,7 @@ fn print_help() {
     println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "provider-runtime")]
     println!("       wigglecontrol config-check-provider SESSION SETTINGS (browser-provider configuration only; no assets/acquisition)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-calibrate[-preflight] SESSION SETTINGS ASSETS WARMUP PROFILE PORT (manual camera-only guided calibration; no mouse)");
@@ -612,7 +618,7 @@ fn print_help() {
     println!("       wigglecontrol provider-camera-manual[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (finite trial after explicit Start; idle opens no camera/device)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol provider-camera[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (manual camera worker; preflight opens no camera/device)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "provider-runtime")]
     println!("       wigglecontrol provider-replay SESSION SETTINGS PRESENCE_FLOOR < raw-landmarks.jsonl (no acquisition/models/devices)");
     #[cfg(target_os = "linux")]
     println!("       wigglecontrol touch-replay < observations.jsonl\n       wigglecontrol macro-replay CONFIG < named-poses.jsonl (no actions executed)\n       wigglecontrol mode-replay CONFIG < controller.jsonl (intent only)\n       wigglecontrol pipeline-replay SETTINGS GAIN WATCHDOG_MS [--absolute] < controller.jsonl (device-free)\n       wigglecontrol delivery-replay GAIN WATCHDOG_MS < packets.jsonl (device-free)\n       wigglecontrol controller-stream SECONDS GAIN WATCHDOG_MS\n       wigglecontrol controller-stream-until-stop GAIN WATCHDOG_MS\n       wigglecontrol device-check SECONDS\n       wigglecontrol device-stream SECONDS GAIN [WATCHDOG_MS]\n       wigglecontrol absolute-stream SECONDS [WATCHDOG_MS]\n       wigglecontrol touch-check SECONDS\n       wigglecontrol touch-stream SECONDS [WATCHDOG_MS]\nDevice commands open virtual devices; stream commands inject system input.");

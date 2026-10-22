@@ -1,6 +1,11 @@
 # End-to-end acceptance checkpoint
 
-Current delivery acceptance is scoped by [LINUX-PREVIEW.md](LINUX-PREVIEW.md)
+The new Windows11x64 scope and pending Legion acceptance are tracked in
+[WINDOWS-PREVIEW.md](WINDOWS-PREVIEW.md) and
+[#22](https://github.com/AlterMundi/WiggleControl/issues/22). No Windows
+implementation, installation or physical result is established as of2026-10-22.
+
+Linux delivery acceptance remains scoped by [LINUX-PREVIEW.md](LINUX-PREVIEW.md)
 and [#13](https://github.com/AlterMundi/WiggleControl/issues/13). Its full integrated
 screen/detail and basic-action scope is not yet accepted. Latest physical feedback and exact receiving increments are maintained in [BETA-1.md](BETA-1.md)
 and [CONTEXT.md](CONTEXT.md).

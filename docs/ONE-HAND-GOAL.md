@@ -1,5 +1,10 @@
 # Goal: deliver the one-hand Linux screen/detail public preview
 
+Native execution status —2026-10-22: the human cleared this Linux goal on
+2026-10-21 without completing it. Its requirements remain milestone1 work.
+The newly requested active goal is [WINDOWS-GOAL.md](WINDOWS-GOAL.md); do not
+resume Linux receiving tests from this historical specification.
+
 Deliver the independently installable experimental Linux one-hand mouse defined
 in [LINUX-PREVIEW.md](LINUX-PREVIEW.md) and
 [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).

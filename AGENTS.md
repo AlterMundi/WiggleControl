@@ -13,6 +13,14 @@ The product is a system input device for existing applications. Browser tracking
 may be a baseline/comparison source, not the final product boundary. Keep input
 observation, gesture meaning and OS output separate, with replayable fixtures.
 
+Platform modularity — human request, 2026-10-22: the Windows11x64 port follows
+docs/WINDOWS-PREVIEW.md and milestone2. Keep one OS-independent Rust
+observation/gesture/calibration/filter/detail/scroll/delivery-safety core;
+platform adapters own camera/input/display, clocks/storage primitives and
+process/launch behavior. Extract existing logic and preserve Linux contracts;
+do not implement another Windows gesture engine or silently resume the cleared
+Linux native goal. Windows support requires actual receiving qualification.
+
 Use real monotonic timestamps. Bound messages/queues, validate observations and
 release held buttons/contacts on loss, stale data, stop or process failure.
 Do not invent a click on reacquisition. Keep physical inputs usable.

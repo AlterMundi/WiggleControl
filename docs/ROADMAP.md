@@ -1,13 +1,26 @@
 # Camera controller roadmap
 
-Current agreed delivery: the [one-hand Linux public preview](LINUX-PREVIEW.md),
-tracked by [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1).
-Complete left/right/double click, gesture scroll and Escape; add a held detail
-modifier selected before an action; package and qualify independent Linux use.
-Pi 5/labwc is the initial receiving environment; Nicolás offers the ThinkPad for
-Linux x86-64 testing. Changing detail during a drag/stroke is optional: include it if naturally
-independent, defer only separate extra work. Second-hand modifiers, multitouch
-and Windows/macOS ports remain later work.
+Current active delivery —2026-10-22: the
+[Windows 11 x64 one-hand preview](WINDOWS-PREVIEW.md), tracked by
+[milestone 2](https://github.com/AlterMundi/WiggleControl/milestone/2), issues
+[#18–#22](https://github.com/AlterMundi/WiggleControl/milestone/2).
+Nicolás is using Windows 11 x64 on Legion and explicitly asks for the OS-dependent
+code to live in a platform layer. Extract one common controller/calibration/filter/
+delivery core, preserve Linux behavior, add Windows adapters, then package and
+physically qualify the independent preview. [WINDOWS-GOAL.md](WINDOWS-GOAL.md)
+is the requested goal specification; native harness state determines execution.
+
+The Linux Legion trial received very positive human feedback. The merged #16
+detail-drag and #17 video-off startup corrections have source/CI evidence but
+remain physically unverified there. The previous Linux goal was cleared on
+2026-10-21; [milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1)
+and its [Linux preview plan](LINUX-PREVIEW.md) remain unfinished and independently
+tracked, not prerequisites to Windows development. Cata was retired; Legion's
+Windows availability does not authorize booting Linux or restarting its services.
+Other Windows versions, macOS, second-hand modifiers and multipoint remain later.
+The dated receiving/optimization checkpoints below preserve historical evidence;
+use this section, the Windows plan and current CONTEXT for the selected priority.
+
 Exploratory product concepts, including infrared operation with optional passive
 wearables, are retained in [IDEAS.md](IDEAS.md).
 

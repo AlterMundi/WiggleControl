@@ -6,7 +6,8 @@ milestone and an active implementation goal. Current scope and boundaries:
 [milestone 2](https://github.com/AlterMundi/WiggleControl/milestone/2), issues #18–#22.
 The port must extract one shared Rust controller/calibration/filter/delivery core;
 OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
-Windows is planned, not yet implemented, installed or physically qualified.
+The Windows camera/input application is not yet implemented, installed or
+physically qualified; the shared core and basic OS primitives are described below.
 
 Shared-core source increment —2026-10-22: controller/calibration, logical
 contacts, landmark interpretation, raw provider identity and the delivery
@@ -15,8 +16,10 @@ module gates. Linux mouse/touch/keyboard/writer implementations move under
 platform/linux with compatible crate-level aliases. Windows adds QPC and
 profile-file primitives, not camera or native mouse output yet. The actual
 raw detail-drag and identity regressions move into the portable suite; Windows
-native core CI uses Rust1.85.1. Source qualification is in progress; this does
-not establish Windows receiving support. See [PLATFORM-LAYER.md](PLATFORM-LAYER.md).
+native core CI uses Rust1.85.1. Source481a622 passes all five jobs in CI39719378523; paired replay matches
+all10,221 controller outputs (1,726 held/512 detail observations) against93ae0d4.
+The #17 optional recorder/input factory and its existing regressions also move
+into the common library. Windows camera/input and receiving support remain pending. See [PLATFORM-LAYER.md](PLATFORM-LAYER.md).
 
 The previous Linux native goal was cleared on2026-10-21. Milestone1 remains open;
 its unfinished acceptance/release work is not erased and does not block Windows.

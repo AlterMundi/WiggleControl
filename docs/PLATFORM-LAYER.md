@@ -9,6 +9,7 @@ are preserved through reexports and narrow compatibility shims.
 
 | Module | Responsibility |
 | --- | --- |
+| `acquisition` | Independent optional recorder/input setup, including the #17 video-off input-startup correction |
 | `landmarks` | Raw geometry, shared pinch metric/posture interpretation, selected-hand evidence and the controller bridge, including the #16 detail-drag correction |
 | `tracking` | Provider frame validation, source age/order, measured presence and bounded spatial hand correspondence; detector array order is never an owner ID |
 | `controller`, `pointer_buttons`, `detail`, `escape`, `scroll`, `cursor`, `filter` | One gesture/motion implementation reused by both platforms |
@@ -72,3 +73,19 @@ gesture algorithm. Device-free sinks verify delivery policy without evdev or
 SendInput. Actual Windows native output, frame acquisition, display/DPI mapping,
 GPU use and human acceptance remain #19–#22 work. No machine is deployed, calibrated
 or receiving-qualified merely by this extraction or a passing CI result.
+
+## Source checkpoint — 2026-10-22
+
+Source `481a622` passes all five jobs in
+[CI39719378523](https://github.com/AlterMundi/WiggleControl/actions/runs/39719378523):
+Windows core, Linux replay/native/Clippy/installation fixture, ARM64 and x86 packages.
+A source/hash-verified `93ae0d4` baseline and `481a622` candidate produce identical
+full controller outputs over10,221 retained observations:1,726 held and512 detail
+observations, with no camera or system input. Profiling timing values are excluded
+from the semantic comparison. These are prediction/regression comparisons, not
+labelled intent, new physical acceptance or a Windows mouse release.
+
+The follow-up extraction also puts the #17 optional-sink factory and its exact
+four-combination/error-propagation regressions in the common library, so Windows
+uses the same input-independent-of-recording setup rule. Physical camera/input
+adapters, user-facing packaging and Legion acceptance remain pending.

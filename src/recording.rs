@@ -462,8 +462,13 @@ mod tests {
         assert!(Reader::open(&dir).is_err());
         fs::write(dir.join("frames.jsonl"), original).unwrap();
         fs::rename(dir.join("video.mjpeg"), base.join("outside.mjpeg")).unwrap();
-        std::os::unix::fs::symlink(base.join("outside.mjpeg"), dir.join("video.mjpeg")).unwrap();
-        assert!(Reader::open(&dir).is_err());
+        assert!(Reader::open(&dir).is_err()); // Missing indexed segment on both OSes.
+        #[cfg(target_os = "linux")]
+        {
+            std::os::unix::fs::symlink(base.join("outside.mjpeg"), dir.join("video.mjpeg"))
+                .unwrap();
+            assert!(Reader::open(&dir).is_err());
+        }
         fs::remove_dir_all(base).unwrap();
     }
     #[test]

@@ -1084,18 +1084,12 @@ fn run_engine_with_assets(
         config.validate_recording((!until_stop).then_some(duration / 1_000_000))?;
     }
     #[cfg(target_os = "windows")]
-    if matches!(&source, Source::Camera { .. }) {
+    if camera_source {
         crate::session_io::validate_output(
             &config,
             output_target.ok_or("select an explicit Windows output monitor")?,
         )?;
-        if !matches!(
-            &source,
-            Source::Camera {
-                manual_start: true,
-                ..
-            }
-        ) {
+        if !manual_start {
             return Err("Windows camera sessions require manual Start".into());
         }
         if config.recording_enabled {

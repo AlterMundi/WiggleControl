@@ -14,8 +14,10 @@ physical monitor discovery/DPI/virtual-desktop mapping, native absolute/button/
 two-axis wheel conversion and a checked SendInput emitter. API-accepted held
 ownership survives failed release until confirmed cleanup; fake-sender fixtures
 cover partial failure, Escape, duplicate cleanup and shared watchdog output.
-No native events or camera are executed by these tests. Source qualification
-is pending; independent process-death supervision, writer/session integration,
+No native events or camera are executed by these tests. Source9395d28 passes all five CI39722430502 jobs, including the native Windows
+codec/display/watchdog/cleanup fixtures and Linux compatibility/package checks.
+The subsequent monitor-info call passes the full extended buffer to the SDK.
+Independent process-death supervision, writer/session integration,
 actual camera/GPU, packaging and Legion application acceptance remain open.
 See [WINDOWS-INPUT.md](WINDOWS-INPUT.md); #19 is not complete.
 

@@ -165,7 +165,7 @@ impl Desktop {
             }
             let mut info: MONITORINFOEXW = unsafe { std::mem::zeroed() };
             info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
-            if unsafe { GetMonitorInfoW(monitor, &mut info.monitorInfo) } == 0 {
+            if unsafe { GetMonitorInfoW(monitor, (&mut info as *mut MONITORINFOEXW).cast()) } == 0 {
                 output.failure = Some(io::Error::last_os_error());
                 return 0;
             }

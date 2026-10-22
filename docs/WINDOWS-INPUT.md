@@ -51,3 +51,13 @@ Official API references:
 - [MOUSEINPUT](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput)
 - [GetMonitorInfo](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmonitorinfow)
 - [SetThreadDpiAwarenessContext](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setthreaddpiawarenesscontext)
+
+## Source checkpoint —2026-10-22
+
+Source9395d28 passes all five jobs in
+[CI39722430502](https://github.com/AlterMundi/WiggleControl/actions/runs/39722430502),
+including native Windows library/adapter tests and Clippy, the default binaries,
+and existing Linux native/package checks. Mapping/cleanup tests use fictional
+geometry and fake API emission; the code is not physically qualified on Legion.
+The follow-up monitor-info pointer passes the entire extended SDK buffer before
+casting to its base type; live display/DPI and actual input remain receiving checks.

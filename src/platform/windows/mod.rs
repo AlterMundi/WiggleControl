@@ -1,6 +1,9 @@
 //! Windows 11 x64 primitives and adapters; construction never starts a session.
+#[cfg(feature = "windows-camera")]
+pub mod camera;
 pub mod display;
 pub mod input;
+pub(crate) mod process;
 pub(crate) mod profile_files;
 pub mod writer;
 use std::io;

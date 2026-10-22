@@ -57,6 +57,8 @@ jobs:
       - run: cargo clippy --locked --lib --test controller --test controller_cli --test portable_output --test windows_writer -- -D warnings
       - run: cargo test --locked --features provider-runtime --lib --test provider_runtime
       - run: cargo clippy --locked --features provider-runtime --lib --test provider_runtime -- -D warnings
+      - run: cargo test --locked --features windows-camera --lib --test windows_capture
+      - run: cargo clippy --locked --features windows-camera --lib --test windows_capture -- -D warnings
 
   native-vision:
     runs-on: ubuntu-latest

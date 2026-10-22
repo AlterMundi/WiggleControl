@@ -1,6 +1,10 @@
 //! Independently polled output child, acknowledged ownership and parent recovery.
 //! No construction or spawn arms input. Only explicit fresh common packets can.
-use super::{display::Desktop, input, monotonic_us};
+use super::{
+    display::Desktop,
+    input, monotonic_us,
+    process::{terminate, CREATE_NO_WINDOW},
+};
 use crate::{controller::Mode, output::Packet, Event, MouseButton, MAX_MESSAGE_BYTES};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,8 +23,6 @@ pub mod fixture;
 const POLL: Duration = Duration::from_millis(20);
 const STARTUP: Duration = Duration::from_secs(5);
 const CLOSE_GRACE: Duration = Duration::from_millis(400);
-// CREATE_NO_WINDOW: console child keeps its pipes but creates no console window.
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
@@ -507,22 +509,6 @@ impl Writer {
 impl Drop for Writer {
     fn drop(&mut self) {
         self.close();
-    }
-}
-fn terminate(child: &mut Child) -> io::Result<()> {
-    let kill = child.kill();
-    let start = Instant::now();
-    loop {
-        if child.try_wait()?.is_some() {
-            return Ok(());
-        }
-        if let Err(error) = &kill {
-            return Err(invalid(format!("owned child kill failed: {error}")));
-        }
-        if start.elapsed() >= Duration::from_secs(1) {
-            return Err(invalid("owned child exit not observed within one second"));
-        }
-        thread::sleep(POLL);
     }
 }
 fn supervise(

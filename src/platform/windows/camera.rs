@@ -188,7 +188,7 @@ struct EofControl {
 }
 impl Drop for EofControl {
     fn drop(&mut self) {
-        self.done.store(true, Ordering::Relaxed);
+        self.done.store(true, Ordering::Release);
     }
 }
 fn eof_stop() -> EofControl {
@@ -202,8 +202,14 @@ fn eof_stop() -> EofControl {
         // Survives a hard parent exit even when a driver never returns to check
         // the stop flag. This is the dedicated camera child, never the UI owner.
         thread::sleep(Duration::from_millis(600));
-        if !finished.load(Ordering::Relaxed) {
-            std::process::exit(24);
+        if !finished.load(Ordering::Acquire) {
+            // ExitProcess may deadlock in DLL detach when another thread owns
+            // a driver/DLL lock. Terminate only this dedicated capture worker.
+            use ::windows::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+            unsafe {
+                let _ = TerminateProcess(GetCurrentProcess(), 24);
+            }
+            std::process::abort(); // The successful self-termination never returns.
         }
     });
     EofControl { stop, done }

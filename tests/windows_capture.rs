@@ -107,7 +107,10 @@ fn hard_parent_exit_also_ends_a_camera_child_blocked_in_the_driver() {
     };
     use windows::Win32::{
         Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT},
-        System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE},
+        System::Threading::{
+            GetExitCodeProcess, OpenProcess, WaitForSingleObject,
+            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+        },
     };
     struct Handle(HANDLE);
     impl Drop for Handle {
@@ -131,12 +134,27 @@ fn hard_parent_exit_also_ends_a_camera_child_blocked_in_the_driver() {
     let pid = line.trim().parse::<u32>().unwrap();
     // Hold the original process handle before asking its parent to hard-exit;
     // no PID-reuse assumption or absence of an entry is treated as proof.
-    let handle = Handle(unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid).unwrap() });
+    let handle = Handle(unsafe {
+        OpenProcess(
+            PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+            false,
+            pid,
+        )
+        .unwrap()
+    });
     assert_eq!(unsafe { WaitForSingleObject(handle.0, 0) }, WAIT_TIMEOUT);
     parent.stdin.take().unwrap().write_all(b"x").unwrap();
     assert_eq!(parent.wait_with_output().unwrap().status.code(), Some(19));
     assert_eq!(
         unsafe { WaitForSingleObject(handle.0, 4000) },
         WAIT_OBJECT_0
+    );
+    let mut code = 0;
+    unsafe {
+        GetExitCodeProcess(handle.0, &mut code).unwrap();
+    }
+    assert_eq!(
+        code, 24,
+        "the child's EOF watchdog, not parent cleanup, ended it"
     );
 }

@@ -61,7 +61,12 @@ The child runs without a console window. EOF requests normal capture/source shut
 the parent independently observes process exit, protocol errors, startup/fresh-frame
 silence and close grace. It can terminate only its owned child, using the same
 bounded helper as the Windows input supervisor. A child EOF watchdog also ends its
-own process if its owner dies while a driver call is blocked. No restart follows.
+own process if its owner dies while a driver call is blocked. Its forced exit24
+uses `TerminateProcess` on the current capture child, avoiding DLL-detach locks;
+the fixture verifies that exact exit code through its retained process handle.
+Normal shutdown remains graceful. No restart follows. References:
+[ExitProcess lock behavior](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitprocess),
+[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess).
 
 `Status::camera_opened()` is false only after observed child exit. Opening or
 unconfirmed failure is unknown; a close message alone does not prove process exit.
@@ -71,7 +76,8 @@ capture. This status describes this session, not every camera consumer on Window
 
 Internal commands are `windows-camera-list` (metadata), `windows-camera-stream
 SPEC_JSON` (explicit native capture), and device-free fixture commands. They are
-not the ordinary-user preview launcher. Build/test the adapter on Windows with
+not the ordinary-user preview launcher; the internal stream function belongs
+only in its dedicated child, never the UI/input owner. Build/test the adapter on Windows with
 `cargo test --locked --features windows-camera --lib --test windows_capture`.
 CI fixtures generate JPEGs and never call MF camera enumeration/acquisition or
 SendInput. They test latest-frame replacement, full-aspect payloads, clock/format/

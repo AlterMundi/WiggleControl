@@ -81,7 +81,10 @@ presses registered before pipe writes: a child can die after an API press but
 before acknowledging it. At most64 packets may await acknowledgement. Recovery
 emits only releases for that session's acknowledged/pending button or Escape bits,
 never a new press, automatic restart or blanket release. A failed cleanup remains
-unconfirmed in the outcome. Normal EOF/Stop returns a separate terminal outcome.
+unconfirmed in the outcome, with the possible-held mask and observed process-exit
+state retained. A runtime must not treat an unconfirmed process exit as permission
+to start another writer or attempt concurrent recovery. Normal EOF/Stop returns
+a separate terminal outcome.
 
 The hidden-console child uses Rust's maintained Windows `CommandExt` process
 creation flags and ordinary bounded pipes, with a five-second startup allowance.

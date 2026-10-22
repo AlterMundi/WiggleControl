@@ -272,7 +272,11 @@ fn failed_child_and_parent_cleanup_remains_unconfirmed() {
     writer.send(&frame(2, true)).unwrap();
     wait_until(|| writer.receipt().is_some_and(|r| r.held_mask == 1));
     let outcome = writer.stop();
-    assert!(!outcome.neutral && outcome.fallback_used, "{outcome:?}");
+    assert!(
+        !outcome.neutral && outcome.fallback_used && outcome.process_exited,
+        "{outcome:?}"
+    );
+    assert_eq!(outcome.unconfirmed_mask, 1);
     assert!(
         outcome
             .error

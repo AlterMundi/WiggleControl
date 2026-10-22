@@ -87,6 +87,8 @@ pub struct Receipt {
 /// Terminal status distinguishes clean closure from a failure recovered to neutral.
 #[derive(Clone, Debug)]
 pub struct Outcome {
+    pub process_exited: bool,
+    pub unconfirmed_mask: u8,
     pub neutral: bool,
     pub fallback_used: bool,
     pub error: Option<String>,
@@ -622,6 +624,8 @@ fn supervise(
     }
     let mut state = shared.0.lock().unwrap();
     state.outcome = Some(Outcome {
+        process_exited: exited,
+        unconfirmed_mask: if exited && recovered.is_ok() { 0 } else { mask },
         neutral: exited && recovered.is_ok(),
         fallback_used: exited && mask != 0,
         error: failure,

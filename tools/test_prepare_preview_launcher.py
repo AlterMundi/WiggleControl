@@ -162,6 +162,28 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'manual mouse'):
             mouse_launcher.validate_source(config | {'manual_start': False}, 123)
 
+    def test_explicit_headless_start_is_idempotent_and_opens_no_controls(self):
+        for prepared in (False, True):
+            config = {'manual_start': True, 'absolute_pointer': True, 'max_hands': 1,
+                      'prepared': prepared, 'run_id': '123-456'}
+            calls, requests = [], []
+            def run(args, **kwargs):
+                calls.append(args)
+                return subprocess.CompletedProcess(args, 0, '123\n', '')
+            def request(value, **kwargs):
+                requests.append(value)
+                return io.StringIO(json.dumps(config if isinstance(value, str) else {'accepted': True}))
+            with patch.object(sys, 'argv', ['mouse_launcher.py', 'start', '--require-direct-source']), \
+                    patch.object(mouse_launcher.subprocess, 'run', side_effect=run), \
+                    patch.object(mouse_launcher.urllib.request, 'urlopen', side_effect=request):
+                mouse_launcher.main()
+            self.assertEqual(len(calls), 3)
+            self.assertTrue(all('restart' not in call for call in calls))
+            self.assertEqual(len(requests), 1 if prepared else 2)
+            if not prepared:
+                self.assertTrue(requests[-1].full_url.endswith('/provider/prepare'))
+                self.assertEqual(json.loads(requests[-1].data), {'run_id': '123-456'})
+
     def test_open_does_not_launch_worker_or_controls_for_a_different_service_pid(self):
         config = {'manual_start': True, 'absolute_pointer': True, 'max_hands': 1,
                   'prepared': False, 'run_id': '123-456'}

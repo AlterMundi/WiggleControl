@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Open explicit mouse controls with an independent, idle detector unit.
 
-Starting these selected user units never requests model preparation/capture.
-The human control page's Start remains the acquisition boundary.
+Open starts idle controls. Start is an explicit headless acquisition request;
+it is intended for a human-clicked desktop/panel action, never autostart.
 """
 import argparse
 import json
@@ -22,7 +22,7 @@ def validate_source(config, expected_pid=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('open', 'stop'))
+    parser.add_argument('action', choices=('open', 'start', 'stop'))
     parser.add_argument('--port', type=int, default=8876)
     parser.add_argument('--source-unit', default='wigglecontrol-onehand-smooth.service')
     parser.add_argument('--worker-unit', default='wigglecontrol-onehand-mouse-worker.service')
@@ -58,6 +58,16 @@ def main():
                 raise TimeoutError('Selected mouse source is unavailable') from None
             time.sleep(.1)
     subprocess.run(['systemctl', '--user', 'start', args.worker_unit], check=True)
+    if args.action == 'start':
+        if not config.get('prepared'):
+            base = f'http://127.0.0.1:{args.port}'
+            request = urllib.request.Request(base + '/provider/prepare',
+                data=json.dumps({'run_id': config['run_id']}).encode(),
+                headers={'Content-Type': 'application/json', 'Origin': base})
+            with urllib.request.urlopen(request, timeout=3) as reply:
+                json.load(reply)
+        # Repeated ON is idempotent and never opens a control/feedback window.
+        return
     # A retained control page is bound to its prior run ID. Reopen it for the
     # current source without touching the independent detector or held input.
     subprocess.run(['systemctl', '--user', 'restart', args.control_unit], check=True)

@@ -2,6 +2,7 @@
 pub mod display;
 pub mod input;
 pub(crate) mod profile_files;
+pub mod writer;
 use std::io;
 use windows_sys::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 /// Same-host QPC epoch, shared by producer and independent writer processes.

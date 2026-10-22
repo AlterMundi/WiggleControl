@@ -55,8 +55,10 @@ and [MoveFileEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-
 are the official platform references. Linux clock/profile semantics stay unchanged.
 
 The initial Windows event/display library is described in [WINDOWS-INPUT.md](WINDOWS-INPUT.md);
-its native sender is replaced by a fake in CI. Writer process-death cleanup and
-receiving acceptance remain open.
+its native sender is replaced by a fake in CI. The independent writer/supervisor reuses common output policy and tracks
+acknowledged/pending presses for process-death cleanup. Device-free process
+fixtures do not establish native API or receiving acceptance; runtime integration
+and Legion qualification remain open.
 
 Camera negotiation/acquisition, remaining runtime input/display integration, actual process lifecycle and
 launch/distribution must remain platform responsibilities as #19–#21 are implemented.

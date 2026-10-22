@@ -265,6 +265,18 @@ impl<S: Sender> Injector<S> {
         }
         error.map_or(Ok(()), Err)
     }
+    /// Recovery after this session's writer is confirmed dead. The mask must
+    /// contain only its acknowledged or pending presses; never release all input.
+    pub fn release_possible(&mut self, mask: u8) -> io::Result<()> {
+        if mask & !15 != 0 {
+            return Err(io::Error::other("invalid pending input mask"));
+        }
+        for (i, held) in self.held.iter_mut().enumerate() {
+            *held |= mask & (1 << i) != 0;
+        }
+        self.escape_held |= mask & 8 != 0;
+        self.release()
+    }
     pub fn write(&mut self, batch: Batch) -> io::Result<()> {
         let result = (|| {
             if !batch.touch.is_empty() {
@@ -622,5 +634,24 @@ mod tests {
                 Attempt(INPUT_KEYBOARD, KEYEVENTF_KEYUP, 0)
             ]
         );
+    }
+    #[test]
+    fn recovery_releases_only_possible_session_bits_and_retains_failed_cleanup() {
+        let (mut sink, log) = mock(vec![1]);
+        assert!(sink.release_possible(2 | 8).is_err());
+        assert_eq!(sink.held_mask(), 2);
+        assert_eq!(
+            *log.borrow(),
+            vec![
+                Attempt(INPUT_MOUSE, MOUSEEVENTF_RIGHTUP, 0),
+                Attempt(INPUT_KEYBOARD, KEYEVENTF_KEYUP, 0),
+            ]
+        );
+        sink.release().unwrap();
+        assert_eq!(sink.held_mask(), 0);
+        let count = log.borrow().len();
+        assert!(sink.release_possible(16).is_err());
+        sink.release_possible(0).unwrap();
+        assert_eq!(log.borrow().len(), count);
     }
 }

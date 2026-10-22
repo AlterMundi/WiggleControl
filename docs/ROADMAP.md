@@ -10,6 +10,14 @@ delivery core, preserve Linux behavior, add Windows adapters, then package and
 physically qualify the independent preview. [WINDOWS-GOAL.md](WINDOWS-GOAL.md)
 is the requested goal specification; native harness state determines execution.
 
+Windows source progress: #18's common-core extraction is merged. #19 now has
+physical display/SendInput conversion and independent writer/supervisor source;
+its native-Windows fixtures use fake emitters, including process-death recovery.
+See [PLATFORM-LAYER.md](PLATFORM-LAYER.md) and [WINDOWS-INPUT.md](WINDOWS-INPUT.md).
+#19 stays open for runtime and actual output acceptance. Next adapt camera,
+worker launch and visible/fullscreen calibration (#20), package ordinary-user
+launch (#21), then qualify Legion (#22). No user-facing Windows preview is ready.
+
 The Linux Legion trial received very positive human feedback. The merged #16
 detail-drag and #17 video-off startup corrections have source/CI evidence but
 remain physically unverified there. The previous Linux goal was cleared on

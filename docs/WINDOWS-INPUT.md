@@ -109,3 +109,11 @@ not actual input or Legion acceptance; #19 stays open for runtime/receiving work
 
 Process references: [Rust CommandExt](https://doc.rust-lang.org/std/os/windows/process/trait.CommandExt.html#tymethod.creation_flags)
 and [Win32 process flags](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags).
+
+
+Writer sourceaa63593 passes the native-Windows library, shared controller,
+portable delivery and all eight process tests, default binary checks and Clippy
+in [CI39725142474](https://github.com/AlterMundi/WiggleControl/actions/runs/39725142474).
+This is fake-emitter source evidence; no real desktop input, display discovery or
+camera was used. [PR26](https://github.com/AlterMundi/WiggleControl/pull/26) retains
+the exact subsequent source/check outcomes and integration record.

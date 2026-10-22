@@ -270,6 +270,13 @@ impl Reader {
                 .GetUINT64(&MFSampleExtension_DeviceTimestamp)
                 .map_err(|e| error(format!("camera has no driver/QPC timestamp: {e}")))?
         };
+        // Bound the whole sample before MF may allocate a contiguous copy.
+        let total = unsafe { sample.GetTotalLength().map_err(error)? };
+        if !(4..=MAX_JPEG_BYTES as u32).contains(&total) {
+            return Err(invalid(
+                "native MJPEG sample exceeds the encoded-frame bound",
+            ));
+        }
         let buffer = unsafe { sample.ConvertToContiguousBuffer().map_err(error)? };
         let mut pointer = ptr::null_mut();
         let mut length = 0;

@@ -47,7 +47,7 @@ pub fn stream(spec: Spec, fault: Fault) -> io::Result<()> {
         .map_err(io::Error::other)?;
     let mut sequence = 0u32;
     let mut previous = None;
-    while !stop.load(Ordering::Relaxed) {
+    while !stop.stop.load(Ordering::Relaxed) {
         let mut stamp = monotonic_us()?;
         sequence += 1;
         match fault {
@@ -100,4 +100,20 @@ pub fn stream(spec: Spec, fault: Fault) -> io::Result<()> {
             error: None,
         },
     )
+}
+
+/// Skip Drop to prove EOF recovery when the owner is gone and its driver hangs.
+pub fn parent_exit(executable: &Path, spec: Spec) -> io::Result<()> {
+    let capture = Capture::spawn_fixture(executable, spec, Fault::Stall)?;
+    let start = Instant::now();
+    while capture.status().fresh_frames == 0 {
+        if capture.status().error.is_some() || start.elapsed() > Duration::from_secs(5) {
+            return Err(invalid("fixture parent did not observe a frame"));
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+    println!("{}", capture.pid());
+    io::stdout().flush()?;
+    io::stdin().read_exact(&mut [0])?;
+    std::process::exit(19);
 }

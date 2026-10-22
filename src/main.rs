@@ -57,6 +57,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::from_str(&args[1])?,
             )?);
         }
+        Some("windows-camera-parent-fixture") if args.len() == 2 => {
+            return Ok(
+                wigglecontrol::platform::windows::camera::fixture::parent_exit(
+                    &std::env::current_exe()?,
+                    serde_json::from_str(&args[1])?,
+                )?,
+            );
+        }
         Some("windows-camera-fixture") if args.len() == 3 => {
             return Ok(wigglecontrol::platform::windows::camera::fixture::stream(
                 serde_json::from_str(&args[1])?,

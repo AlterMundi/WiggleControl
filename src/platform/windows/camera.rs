@@ -182,14 +182,31 @@ impl Guard {
         Ok(now - source < budget)
     }
 }
-fn eof_stop() -> Arc<AtomicBool> {
+struct EofControl {
+    stop: Arc<AtomicBool>,
+    done: Arc<AtomicBool>,
+}
+impl Drop for EofControl {
+    fn drop(&mut self) {
+        self.done.store(true, Ordering::Relaxed);
+    }
+}
+fn eof_stop() -> EofControl {
     let stop = Arc::new(AtomicBool::new(false));
+    let done = Arc::new(AtomicBool::new(false));
     let signal = stop.clone();
+    let finished = done.clone();
     thread::spawn(move || {
         let _ = io::stdin().read(&mut [0]);
         signal.store(true, Ordering::Relaxed);
+        // Survives a hard parent exit even when a driver never returns to check
+        // the stop flag. This is the dedicated camera child, never the UI owner.
+        thread::sleep(Duration::from_millis(600));
+        if !finished.load(Ordering::Relaxed) {
+            std::process::exit(24);
+        }
     });
-    stop
+    EofControl { stop, done }
 }
 /// Internal manually invoked capture child. No input, recording or renderer.
 pub fn stream(spec: Spec) -> io::Result<()> {
@@ -209,7 +226,7 @@ pub fn stream(spec: Spec) -> io::Result<()> {
             },
         )?;
         let mut sequence = 0u32;
-        while !stop.load(Ordering::Relaxed) {
+        while !stop.stop.load(Ordering::Relaxed) {
             if let Some((stamp, bytes)) = source.next()? {
                 let stamp = driver_us(stamp)?;
                 sequence = sequence
@@ -239,7 +256,8 @@ pub fn stream(spec: Spec) -> io::Result<()> {
 pub struct Status {
     pub negotiated: Option<Format>,
     pub native_capture: bool,
-    pub captured: u64,
+    pub received: u64,
+    pub fresh_frames: u64,
     pub dropped: u64,
     pub process_exited: bool,
     pub error: Option<String>,
@@ -266,6 +284,7 @@ struct Slot {
 }
 type Shared = Arc<(Mutex<Slot>, Condvar)>;
 pub struct Capture {
+    pid: u32,
     input: Option<ChildStdin>,
     shared: Shared,
     monitor: Option<JoinHandle<()>>,
@@ -298,6 +317,7 @@ impl Capture {
             command.arg(serde_json::to_string(&fault)?);
         }
         let mut child = command.spawn()?;
+        let pid = child.id();
         let input = child.stdin.take();
         let output = child.stdout.take().expect("piped camera output");
         let shared = Arc::new((
@@ -305,7 +325,8 @@ impl Capture {
                 status: Status {
                     negotiated: None,
                     native_capture: fault.is_none(),
-                    captured: 0,
+                    received: 0,
+                    fresh_frames: 0,
                     dropped: 0,
                     process_exited: false,
                     error: None,
@@ -340,6 +361,7 @@ impl Capture {
         let monitor_shared = shared.clone();
         let monitor = thread::spawn(move || supervise(child, reader, monitor_shared));
         let capture = Self {
+            pid,
             input,
             shared,
             monitor: Some(monitor),
@@ -364,6 +386,9 @@ impl Capture {
         }
         drop(state);
         Ok(capture)
+    }
+    pub fn pid(&self) -> u32 {
+        self.pid
     }
     pub fn status(&self) -> Status {
         self.shared.0.lock().unwrap().status.clone()
@@ -444,8 +469,10 @@ fn receive(mut input: impl BufRead, spec: &Spec, native: bool, shared: &Shared) 
                 let mut bytes = vec![0; length];
                 input.read_exact(&mut bytes)?;
                 jpeg(&bytes, spec.format)?;
-                let fresh = guard.fresh(sequence, source_us, monotonic_us()?, spec.freshness_us)?;
+                let fresh = guard.fresh(sequence, source_us, monotonic_us()?, spec.freshness_us);
                 let mut state = shared.0.lock().unwrap();
+                state.status.received = state.status.received.saturating_add(1);
+                let fresh = fresh?;
                 if !fresh {
                     state.status.dropped = state.status.dropped.saturating_add(1);
                     continue;
@@ -458,7 +485,7 @@ fn receive(mut input: impl BufRead, spec: &Spec, native: bool, shared: &Shared) 
                     source_us,
                     sequence,
                 });
-                state.status.captured = state.status.captured.saturating_add(1);
+                state.status.fresh_frames = state.status.fresh_frames.saturating_add(1);
                 state.last_fresh = Instant::now();
             }
             Message::Closed { run_id, error } => {
@@ -503,7 +530,7 @@ fn supervise(mut child: Child, reader: JoinHandle<()>, shared: Shared) {
             .is_some_and(|t| t.elapsed() >= Duration::from_millis(400))
             || terminal_at.is_some_and(|t| t.elapsed() >= Duration::from_millis(400));
         let stale = state.last_fresh.elapsed()
-            >= if state.ready && state.status.captured > 0 {
+            >= if state.ready && state.status.fresh_frames > 0 {
                 SILENCE
             } else {
                 STARTUP

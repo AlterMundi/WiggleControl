@@ -244,14 +244,18 @@ mod tests {
                     serde_json::from_slice(&std::fs::read(&session).unwrap()).unwrap();
                 measured["provider_presence_scores"] = true.into();
                 std::fs::write(&session, measured.to_string()).unwrap();
-                let (_, controller, tracker) = configured(&session, &settings, None).unwrap();
-                assert!(tracker.presence_scores);
-                assert_eq!(tracker.presence_floor, 0.5);
+                let (_, controller, mut tracker) = configured(&session, &settings, None).unwrap();
+                let mut raw = hand(0.0, 0.09);
+                raw.presence_confidence = Some(0.6);
+                let observed = tracker.observe(&frame(1, vec![raw])).unwrap();
+                assert_eq!(observed.hands.len(), 1);
+                assert_eq!(observed.hands[0].confidence, 0.6);
                 assert_eq!(controller.visual_policy().unwrap().min_confidence, 0.8);
             } else {
-                let (_, controller, tracker) = result.unwrap();
+                let (_, controller, mut tracker) = result.unwrap();
                 assert!(controller.visual_policy().is_some());
-                assert_eq!(tracker.presence_floor, 0.8);
+                let observed = tracker.observe(&frame(1, vec![hand(0.0, 0.09)])).unwrap();
+                assert_eq!(observed.hands[0].confidence, 0.8);
                 assert!(configured(&session, &settings, Some(0.5))
                     .err()
                     .unwrap()

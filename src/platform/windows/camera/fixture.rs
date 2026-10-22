@@ -51,9 +51,14 @@ pub fn stream(spec: Spec, fault: Fault) -> io::Result<()> {
         let mut stamp = monotonic_us()?;
         sequence += 1;
         match fault {
-            Fault::Stall if sequence > 1 => loop {
-                thread::park();
-            },
+            Fault::Stall if sequence > 1 => {
+                // Receipt of this second frame identifies the branch that parks
+                // unconditionally, without another cooperative EOF check.
+                write_frame(&mut output, sequence, stamp, &bytes)?;
+                loop {
+                    thread::park();
+                }
+            }
             Fault::Partial if sequence > 1 => {
                 write_message(
                     &mut output,
@@ -106,7 +111,7 @@ pub fn stream(spec: Spec, fault: Fault) -> io::Result<()> {
 pub fn parent_exit(executable: &Path, spec: Spec) -> io::Result<()> {
     let capture = Capture::spawn_fixture(executable, spec, Fault::Stall)?;
     let start = Instant::now();
-    while capture.status().fresh_frames == 0 {
+    while capture.status().fresh_frames < 2 {
         if capture.status().error.is_some() || start.elapsed() > Duration::from_secs(5) {
             return Err(invalid("fixture parent did not observe a frame"));
         }

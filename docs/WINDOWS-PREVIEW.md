@@ -65,6 +65,8 @@ Retain Linux replay/command/config behavior and relevant native/package checks.
    is the starting API to evaluate; test results and limitations are not assumed.
 3. [#20 — Capture and calibration](https://github.com/AlterMundi/WiggleControl/issues/20):
    adapt actual camera/worker/lifecycle to Windows and feed the same raw-meaning core.
+   The [capture integration route](WINDOWS-CAPTURE.md) preserves native MJPEG and
+   the driver/QPC timestamp contract; hardware support still needs qualification.
 4. [#21 — Distribution](https://github.com/AlterMundi/WiggleControl/issues/21):
    build a complete source-bound portable package, quickstart and update/removal path.
 5. [#22 — Legion acceptance](https://github.com/AlterMundi/WiggleControl/issues/22):

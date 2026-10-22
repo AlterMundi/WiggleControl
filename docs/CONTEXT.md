@@ -15,8 +15,10 @@ camera session. Native paths keep compatibility reexports; `provider-runtime`
 allows actual config-check/raw-landmark replay on Windows without capture, input,
 a browser or model initialization for disabled visual profiles. Native camera,
 worker transport and normal-user Windows app/packaging are still pending (#20–#22).
-Source checks and qualification are retained with this increment's PR; no receiving
-session or camera has been started.
+Source checks and qualification are retained in [PR27](https://github.com/AlterMundi/WiggleControl/pull/27); no receiving
+session or camera has been started. [WINDOWS-CAPTURE.md](WINDOWS-CAPTURE.md) records
+the native-MJPEG/source-reader route and driver/QPC timestamp contract; that adapter
+and Windows camera/worker lifecycle are not implemented yet.
 
 Windows writer source work —2026-10-22: an independent JSONL/QPC writer and
 parent supervision now reuse the common output watchdog, with acknowledged plus

@@ -1,17 +1,11 @@
 //! Direct type-B touchscreen frames, separate from relative mouse semantics.
+pub use crate::contacts::Contact;
 use evdev::{
     uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode as A, AttributeSet, EventType, InputEvent,
     KeyCode, PropType, UinputAbsSetup,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{io, time::Duration};
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Contact {
-    pub id: u32,
-    pub x: f64,
-    pub y: f64,
-}
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Intent {

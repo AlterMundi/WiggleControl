@@ -2,6 +2,10 @@
 //! Model coordinate conventions derived from OpenCV Zoo MediaPipe adapters,
 //! commit 47534e27, Apache-2.0; licenses retained under models/. Rust inference,
 //! tracking/state plumbing is new. No private Barehands code is incorporated.
+pub(crate) use crate::landmarks::{
+    duplicate_prediction, identity_uncertain, pair_uncertain, palm_match_cost,
+};
+pub use crate::landmarks::{DetectedHand, MultiHands, PROXIMAL_PINCH_SOURCE, XY};
 use image::RgbImage;
 use ort::{
     session::{builder::GraphOptimizationLevel, Session},
@@ -9,16 +13,6 @@ use ort::{
 };
 use std::{error::Error, path::Path};
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct XY {
-    pub x: f64,
-    pub y: f64,
-}
-impl XY {
-    pub(crate) fn distance(self, b: Self) -> f64 {
-        (self.x - b.x).hypot(self.y - b.y)
-    }
-}
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
     pub center: XY,
@@ -153,21 +147,6 @@ fn crop(image: &RgbImage, roi: Roi, side: usize) -> Vec<f32> {
     }
     output
 }
-#[derive(Clone, Debug)]
-pub struct DetectedHand {
-    pub id: u64,
-    pub landmarks: [XY; 21],
-    /// Relative image depth in source pixels (same scale as X), before mirroring.
-    /// This is a model image coordinate, not metric world depth. None means unavailable.
-    pub image_depths: Option<[f64; 21]>,
-    pub world_landmarks: [[f64; 3]; 21],
-    pub confidence: f64,
-    pub handedness: f64,
-    pub tracked: bool,
-    /// Bounded same-hand crop alternative; constructors leave its own alternative empty.
-    pub secondary: Option<Box<DetectedHand>>,
-    pub secondary_source_id: u64,
-}
 #[derive(Clone)]
 struct TrackedHand {
     roi: Roi,
@@ -184,47 +163,6 @@ pub enum PalmDeduplication {
 struct PalmProposal {
     roi: Roi,
     landmarks: [XY; 7],
-}
-// OpenCV Zoo's pinned PALM_LANDMARK_IDS maps the first five palm points
-// to wrist/index/middle/ring/pinky MCP. Thumb articulation is not a scale cue.
-pub(crate) fn palm_match_cost(hand: &DetectedHand, palm: &[XY; 7]) -> Option<f64> {
-    let scale = hand.landmarks[5]
-        .distance(hand.landmarks[17])
-        .max(hand.landmarks[0].distance(hand.landmarks[9]));
-    if !scale.is_finite() || scale < 8.0 {
-        return None;
-    }
-    let error = [0, 5, 9, 13, 17]
-        .into_iter()
-        .enumerate()
-        .map(|(i, j)| hand.landmarks[j].distance(palm[i]).powi(2))
-        .sum::<f64>();
-    let cost = (error / 5.0).sqrt() / scale;
-    cost.is_finite().then_some(cost)
-}
-/// Duplicate image predictions are not independent observations of a second hand.
-/// This matches model output geometry, never participant identity or hidden anatomy.
-pub(crate) fn duplicate_prediction(a: &DetectedHand, b: &DetectedHand) -> bool {
-    let scale = [a, b]
-        .into_iter()
-        .map(|h| {
-            h.landmarks[5]
-                .distance(h.landmarks[17])
-                .max(h.landmarks[0].distance(h.landmarks[9]))
-        })
-        .fold(0.0_f64, f64::max);
-    // Finger predictions can differ with the crop during a pinch. Ownership
-    // correspondence must use the same proximal palm points as proposal matching.
-    let palm = [0, 5, 9, 13, 17];
-    let error = palm
-        .into_iter()
-        .map(|i| a.landmarks[i].distance(b.landmarks[i]).powi(2))
-        .sum::<f64>();
-    scale >= 8.0
-        && scale.is_finite()
-        && error.is_finite()
-        && (error / palm.len() as f64).sqrt() / scale < 0.10
-        && (a.handedness - b.handedness).abs() < 0.2
 }
 /// Current-frame inference/search evidence, never an accepted hand observation.
 #[derive(Default, serde::Serialize)]
@@ -263,12 +201,6 @@ pub struct SkippedPalm {
 fn roi_values(roi: Roi) -> [f64; 4] {
     [roi.center.x, roi.center.y, roi.side, roi.angle]
 }
-pub struct MultiHands {
-    pub hands: Vec<DetectedHand>,
-    pub ambiguous: bool,
-    /// Diagnostic cause of an explicitly rejected identity set.
-    pub ambiguity_reason: Option<&'static str>,
-}
 pub struct Perception {
     palm: Session,
     hand: Session,
@@ -298,23 +230,6 @@ fn iou(a: [f64; 4], b: [f64; 4]) -> f64 {
     let h = (a[1] + a[3]).min(b[1] + b[3]) - a[1].max(b[1]);
     let intersection = w.max(0.0) * h.max(0.0);
     intersection / (a[2] * a[3] + b[2] * b[3] - intersection).max(f64::EPSILON)
-}
-fn center(hand: &DetectedHand) -> XY {
-    XY {
-        x: (hand.landmarks[5].x + hand.landmarks[17].x) / 2.0,
-        y: (hand.landmarks[5].y + hand.landmarks[17].y) / 2.0,
-    }
-}
-pub(crate) fn pair_uncertain(a: &DetectedHand, b: &DetectedHand, minimum_widths: f64) -> bool {
-    let width = a.landmarks[5]
-        .distance(a.landmarks[17])
-        .max(b.landmarks[5].distance(b.landmarks[17]));
-    center(a).distance(center(b)) < minimum_widths * width
-}
-pub(crate) fn identity_uncertain(a: &DetectedHand, b: &DetectedHand, side: f64) -> bool {
-    center(a).distance(center(b)) > 0.5 * side
-        || (a.handedness < 0.2 && b.handedness > 0.8)
-        || (a.handedness > 0.8 && b.handedness < 0.2)
 }
 fn session(path: &Path) -> Result<Session, Box<dyn Error>> {
     Ok(Session::builder()?
@@ -789,89 +704,6 @@ impl Perception {
         Ok(candidate.filter(|_| matched))
     }
 }
-pub const PROXIMAL_PINCH_SOURCE: u64 = 1;
-
-impl DetectedHand {
-    pub fn secondary_debug(&self) -> Option<serde_json::Value> {
-        self.secondary.as_ref().map(|h| {
-            serde_json::json!({
-                "source_id":self.secondary_source_id,"confidence":h.confidence,
-                "world_pinch_distance_m":h.world_pinch_distance_m(),
-                "landmarks":h.landmarks.map(|p|[p.x,p.y]),"world_landmarks":h.world_landmarks,
-            })
-        })
-    }
-    pub fn world_pinch_distance_m(&self) -> f64 {
-        self.world_landmarks[4]
-            .iter()
-            .zip(self.world_landmarks[8])
-            .map(|(a, b)| (a - b).powi(2))
-            .sum::<f64>()
-            .sqrt()
-    }
-
-    pub fn in_view(&self, width: u32, height: u32) -> bool {
-        self.landmarks
-            .iter()
-            .all(|p| p.x >= 0.0 && p.y >= 0.0 && p.x < width as f64 && p.y < height as f64)
-    }
-    pub fn observation(&self, width: u32, height: u32, source_us: u64) -> crate::Observation {
-        self.observation_with_posture(width, height, source_us, false)
-    }
-    /// A contextual detail posture can replace only the open-finger gate.
-    /// Framing and all later metric/confidence/source checks still apply.
-    pub(crate) fn observation_with_posture(
-        &self,
-        width: u32,
-        height: u32,
-        source_us: u64,
-        detail_pinch_posture: bool,
-    ) -> crate::Observation {
-        let points = &self.landmarks;
-        let metric = width.max(height) as f64;
-        let in_view = self.in_view(width, height);
-        let extended = |tip: usize, pip: usize| {
-            points[0].distance(points[tip]) > points[0].distance(points[pip]) * 1.05
-        };
-        let others = [(12, 10), (16, 14), (20, 18)]
-            .iter()
-            .filter(|(tip, pip)| extended(*tip, *pip))
-            .count();
-        let eligible = in_view && (extended(8, 6) || others >= 2 || detail_pinch_posture);
-        let center = XY {
-            x: (points[5].x + points[17].x) / 2.0,
-            y: (points[5].y + points[17].y) / 2.0,
-        };
-        let normalized = |p: XY| crate::Point {
-            x: (1.0 - p.x / metric).clamp(0.0, 1.0),
-            y: (p.y / metric).clamp(0.0, 1.0),
-        };
-        crate::Observation {
-            version: 1,
-            source_us,
-            hand: Some(crate::Hand {
-                id: self.id,
-                confidence: self.confidence,
-                engaged: eligible,
-                pinch_eligible: eligible,
-                pinch_onset_allowed: true,
-                scrolling: points[4].distance(points[12]) / points[5].distance(points[17]) < 0.25
-                    && points[4].distance(points[8]) / points[5].distance(points[17]) > 0.4,
-                cursor: crate::Point {
-                    x: (1.0 - center.x / width as f64).clamp(0.0, 1.0),
-                    y: (center.y / height as f64).clamp(0.0, 1.0),
-                },
-                thumb_tip: normalized(points[4]),
-                index_tip: normalized(points[8]),
-                palm_width: points[5].distance(points[17]) / metric,
-                pinch_distance_m: None,
-                pinch_distance_ratio: None,
-                secondary_pinch: None,
-            }),
-        }
-    }
-}
-
 /// Controlled image translation, not a source of known physical fingertip distances.
 /// The fixed-ROI branch isolates preprocessing/model invariance; cold detection
 /// followed by ten identical frames additionally exercises detection and tracking.

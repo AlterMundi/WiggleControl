@@ -1,7 +1,7 @@
 //! Exclusive interaction modes over the existing pointer/contact/macro engines.
 //! Intent only: acquiring sensors and delivering OS input remain separate adapters.
 use crate::{
-    macros, pointer_buttons, touch::Contact, touch_gestures, Config, Engine, Event, Hand,
+    contacts::Contact, macros, pointer_buttons, touch_gestures, Config, Engine, Event, Hand,
     MouseButton, Observation,
 };
 use serde::{Deserialize, Serialize};
@@ -267,7 +267,6 @@ impl Controller {
     pub fn detail_config(&self) -> Option<crate::detail::Config> {
         self.detail_config
     }
-    #[cfg(feature = "native-vision")]
     pub(crate) fn active_detail_config(&self) -> Option<crate::detail::Config> {
         self.detail_config
             .filter(|_| self.mode == Mode::Pointer && self.detail.active())
@@ -287,7 +286,6 @@ impl Controller {
     pub fn right_click_dominance_ratio(&self) -> f64 {
         self.right_click_dominance_ratio
     }
-    #[cfg(feature = "native-vision")]
     pub(crate) fn selected_pointer_hand(&self, frame: &touch_gestures::Frame) -> Option<u64> {
         if !self.running || frame.ambiguous || self.mode.touch() {
             None

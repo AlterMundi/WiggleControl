@@ -12,6 +12,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Saved corner verification accepted; no acquisition started");
         return Ok(());
     }
+    // These replay commands acquire neither sensors nor platform input.
+    match args.first().map(String::as_str) {
+        Some("touch-replay") if args.len() == 1 => {
+            return Ok(wigglecontrol::touch_gestures::replay_stdin()?)
+        }
+        Some("mode-replay") if args.len() == 2 => {
+            return Ok(wigglecontrol::controller::replay_stdin(
+                std::path::Path::new(&args[1]),
+            )?);
+        }
+        _ => (),
+    }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
         Some("provider-calibrate" | "provider-calibrate-preflight") if args.len() == 7 => {
@@ -409,9 +421,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(target_os = "linux")]
     match args.first().map(String::as_str) {
-        Some("touch-replay") if args.len() == 1 => {
-            return Ok(wigglecontrol::touch_gestures::replay_stdin()?)
-        }
         Some("controller-stream") if args.len() == 4 => {
             return Ok(wigglecontrol::delivery::stream(
                 Some(args[1].parse()?),
@@ -458,11 +467,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(wigglecontrol::delivery::replay_stdin(
                 args[1].parse()?,
                 args[2].parse()?,
-            )?);
-        }
-        Some("mode-replay") if args.len() == 2 => {
-            return Ok(wigglecontrol::controller::replay_stdin(
-                std::path::Path::new(&args[1]),
             )?);
         }
         Some("macro-replay") if args.len() == 2 => {

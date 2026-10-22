@@ -1,4 +1,3 @@
-#![cfg(target_os = "linux")]
 use wigglecontrol::{
     controller::{Controller, Mode, Output, Settings},
     macros,

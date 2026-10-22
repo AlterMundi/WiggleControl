@@ -1538,6 +1538,7 @@ dependencies = [
  "signal-hook",
  "tract-onnx",
  "v4l",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

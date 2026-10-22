@@ -8,6 +8,16 @@ The port must extract one shared Rust controller/calibration/filter/delivery cor
 OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
 Windows is planned, not yet implemented, installed or physically qualified.
 
+Shared-core source increment —2026-10-22: controller/calibration, logical
+contacts, landmark interpretation, raw provider identity and the delivery
+publisher/freshness/Hold/watchdog state now compile independently of Linux
+module gates. Linux mouse/touch/keyboard/writer implementations move under
+platform/linux with compatible crate-level aliases. Windows adds QPC and
+profile-file primitives, not camera or native mouse output yet. The actual
+raw detail-drag and identity regressions move into the portable suite; Windows
+native core CI uses Rust1.85.1. Source qualification is in progress; this does
+not establish Windows receiving support. See [PLATFORM-LAYER.md](PLATFORM-LAYER.md).
+
 The previous Linux native goal was cleared on2026-10-21. Milestone1 remains open;
 its unfinished acceptance/release work is not erased and does not block Windows.
 Source #16 and #17 are merged; #17's final93ae0d4 passes all four push CI jobs

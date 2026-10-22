@@ -44,6 +44,10 @@ Start here:
 
 ## Current runtime architecture
 
+The [shared core and platform layer](docs/PLATFORM-LAYER.md) separate gesture,
+calibration and delivery policy from OS primitives. Linux module/command paths
+remain compatible; the Windows application adapters are still being implemented.
+
 Rust acquires camera frames, interprets hand observations, applies calibration and
 cursor filtering, and delivers Linux virtual input. The selected perception
 backend runs pinned MediaPipe Tasks in a headless Chromium worker using the Pi's

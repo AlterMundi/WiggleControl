@@ -5,12 +5,10 @@ use wigglecontrol::{filter::OneEuroConfig, Config, Engine, Event, Hand, Observat
 
 #[derive(Clone, Copy, Default)]
 struct Mapping {
-    #[cfg(target_os = "linux")]
     profile: Option<wigglecontrol::calibration::Profile>,
 }
 impl Mapping {
     fn camera(self, p: Point) -> Point {
-        #[cfg(target_os = "linux")]
         if let Some(profile) = self.profile {
             let w = profile.workspace;
             return Point {
@@ -21,20 +19,15 @@ impl Mapping {
         p
     }
     fn screen(self, p: Point) -> Point {
-        #[cfg(target_os = "linux")]
         if let Some(profile) = self.profile {
             return profile.workspace.map(p);
         }
         p
     }
     fn profile_json(self) -> serde_json::Value {
-        #[cfg(target_os = "linux")]
-        return serde_json::to_value(self.profile).expect("validated finite profile");
-        #[cfg(not(target_os = "linux"))]
-        serde_json::Value::Null
+        serde_json::to_value(self.profile).expect("validated finite profile")
     }
     fn output(self) -> [u32; 2] {
-        #[cfg(target_os = "linux")]
         if let Some(profile) = self.profile {
             return profile.output;
         }
@@ -257,10 +250,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !(1..=2).contains(&args.len()) {
         return Err("expected NEW_DIRECTORY [CALIBRATION_PROFILE]".into());
     }
-    #[allow(unused_mut)]
     let mut mapping = Mapping::default();
     if let Some(path) = args.get(1) {
-        #[cfg(target_os = "linux")]
         {
             if fs::metadata(path)?.len() > 4096 {
                 return Err("calibration profile exceeds 4096 bytes".into());
@@ -269,11 +260,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 serde_json::from_slice(&fs::read(path)?)?;
             profile.validate()?;
             mapping.profile = Some(profile);
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            let _ = path;
-            return Err("calibrated simulation requires the Linux profile adapter".into());
         }
     }
     let root = Path::new(&args[0]);
@@ -334,7 +320,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(target_os = "linux")]
     #[test]
     fn half_workspace_doubles_unfiltered_camera_noise_on_screen() {
         let mapping = Mapping {

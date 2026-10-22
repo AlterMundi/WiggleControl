@@ -1,10 +1,8 @@
 //! Explicit local trial evidence. Raw camera bytes and human labels never enter Git.
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::{self, Read, Seek, SeekFrom, Write},
-    os::fd::AsRawFd,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -19,7 +17,7 @@ struct Budget {
     used: u64,
     remaining: u64,
     began: Instant,
-    directory: File,
+    directory: crate::platform::recording_store::Directory,
     exhausted: bool,
 }
 impl Budget {
@@ -36,14 +34,7 @@ impl Budget {
         Ok(())
     }
     fn available(&self) -> io::Result<u64> {
-        let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
-        // The live directory FD selects the actual recording filesystem.
-        if unsafe { libc::fstatvfs(self.directory.as_raw_fd(), stat.as_mut_ptr()) } != 0 {
-            return Err(io::Error::last_os_error());
-        }
-        let stat = unsafe { stat.assume_init() };
-        u64::try_from(u128::from(stat.f_bavail) * u128::from(stat.f_frsize))
-            .map_err(io::Error::other)
+        self.directory.available()
     }
 }
 /// Shares the take/directory budget across video, frame index and observations.
@@ -203,28 +194,15 @@ pub struct Frames {
     last: Option<u64>,
 }
 pub fn private_file(path: &Path) -> io::Result<File> {
-    OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)
+    crate::platform::profile_files::create_new(path)
 }
 pub fn create(
     base: &Path,
     stamp: u64,
     manifest: &serde_json::Value,
 ) -> io::Result<(Frames, Output, PathBuf)> {
-    fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(base)?;
-    let directory = File::open(base)?;
-    // Held for the whole recording lifetime; two takes cannot spend the same budget.
-    if unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-        return Err(io::Error::other(
-            "recording store already has an active take",
-        ));
-    }
+    crate::platform::recording_store::create_dir(base, true)?;
+    let directory = crate::platform::recording_store::Directory::lock(base)?;
     let existing = retained_bytes(base)?;
     let mut budget = Budget {
         used: 0,
@@ -243,7 +221,7 @@ pub fn create(
         })
     };
     let dir = base.join(format!("trial-{stamp}-{}", std::process::id()));
-    fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    crate::platform::recording_store::create_dir(&dir, false)?;
     let video = output(&dir.join("video.mjpeg"))?;
     let index = output(&dir.join("frames.jsonl"))?;
     let observations = output(&dir.join("observations.jsonl"))?;
@@ -306,6 +284,7 @@ impl Frames {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::OpenOptions;
 
     #[test]
     fn dataset_budget_is_shared_latched_and_checks_free_reserve_and_duration() {
@@ -342,6 +321,7 @@ mod tests {
         file.set_len(MAX_DIRECTORY_BYTES).unwrap();
         assert!(create(&base, 33, &serde_json::json!({})).is_err());
         assert_eq!(fs::metadata(retained).unwrap().len(), MAX_DIRECTORY_BYTES);
+        #[cfg(target_os = "linux")]
         assert_eq!(fs::read_dir(&base).unwrap().count(), 1);
         fs::remove_dir_all(base).unwrap();
     }
@@ -410,7 +390,14 @@ mod tests {
                 [true, false]
             } {
                 let mut sink = Counting {
-                    inner: OpenOptions::new().write(true).open("/dev/null").unwrap(),
+                    inner: OpenOptions::new()
+                        .write(true)
+                        .open(if cfg!(target_os = "windows") {
+                            "NUL"
+                        } else {
+                            "/dev/null"
+                        })
+                        .unwrap(),
                     writes: 0,
                 };
                 let began = std::time::Instant::now();
@@ -475,8 +462,13 @@ mod tests {
         assert!(Reader::open(&dir).is_err());
         fs::write(dir.join("frames.jsonl"), original).unwrap();
         fs::rename(dir.join("video.mjpeg"), base.join("outside.mjpeg")).unwrap();
-        std::os::unix::fs::symlink(base.join("outside.mjpeg"), dir.join("video.mjpeg")).unwrap();
-        assert!(Reader::open(&dir).is_err());
+        assert!(Reader::open(&dir).is_err()); // Missing indexed segment on both OSes.
+        #[cfg(target_os = "linux")]
+        {
+            std::os::unix::fs::symlink(base.join("outside.mjpeg"), dir.join("video.mjpeg"))
+                .unwrap();
+            assert!(Reader::open(&dir).is_err());
+        }
         fs::remove_dir_all(base).unwrap();
     }
     #[test]

@@ -74,6 +74,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => (),
     }
+    #[cfg(all(target_os = "windows", feature = "browser-provider"))]
+    match args.first().map(String::as_str) {
+        Some("windows-display-list") if args.len() == 1 => {
+            println!(
+                "{}",
+                serde_json::to_string(&wigglecontrol::platform::windows::display::Desktop::read()?)?
+            );
+            return Ok(());
+        }
+        Some("windows-provider-session" | "windows-provider-preflight")
+            if args.len() == 9 || args.len() == 10 =>
+        {
+            // CONFIG SETTINGS ASSETS WARMUP PORT MONITOR SECONDS ACTION [PROFILE]
+            let calibration = match args[8].as_str() {
+                "calibrate" => true,
+                "mouse" => false,
+                _ => return Err("action must be mouse or calibrate".into()),
+            };
+            if calibration != (args.len() == 10) {
+                return Err(
+                    "calibrate requires a profile path; mouse uses its configured saved profile"
+                        .into(),
+                );
+            }
+            return wigglecontrol::provider_fixture::run_windows(
+                wigglecontrol::provider_fixture::CameraOptions {
+                    session: std::path::Path::new(&args[1]),
+                    settings: std::path::Path::new(&args[2]),
+                    asset_root: std::path::Path::new(&args[3]),
+                    synthetic_warmup: std::path::Path::new(&args[4]),
+                    port: args[5].parse()?,
+                    seconds: args[7].parse()?,
+                    max_hands: 1,
+                    inject: !calibration,
+                    preflight: args[0].ends_with("preflight"),
+                    manual_start: true,
+                },
+                &args[6],
+                args.get(9).map(std::path::Path::new),
+            );
+        }
+        _ => (),
+    }
     #[cfg(feature = "provider-runtime")]
     match args.first().map(String::as_str) {
         Some("config-check-provider") if args.len() == 3 => {
@@ -91,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => (),
     }
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     match args.first().map(String::as_str) {
         Some("provider-calibrate" | "provider-calibrate-preflight") if args.len() == 7 => {
             return wigglecontrol::provider_fixture::calibrate(
@@ -104,24 +147,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args[0].ends_with("-preflight"),
             );
         }
-        Some("prepare-preview-config") if args.len() == 6 => {
-            return wigglecontrol::provider_setup::fresh(
-                std::path::Path::new(&args[1]),
-                args[2].parse()?,
-                args[3].parse()?,
-                std::path::Path::new(&args[4]),
-                std::path::Path::new(&args[5]),
-            );
-        }
-        Some("prepare-provider-config") if args.len() == 5 => {
-            return wigglecontrol::provider_setup::prepare(
-                std::path::Path::new(&args[1]),
-                std::path::Path::new(&args[2]),
-                std::path::Path::new(&args[3]),
-                std::path::Path::new(&args[4]),
-            );
-        }
-
+        _ => (),
+    }
+    #[cfg(feature = "browser-provider")]
+    match args.first().map(String::as_str) {
         Some("provider-recording") if args.len() == 10 => {
             return wigglecontrol::provider_fixture::run_recording(
                 wigglecontrol::provider_fixture::RecordingOptions {
@@ -193,6 +222,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::path::Path::new(&args[4]),
                 args[5].parse()?,
                 args.get(6).map(|s| s.parse()).transpose()?.unwrap_or(2),
+            );
+        }
+
+        _ => (),
+    }
+    #[cfg(feature = "native-vision")]
+    match args.first().map(String::as_str) {
+        Some("prepare-preview-config") if args.len() == 6 => {
+            return wigglecontrol::provider_setup::fresh(
+                std::path::Path::new(&args[1]),
+                args[2].parse()?,
+                args[3].parse()?,
+                std::path::Path::new(&args[4]),
+                std::path::Path::new(&args[5]),
+            );
+        }
+        Some("prepare-provider-config") if args.len() == 5 => {
+            return wigglecontrol::provider_setup::prepare(
+                std::path::Path::new(&args[1]),
+                std::path::Path::new(&args[2]),
+                std::path::Path::new(&args[3]),
+                std::path::Path::new(&args[4]),
             );
         }
 
@@ -631,23 +682,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn print_help() {
     println!("Usage: wigglecontrol replay < observations.jsonl");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-fixture SEQUENCE SESSION SETTINGS ASSET_ROOT PORT [MAX_HANDS] (real-clock JPEG/worker/meaning; no camera/devices)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-recording DIRECTORY SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP START_MS DURATION_MS PORT MAX_HANDS (retained-camera replay; no new capture/devices)");
+    #[cfg(all(target_os = "windows", feature = "browser-provider"))]
+    println!("       wigglecontrol windows-display-list\n       wigglecontrol windows-camera-list\n       wigglecontrol windows-provider-session CONFIG SETTINGS ASSETS WARMUP PORT MONITOR SECONDS mouse\n       wigglecontrol windows-provider-session CONFIG SETTINGS ASSETS WARMUP PORT MONITOR 0 calibrate PROFILE\n       Replace session with preflight for validation without acquisition; opening the service waits for manual Start.");
     #[cfg(feature = "provider-runtime")]
     println!("       wigglecontrol config-check-provider SESSION SETTINGS (browser-provider configuration only; no assets/acquisition)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-calibrate[-preflight] SESSION SETTINGS ASSETS WARMUP PROFILE PORT (manual camera-only guided calibration; no mouse)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol prepare-provider-config SESSION SETTINGS PROFILE NEW_DIRECTORY (import selected calibration; new private configuration only)");
     #[cfg(feature = "native-vision")]
     println!("       wigglecontrol prepare-preview-config CAMERA WIDTH HEIGHT RECORDINGS NEW_DIRECTORY (new uncalibrated preview settings; no resources opened)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-camera-until-stop[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG PORT MAX_HANDS [--inject] (explicit manual use until Stop)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-camera-manual[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (finite trial after explicit Start; idle opens no camera/device)");
-    #[cfg(feature = "native-vision")]
+    #[cfg(feature = "browser-provider")]
     println!("       wigglecontrol provider-camera[-preflight] SESSION SETTINGS ASSET_ROOT SYNTHETIC_WARMUP_JPEG SECONDS PORT MAX_HANDS [--inject] (manual camera worker; preflight opens no camera/device)");
     #[cfg(feature = "provider-runtime")]
     println!("       wigglecontrol provider-replay SESSION SETTINGS PRESENCE_FLOOR < raw-landmarks.jsonl (no acquisition/models/devices)");

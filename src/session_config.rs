@@ -263,9 +263,7 @@ impl SessionConfig {
         {
             return Err("recording_directory must be absolute".into());
         }
-        if !Path::new(&config.camera).is_absolute() {
-            return Err("camera path must be absolute".into());
-        }
+        crate::platform::validate_camera_identity(&config.camera)?;
         for p in [&config.models, &config.runtime] {
             if p.is_empty() {
                 if !provider {

@@ -1,5 +1,11 @@
 # Project context — 2026-10-22
 
+Windows session source candidate: browser-provider connects native capture and
+independent output to the existing worker/HTTP/calibration engine on both OSes.
+Windows requires explicit monitor selection and confirmed cleanup, with recording
+off and no per-frame stdout. See [WINDOWS-SESSION.md](WINDOWS-SESSION.md). Source
+checks/fixtures remain distinct from pending app/package and Legion acceptance.
+
 Nicolás selected Windows 11 x64 on Legion and explicitly requested issues, a
 milestone and an active implementation goal. Current scope and boundaries:
 [WINDOWS-PREVIEW.md](WINDOWS-PREVIEW.md), [WINDOWS-GOAL.md](WINDOWS-GOAL.md),

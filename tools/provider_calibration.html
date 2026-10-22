@@ -53,9 +53,10 @@ function render(c){const s=c.calibration;if(!s)throw Error('This source is not a
   el('camera-panel').style.setProperty('--camera-ratio',String(c.width/c.height));
   el('camera-label').textContent=`CAMERA // ${c.width} × ${c.height} // MIRRORED VIEW`;
  }
- cameraView(c.active&&c.camera_opened===true&&!closed,c.prepared?'Preparing the camera and hand tracking.':'Camera off. Press Start when ready.');
+ cameraView(c.active&&c.camera_opened===true&&!closed,c.camera_opened==null?'Camera state unknown. Closure has not been confirmed.':c.prepared?'Preparing the camera and hand tracking.':'Camera off. Press Start when ready.');
  el('fullscreen').hidden=screenReady();
- el('state').textContent=(c.error?'Session error: '+c.error:awaitingFrame?(c.camera_opened?'Camera open · Waiting for tracking':'Preparing camera and hand tracking'):c.camera_opened?'Camera active · Recording locally':closed?'Camera off':'Preparing or closing camera')+' · Mouse off';
+ const video=c.recording_active===true?'Video recording':c.recording_active===false?'Video off':'Video state unknown';
+ el('state').textContent=(c.error?'Session error: '+c.error+(c.camera_opened==null?' · Camera state unknown':''):c.camera_opened==null?'Camera state unknown':awaitingFrame?(c.camera_opened?'Camera open · Waiting for tracking':'Preparing camera and hand tracking'):c.camera_opened?'Camera active':closed?'Camera off':'Preparing or closing camera')+' · Mouse off · '+video;
  el('instruction').textContent=s.saved?'Calibration saved':c.error?(s.has_frame?'Calibration interrupted':'Calibration could not start'):s.phase==='cancelled'?'Calibration cancelled':ended?'Calibration ended without saving':awaitingFrame?'Preparing calibration':g?.instruction||'Prepare your comfortable hand range';
  el('clock').textContent=s.saved?'Finished':c.error?'Stopped':ended||s.phase==='cancelled'?'Finished':awaitingFrame?'Waiting for first tracking frame':s.phase==='complete'?'All four corners verified':s.phase==='retry'?'Retry when ready':g?.remaining_ms!=null?`${Math.ceil(g.remaining_ms/1000)} seconds · ${g.phase==='hold'?'HOLD':'MOVE'}`:g?'Waiting for this instruction to appear':'Not started';
  el('progress').textContent=awaitingFrame?'The timer starts when tracking frames reach calibration.':g?`Step ${Math.min(g.step+1,6)} of 6 · ${g.step<2?'Comfortable range':'Four-corner review'}`:'Two comfortable diagonal positions, then all four corners.';

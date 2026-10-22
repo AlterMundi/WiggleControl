@@ -204,3 +204,29 @@ fn preflight_works_without_models_and_rejects_mismatched_controller_authority() 
     assert!(!rejected.status.success());
     assert!(String::from_utf8_lossy(&rejected.stderr).contains("camera_resolution"));
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn configured_windows_camera_selection_is_opaque_and_bounded_without_opening_it() {
+    let fixture = Fixture::new();
+    let session = fixture.root.join("session.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&session).unwrap()).unwrap();
+    // Enumeration supplies the actual value at receipt; config admission must
+    // not reinterpret an opaque Media Foundation identifier as a disk path.
+    for (camera, valid) in [
+        ("fictional-device-symbolic-link".to_owned(), true),
+        (String::new(), false),
+        ("nul\0device".to_owned(), false),
+        ("x".repeat(16_001), false),
+    ] {
+        config["camera"] = camera.into();
+        fs::write(&session, config.to_string()).unwrap();
+        let result = fixture.command("config-check-provider").output().unwrap();
+        assert_eq!(
+            result.status.success(),
+            valid,
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+}

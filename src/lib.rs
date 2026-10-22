@@ -28,7 +28,7 @@ pub use platform::linux::mouse as input;
 #[cfg(target_os = "linux")]
 pub use platform::linux::keyboard;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", feature = "browser-provider"))]
 pub mod recording;
 #[cfg(target_os = "linux")]
 pub mod review;
@@ -70,16 +70,20 @@ pub mod provider;
 #[cfg(feature = "native-vision")]
 pub mod provider_setup;
 
-#[cfg(feature = "native-vision")]
+#[cfg(feature = "browser-provider")]
+mod image_sequence;
+#[cfg(feature = "browser-provider")]
 pub mod provider_fixture;
+#[cfg(feature = "browser-provider")]
+mod session_io;
 
-#[cfg(feature = "native-vision")]
+#[cfg(all(target_os = "linux", feature = "browser-provider"))]
 mod camera_mmap;
 
 #[cfg(feature = "native-vision")]
 pub mod session;
 
-#[cfg(feature = "native-vision")]
+#[cfg(feature = "browser-provider")]
 pub mod preview;
 
 pub const SCHEMA_VERSION: u32 = 1;

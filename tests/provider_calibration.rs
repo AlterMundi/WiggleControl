@@ -1,4 +1,3 @@
-#![cfg(target_os = "linux")]
 use std::{fs, path::PathBuf};
 use wigglecontrol::{
     calibration::Profile, provider_calibration::Run, touch_gestures::Workspace, Point,

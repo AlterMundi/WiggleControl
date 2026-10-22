@@ -20,6 +20,9 @@ platform adapters own camera/input/display, clocks/storage primitives and
 process/launch behavior. Extract existing logic and preserve Linux contracts;
 do not implement another Windows gesture engine or silently resume the cleared
 Linux native goal. Windows support requires actual receiving qualification.
+Current source boundaries and replay/CI scope: docs/PLATFORM-LAYER.md. Reuse
+landmarks/tracking/output and the shared calibration/controller modules; Linux
+input paths are compatibility reexports of platform/linux.
 
 Use real monotonic timestamps. Bound messages/queues, validate observations and
 release held buttons/contacts on loss, stale data, stop or process failure.

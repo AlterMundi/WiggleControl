@@ -1,4 +1,4 @@
-#![cfg(target_os = "linux")]
+mod support;
 use wigglecontrol::{
     controller::{Controller, Mode, Output, Settings},
     macros,
@@ -89,7 +89,8 @@ fn press(c: &mut Controller) {
 
 #[test]
 fn delivery_guard_discards_an_observation_that_expired_after_interpretation() {
-    use wigglecontrol::delivery::{Publisher, State};
+    use support::output::State;
+    use wigglecontrol::output::Publisher;
     let mut c = Controller::new(Settings {
         gestures: Config {
             stale_us: 300_000,

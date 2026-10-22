@@ -1,5 +1,5 @@
 //! Two independently engaged hands become direct contacts, never mouse events.
-use crate::{touch::Contact, Config, Engine, Event, Hand, Observation, Point};
+use crate::{contacts::Contact, Config, Engine, Event, Hand, Observation, Point};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,

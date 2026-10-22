@@ -8,7 +8,7 @@ they do not need a WiggleControl integration.
 The selected beta uses headless Chromium GPU hand inference, Rust gesture interpretation
 and Linux virtual input; a native CPU backend also exists. The human-selected next development target is the
 [Windows 11 x64 preview](docs/WINDOWS-PREVIEW.md) on Legion, extracting a shared
-Rust core and platform adapters. Windows is not yet implemented or qualified;
+Rust core and platform adapters. The Windows mouse application is not yet available or qualified;
 the [standalone Linux preview](docs/LINUX-PREVIEW.md) remains unfinished.
 Left/right gestures have [first positive human feedback](docs/ACCEPTANCE.md);
 [held absolute detail](docs/DETAIL.md) has positive first-use feedback with clicking in a real menu;
@@ -43,6 +43,10 @@ Start here:
 - [Agent instructions](AGENTS.md): contribution and device-test workflow.
 
 ## Current runtime architecture
+
+The [shared core and platform layer](docs/PLATFORM-LAYER.md) separate gesture,
+calibration and delivery policy from OS primitives. Linux module/command paths
+remain compatible; the Windows application adapters are still being implemented.
 
 Rust acquires camera frames, interprets hand observations, applies calibration and
 cursor filtering, and delivers Linux virtual input. The selected perception

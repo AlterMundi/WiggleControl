@@ -1,9 +1,8 @@
 //! Receiving-local profile adoption with an atomic previous-profile rollback.
 use crate::calibration::Profile;
 use std::{
-    fs::{self, OpenOptions},
+    fs,
     io::{self, Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 fn previous(path: &Path) -> PathBuf {
@@ -12,12 +11,9 @@ fn previous(path: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 pub(crate) fn load_value<T: serde::de::DeserializeOwned>(path: &Path) -> io::Result<T> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(path)?;
+    let mut file = crate::platform::profile_files::open_read(path)?;
     let meta = file.metadata()?;
-    if !meta.is_file() || meta.len() > 4096 || meta.uid() != unsafe { libc::geteuid() } {
+    if !meta.is_file() || meta.len() > 4096 {
         return Err(io::Error::other("invalid profile ownership/type/size"));
     }
     let mut bytes = Vec::new();
@@ -36,23 +32,14 @@ pub(crate) fn atomic_value<T: serde::Serialize>(path: &Path, value: &T) -> io::R
     let mut temp = path.as_os_str().to_os_string();
     temp.push(format!(".new-{}", std::process::id()));
     let temp = PathBuf::from(temp);
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(&temp)?;
+    let mut file = crate::platform::profile_files::create_new(&temp)?;
     let result = (|| {
         serde_json::to_writer(&mut file, value)?;
         file.write_all(b"\n")?;
         file.sync_all()?;
-        fs::rename(&temp, path)?;
-        fs::File::open(
-            path.parent()
-                .filter(|parent| !parent.as_os_str().is_empty())
-                .unwrap_or(Path::new(".")),
-        )?
-        .sync_all()
+        drop(file);
+        crate::platform::profile_files::replace(&temp, path)?;
+        crate::platform::profile_files::sync_parent(path)
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temp);
@@ -84,6 +71,7 @@ pub fn rollback(path: &Path) -> io::Result<Profile> {
 mod tests {
     use super::*;
     use crate::{touch_gestures::Workspace, Point};
+    #[cfg(target_os = "linux")]
     use std::os::unix::fs::{symlink, PermissionsExt};
     fn profile(min: f64) -> Profile {
         Profile {
@@ -101,6 +89,7 @@ mod tests {
         fs::create_dir(&dir).unwrap();
         let path = dir.join("profile.json");
         adopt(&path, profile(0.1)).unwrap();
+        #[cfg(target_os = "linux")]
         assert_eq!(
             fs::metadata(&path).unwrap().permissions().mode() & 0o777,
             0o600
@@ -113,10 +102,13 @@ mod tests {
         assert_eq!(load(&path).unwrap().workspace.min.x, 0.2);
         assert_eq!(rollback(&path).unwrap().workspace.min.x, 0.1);
         assert_eq!(load(&previous(&path)).unwrap().workspace.min.x, 0.2);
-        let link = dir.join("link.json");
-        symlink(&path, &link).unwrap();
-        assert!(adopt(&link, profile(0.3)).is_err());
-        assert_eq!(load(&path).unwrap().workspace.min.x, 0.1);
+        #[cfg(target_os = "linux")]
+        {
+            let link = dir.join("link.json");
+            symlink(&path, &link).unwrap();
+            assert!(adopt(&link, profile(0.3)).is_err());
+            assert_eq!(load(&path).unwrap().workspace.min.x, 0.1);
+        }
         fs::write(&path, b"broken").unwrap();
         assert!(adopt(&path, profile(0.3)).is_err());
         assert_eq!(fs::read(&path).unwrap(), b"broken");

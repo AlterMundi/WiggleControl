@@ -50,14 +50,5 @@ pub fn reader<T: DeserializeOwned + Send + 'static>() -> Receiver<io::Result<T>>
     rx
 }
 
-/// Shared Linux monotonic time for same-host producer/device age checks.
-pub fn monotonic_us() -> io::Result<u64> {
-    let mut ts = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) } != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(ts.tv_sec as u64 * 1_000_000 + ts.tv_nsec as u64 / 1000)
-}
+#[cfg(target_os = "linux")]
+pub use crate::platform::monotonic_us;

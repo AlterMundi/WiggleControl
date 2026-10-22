@@ -1,25 +1,30 @@
 //! Replayable gesture meaning, independent of camera and operating-system grants.
 use serde::{Deserialize, Serialize};
 
+pub mod acquisition;
+pub mod contacts;
 pub mod cursor;
 pub mod detail;
 pub mod escape;
 pub mod filter;
+pub mod landmarks;
 pub mod macros;
+pub mod output;
+pub mod platform;
 pub mod pointer_buttons;
 pub mod scroll;
+pub mod tracking;
 
-#[cfg(target_os = "linux")]
 pub mod controller;
 
 #[cfg(target_os = "linux")]
-pub mod delivery;
+pub use platform::linux::delivery;
 
 #[cfg(target_os = "linux")]
-pub mod input;
+pub use platform::linux::mouse as input;
 
 #[cfg(target_os = "linux")]
-pub mod keyboard;
+pub use platform::linux::keyboard;
 
 #[cfg(target_os = "linux")]
 pub mod recording;
@@ -27,32 +32,25 @@ pub mod recording;
 pub mod review;
 
 #[cfg(target_os = "linux")]
-pub mod touch;
+pub use platform::linux::touch;
 
-#[cfg(target_os = "linux")]
 pub mod touch_gestures;
 
-#[cfg(target_os = "linux")]
 pub mod calibration;
 
-#[cfg(target_os = "linux")]
 pub mod calibration_runtime;
 
-#[cfg(target_os = "linux")]
 pub mod guided_calibration;
 
-#[cfg(target_os = "linux")]
 pub mod provider_calibration;
 
 pub mod prayer;
 
-#[cfg(target_os = "linux")]
 pub mod profile_store;
 
 #[cfg(target_os = "linux")]
 pub mod metrics;
 
-#[cfg(target_os = "linux")]
 mod intent;
 
 #[cfg(feature = "native-vision")]

@@ -112,7 +112,6 @@ pub fn finger_ratio(points: [[f64; 3]; 4]) -> Option<f64> {
 /// In already-confirmed detail, a bent pinching index/middle need not look
 /// extended in the image. Require both finite chains and at least one finger
 /// outside the fully folded class; an actual fist/ThumbOut remains ineligible.
-#[cfg(feature = "native-vision")]
 pub(crate) fn pinch_posture(config: Config, world: &[[f64; 3]; 21]) -> bool {
     let index = finger_ratio(world[5..9].try_into().unwrap()).filter(|r| r.is_finite());
     let middle = finger_ratio(world[9..13].try_into().unwrap()).filter(|r| r.is_finite());
@@ -238,7 +237,6 @@ mod tests {
     fn p(x: f64, y: f64) -> Point {
         Point { x, y }
     }
-    #[cfg(feature = "native-vision")]
     #[test]
     fn contextual_pinch_pose_rejects_fist_unknown_and_nonfinite_chains() {
         use crate::escape::{tests::world, Pose};

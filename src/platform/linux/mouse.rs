@@ -4,45 +4,13 @@ use evdev::{
     uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode,
     PropType, RelativeAxisCode, UinputAbsSetup,
 };
-use serde::Deserialize;
 use std::{
     io,
     sync::mpsc,
     time::{Duration, Instant},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-pub enum MouseIntent {
-    Move {
-        dx: f64,
-        dy: f64,
-    },
-    Absolute {
-        x: f64,
-        y: f64,
-    },
-    Button {
-        down: bool,
-    },
-    NamedButton {
-        button: MouseButton,
-        down: bool,
-    },
-    Scroll {
-        vertical: i32,
-        horizontal: i32,
-    },
-    /// High-resolution wheel units;120 equals one detent.
-    ScrollFine {
-        vertical: i32,
-        horizontal: i32,
-    },
-    /// Neutralize every held button without stopping the writer.
-    Release,
-    Heartbeat,
-    Stop,
-}
+pub use crate::output::MouseIntent;
 
 #[derive(Default)]
 pub struct MouseState {

@@ -80,25 +80,86 @@ fn raw_frame(sequence: u64, gap: f64) -> Value {
 #[test]
 fn configured_raw_replay_has_real_button_edges_and_neutral_terminal_on_eof_or_rejection() {
     let fixture = Fixture::new();
-    for tail in [None,Some("{broken\n".to_owned()),Some(" ".repeat(16*1024+1)),
-        Some(json!({"type":"frame","observation":{"sequence":10,"source_us":1_000_001,"now_us":1_500_001,
-            "width":1920,"height":1080,"hands":[]}}).to_string()+"\n")] {
-        let mut bytes=b"{\"type\":\"start\"}\n".to_vec();
-        for (i,gap) in [0.09,0.09,0.02,0.02,0.02,0.09,0.09,0.02,0.02].into_iter().enumerate() {
-            writeln!(&mut bytes,"{}",raw_frame(i as u64+1,gap)).unwrap();
+    let stale =
+        json!({"type":"frame","observation":{"sequence":10,"source_us":1_000_001,"now_us":1_500_001,
+        "width":1920,"height":1080,"hands":[]}})
+        .to_string() + "\n";
+    let old =
+        json!({"type":"frame","observation":{"sequence":10,"source_us":800_001,"now_us":900_001,
+        "width":1920,"height":1080,"hands":[]}})
+        .to_string()
+            + "\n";
+    for (tail, success, reason) in [
+        (None, true, None),
+        (Some("{broken\n".to_owned()), false, None),
+        (Some(" ".repeat(16 * 1024 + 1)), false, None),
+        (Some(stale), true, Some("provider_age")),
+        (Some(old), true, Some("provider_order")),
+    ] {
+        let mut bytes = b"{\"type\":\"start\"}\n".to_vec();
+        for (i, gap) in [0.09, 0.09, 0.02, 0.02, 0.02, 0.09, 0.09, 0.02, 0.02]
+            .into_iter()
+            .enumerate()
+        {
+            writeln!(&mut bytes, "{}", raw_frame(i as u64 + 1, gap)).unwrap();
         }
-        let success=tail.is_none();if let Some(tail)=tail { bytes.extend(tail.as_bytes()); }
-        let mut child=fixture.command("provider-replay").arg("0.5").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
-        let mut input=child.stdin.take().unwrap();
-        let feed=std::thread::spawn(move||input.write_all(&bytes));
-        let result=child.wait_with_output().unwrap();feed.join().unwrap().unwrap();
-        assert_eq!(result.status.success(),success,"{}",String::from_utf8_lossy(&result.stderr));
-        let rows:Vec<Value>=String::from_utf8(result.stdout).unwrap().lines().map(|s|serde_json::from_str(s).unwrap()).collect();
-        assert!(rows.iter().any(|r|r["controller"]["button_down"]==true),"{rows:?}");
-        assert!(rows.iter().any(|r|r["controller"]["mouse"].as_array().is_some_and(|m|m.iter().any(|e|e["type"]=="button" && e["down"]==false))));
-        let last=rows.last().unwrap();assert_eq!(last["controller"]["running"],false);assert_eq!(last["controller"]["button_down"],false);
-        assert!(rows.iter().all(|r|r["camera_opened"]==false && r["system_input"]==false && r["local_semantics_only"]==true));
-        assert!(rows.iter().all(|r|r["visual_macros"]!=true));
+        if let Some(tail) = tail {
+            bytes.extend(tail.as_bytes());
+        }
+        if reason.is_some() {
+            writeln!(&mut bytes, "{}", raw_frame(17, 0.02)).unwrap();
+        }
+        let mut child = fixture
+            .command("provider-replay")
+            .arg("0.5")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        let feed = std::thread::spawn(move || input.write_all(&bytes));
+        let result = child.wait_with_output().unwrap();
+        feed.join().unwrap().unwrap();
+        assert_eq!(
+            result.status.success(),
+            success,
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let rows: Vec<Value> = String::from_utf8(result.stdout)
+            .unwrap()
+            .lines()
+            .map(|s| serde_json::from_str(s).unwrap())
+            .collect();
+        assert!(
+            rows.iter().any(|r| r["controller"]["button_down"] == true),
+            "{rows:?}"
+        );
+        assert!(rows
+            .iter()
+            .any(|r| r["controller"]["mouse"].as_array().is_some_and(|m| m
+                .iter()
+                .any(|e| e["type"] == "button" && e["down"] == false))));
+        if let Some(reason) = reason {
+            // Invalid observation evidence is loss, not a malformed stream. It
+            // releases before EOF and must not press on closed-hand reacquisition.
+            let loss = rows.iter().find(|r| r["sequence"] == 10).unwrap();
+            assert_eq!(loss["ambiguous"], true);
+            assert_eq!(loss["ambiguity_reason"], reason);
+            assert_eq!(loss["controller"]["button_down"], false);
+            assert_eq!(
+                rows.iter().find(|r| r["sequence"] == 17).unwrap()["controller"]["button_down"],
+                false
+            );
+        }
+        let last = rows.last().unwrap();
+        assert_eq!(last["controller"]["running"], false);
+        assert_eq!(last["controller"]["button_down"], false);
+        assert!(rows.iter().all(|r| r["camera_opened"] == false
+            && r["system_input"] == false
+            && r["local_semantics_only"] == true));
+        assert!(rows.iter().all(|r| r["visual_macros"] != true));
     }
     assert_eq!(
         fs::read_dir(&fixture.root).unwrap().count(),

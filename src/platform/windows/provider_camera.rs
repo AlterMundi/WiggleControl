@@ -41,7 +41,8 @@ pub(crate) fn camera(
             let capture = match Capture::spawn(&std::env::current_exe()?, spec) {
                 Ok(capture) => capture,
                 Err(error) => {
-                    mailbox.lock().unwrap().unclosed = false;
+                    mailbox.lock().unwrap().unclosed =
+                        crate::platform::windows::camera::failed_start_unclosed(&error);
                     return Err(error);
                 }
             };

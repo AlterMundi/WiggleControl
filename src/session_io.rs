@@ -63,8 +63,7 @@ impl Writer {
             let _ = seconds; // The common session deadline ends this supervised writer.
             let target = target
                 .ok_or_else(|| io::Error::other("select an explicit Windows output monitor"))?;
-            validate_output(config, target)?;
-            let desktop = crate::platform::windows::display::Desktop::read()?;
+            let desktop = validate_output(config, target)?;
             let inner = crate::platform::windows::writer::Writer::spawn(
                 &std::env::current_exe()?,
                 crate::platform::windows::writer::Config {
@@ -144,7 +143,10 @@ impl Writer {
     }
 }
 #[cfg(target_os = "windows")]
-pub(crate) fn validate_output(config: &SessionConfig, target: &str) -> io::Result<()> {
+pub(crate) fn validate_output(
+    config: &SessionConfig,
+    target: &str,
+) -> io::Result<crate::platform::windows::display::Desktop> {
     if !config.provider_absolute_pointer {
         return Err(io::Error::other(
             "Windows preview requires the shared absolute one-hand controller",
@@ -156,7 +158,7 @@ pub(crate) fn validate_output(config: &SessionConfig, target: &str) -> io::Resul
             "selected monitor dimensions differ from calibration output",
         ));
     }
-    Ok(())
+    Ok(desktop)
 }
 pub(crate) fn publish(
     writer: &mut Option<Writer>,

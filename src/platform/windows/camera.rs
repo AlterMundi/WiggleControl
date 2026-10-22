@@ -280,6 +280,34 @@ impl Status {
         }
     }
 }
+// Keep cleanup evidence when startup acquired a child but did not become ready.
+#[derive(Debug)]
+struct StartupFailure {
+    message: String,
+    process_exited: bool,
+}
+impl std::fmt::Display for StartupFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}; camera child closure {}",
+            self.message,
+            if self.process_exited {
+                "confirmed"
+            } else {
+                "unconfirmed"
+            }
+        )
+    }
+}
+impl std::error::Error for StartupFailure {}
+#[cfg(feature = "browser-provider")]
+pub(crate) fn failed_start_unclosed(error: &io::Error) -> bool {
+    error
+        .get_ref()
+        .and_then(|e| e.downcast_ref::<StartupFailure>())
+        .is_some_and(|failure| !failure.process_exited)
+}
 struct Slot {
     status: Status,
     frame: Option<Frame>,
@@ -366,7 +394,7 @@ impl Capture {
         });
         let monitor_shared = shared.clone();
         let monitor = thread::spawn(move || supervise(child, reader, monitor_shared));
-        let capture = Self {
+        let mut capture = Self {
             pid,
             input,
             shared,
@@ -388,7 +416,14 @@ impl Capture {
                 .clone()
                 .unwrap_or_else(|| "camera did not become ready".into());
             drop(state);
-            return Err(invalid(error));
+            capture.close();
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                StartupFailure {
+                    message: error,
+                    process_exited: capture.status().process_exited,
+                },
+            ));
         }
         drop(state);
         Ok(capture)

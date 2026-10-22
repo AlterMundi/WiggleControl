@@ -49,3 +49,30 @@ impl Sequence {
         Ok(s)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn replay_manifest_rejects_ambiguous_paths_and_regressing_time_before_loading_models() {
+        let path = std::env::temp_dir().join(format!(
+            "wigglecontrol-sequence-{}.json",
+            std::process::id()
+        ));
+        for frames in [
+            serde_json::json!([]),
+            serde_json::json!([{"source_us":2,"image":"../frame.png"}]),
+            serde_json::json!([{"source_us":2,"image":null},{"source_us":2,"image":null}]),
+        ] {
+            fs::write(
+                &path,
+                serde_json::json!({"version":1,"frames":frames}).to_string(),
+            )
+            .unwrap();
+            assert!(Sequence::load(&path).is_err());
+        }
+        fs::write(&path,r#"{"version":1,"frames":[{"source_us":1,"image":"frames/one.png"},{"source_us":2,"image":null}]}"#).unwrap();
+        assert!(Sequence::load(&path).is_ok());
+        fs::remove_file(path).unwrap();
+    }
+}

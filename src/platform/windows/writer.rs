@@ -231,7 +231,7 @@ fn stream_with<S: input::Sender>(
                                     thread::park();
                                 }
                             }
-                            fixture::Fault::None => (),
+                            fixture::Fault::None | fixture::Fault::RejectRelease => (),
                         }
                     }
                     last_sequence = seq.or(last_sequence);
@@ -420,11 +420,12 @@ impl Writer {
                 s.receipt.is_none() && s.outcome.is_none()
             })
             .unwrap();
-        if state.receipt.is_none() || state.outcome.is_some() {
+        if state.receipt.as_ref().is_none_or(|r| r.stopped) || state.outcome.is_some() {
             let error = state
                 .outcome
                 .as_ref()
                 .and_then(|o| o.error.clone())
+                .or_else(|| state.receipt.as_ref().and_then(|r| r.error.clone()))
                 .unwrap_or_else(|| "Windows writer did not become ready".into());
             drop(state);
             return Err(invalid(error)); // Drop closes and joins this owned writer.
@@ -506,6 +507,22 @@ impl Drop for Writer {
         self.close();
     }
 }
+fn terminate(child: &mut Child) -> io::Result<()> {
+    let kill = child.kill();
+    let start = Instant::now();
+    loop {
+        if child.try_wait()?.is_some() {
+            return Ok(());
+        }
+        if let Err(error) = &kill {
+            return Err(invalid(format!("owned child kill failed: {error}")));
+        }
+        if start.elapsed() >= Duration::from_secs(1) {
+            return Err(invalid("owned child exit not observed within one second"));
+        }
+        thread::sleep(POLL);
+    }
+}
 fn supervise(
     mut child: Child,
     reader: JoinHandle<()>,
@@ -525,7 +542,13 @@ fn supervise(
             }
             Err(error) => {
                 failure = Some(short(error));
-                break false;
+                match terminate(&mut child) {
+                    Ok(()) => break true,
+                    Err(error) => {
+                        failure = Some(format!("writer termination unconfirmed: {error}"));
+                        break false;
+                    }
+                }
             }
             Ok(None) => (),
         }
@@ -551,9 +574,8 @@ fn supervise(
             state.fault = failure.clone();
             drop(state);
             // Only this owned child. Never fallback while it could still press.
-            let _ = child.kill();
-            match child.wait() {
-                Ok(_) => break true,
+            match terminate(&mut child) {
+                Ok(()) => break true,
                 Err(error) => {
                     failure = Some(format!("writer termination unconfirmed: {error}"));
                     break false;
@@ -568,19 +590,20 @@ fn supervise(
     }
     let mut state = shared.0.lock().unwrap();
     // Do not allow producer writes after the process has exited but before cleanup.
-    state.fault.get_or_insert_with(|| "writer stopped".into());
+    state.closing.get_or_insert_with(Instant::now);
     let mask = state.possible();
     let terminal = state.receipt.as_ref().is_some_and(|r| r.stopped);
     if !terminal {
         failure.get_or_insert_with(|| "writer exited without terminal cleanup receipt".into());
     }
     if let Some(error) = state.receipt.as_ref().and_then(|r| r.error.clone()) {
-        failure.get_or_insert(error);
+        failure = Some(match failure {
+            Some(exit) => format!("{error}; {exit}"),
+            None => error,
+        });
     }
     if let Some(error) = &state.fault {
-        if error != "writer stopped" {
-            failure.get_or_insert_with(|| error.clone());
-        }
+        failure.get_or_insert_with(|| error.clone());
     }
     drop(state);
     let recovered = if exited && mask != 0 {
@@ -604,4 +627,127 @@ fn supervise(
         error: failure,
     });
     shared.1.notify_all();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::display::{Monitor, Rect};
+    use super::*;
+    fn config() -> Config {
+        let bounds = Rect {
+            left: 0,
+            top: 0,
+            width: 1920,
+            height: 1080,
+        };
+        Config {
+            run_id: "fixture".into(),
+            target: "fictional".into(),
+            watchdog_us: 150_000,
+            desktop: Desktop {
+                bounds,
+                monitors: vec![Monitor {
+                    id: "fictional".into(),
+                    bounds,
+                    primary: true,
+                }],
+            },
+        }
+    }
+    fn ledger() -> Ledger {
+        Ledger {
+            last_posted: Some(3),
+            pending: VecDeque::from([(1, 0), (2, 1), (3, 2)]),
+            receipt: None,
+            last_ack: Instant::now(),
+            fault: None,
+            closing: None,
+            outcome: None,
+        }
+    }
+    fn ack(sequence: u64, mask: u8, stopped: bool) -> Receipt {
+        Receipt {
+            run_id: "fixture".into(),
+            native_input: false,
+            sequence: Some(sequence),
+            held_mask: mask,
+            armed: !stopped,
+            stopped,
+            error: None,
+        }
+    }
+    #[test]
+    fn acknowledgements_cannot_drop_a_later_pending_press() {
+        let mut ledger = ledger();
+        ledger
+            .acknowledge(ack(1, 0, false), &config(), false)
+            .unwrap();
+        assert_eq!(ledger.possible(), 3);
+        ledger
+            .acknowledge(ack(2, 1, false), &config(), false)
+            .unwrap();
+        assert_eq!(ledger.possible(), 3);
+        ledger
+            .acknowledge(ack(3, 0, false), &config(), false)
+            .unwrap();
+        assert_eq!(ledger.possible(), 0);
+        assert!(ledger
+            .acknowledge(ack(2, 1, false), &config(), false)
+            .is_err());
+        assert!(ledger
+            .acknowledge(ack(4, 1, false), &config(), false)
+            .is_err());
+        assert_eq!(ledger.possible(), 0);
+    }
+    #[test]
+    fn terminal_receipt_retires_unprocessed_packets_but_keeps_failed_native_releases() {
+        let mut ledger = ledger();
+        ledger
+            .acknowledge(ack(1, 1, true), &config(), false)
+            .unwrap();
+        assert!(ledger.pending.is_empty());
+        assert_eq!(ledger.possible(), 1);
+        assert!(ledger
+            .acknowledge(ack(2, 0, false), &config(), false)
+            .is_err());
+        assert_eq!(ledger.possible(), 1);
+    }
+    #[test]
+    fn receipts_bind_the_run_emitter_kind_and_known_button_bits() {
+        for value in [
+            Receipt {
+                run_id: "other-run".into(),
+                ..ack(1, 0, false)
+            },
+            Receipt {
+                native_input: true,
+                ..ack(1, 0, false)
+            },
+            ack(1, 16, false),
+            Receipt {
+                armed: true,
+                ..ack(1, 0, true)
+            },
+        ] {
+            let mut ledger = ledger();
+            assert!(ledger.acknowledge(value, &config(), false).is_err());
+            assert_eq!(ledger.possible(), 3);
+        }
+    }
+    #[test]
+    fn receipt_parser_is_bounded_and_does_not_consume_the_next_line() {
+        let mut bytes = json_line(&ack(1, 0, false)).unwrap();
+        bytes.extend(json_line(&ack(2, 1, false)).unwrap());
+        let mut reader = io::Cursor::new(bytes);
+        assert_eq!(
+            read_receipt(&mut reader).unwrap().unwrap().sequence,
+            Some(1)
+        );
+        assert_eq!(
+            read_receipt(&mut reader).unwrap().unwrap().sequence,
+            Some(2)
+        );
+        assert!(read_receipt(&mut reader).unwrap().is_none());
+        assert!(read_receipt(&mut io::Cursor::new(vec![b'x'; MAX_MESSAGE_BYTES + 1])).is_err());
+    }
 }

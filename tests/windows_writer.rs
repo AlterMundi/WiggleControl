@@ -150,7 +150,10 @@ fn watchdog_releases_then_requires_positive_rearm() {
     wait_until(|| writer.outcome().is_some());
     let outcome = writer.stop();
     assert!(outcome.neutral && !outcome.fallback_used);
-    assert!(outcome.error.as_ref().unwrap().contains("unarmed"));
+    assert!(
+        outcome.error.as_ref().unwrap().contains("unarmed"),
+        "{outcome:?}"
+    );
     assert_eq!(
         scratch.events().iter().map(|e| e.flags).collect::<Vec<_>>(),
         [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP]
@@ -259,4 +262,28 @@ fn malformed_oversized_and_stale_streams_close_neutral() {
         assert_eq!(last.held_mask, 0);
         assert_eq!(scratch.events().iter().map(|e| e.flags).collect::<Vec<_>>(), [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP]);
     }
+}
+
+#[test]
+fn failed_child_and_parent_cleanup_remains_unconfirmed() {
+    let scratch = Scratch::new();
+    let mut writer = started(&scratch, Fault::RejectRelease);
+    writer.send(&transition(1)).unwrap();
+    writer.send(&frame(2, true)).unwrap();
+    wait_until(|| writer.receipt().is_some_and(|r| r.held_mask == 1));
+    let outcome = writer.stop();
+    assert!(!outcome.neutral && outcome.fallback_used, "{outcome:?}");
+    assert!(
+        outcome
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("recovery unconfirmed"),
+        "{outcome:?}"
+    );
+    let events = scratch.events();
+    assert_eq!(events.iter().filter(|e| e.accepted).count(), 1);
+    assert!(events
+        .iter()
+        .any(|e| e.role == "fallback" && !e.accepted && e.flags == MOUSEEVENTF_LEFTUP));
 }

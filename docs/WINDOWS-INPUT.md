@@ -99,7 +99,8 @@ launcher. `windows-writer-fixture` and `windows-writer-parent-fixture` route all
 emission to fictional traces; they never call SendInput or display discovery.
 Native-Windows process tests cover neutral startup, explicit Stop, EOF cleanup,
 source-watchdog disarm/no re-press, malformed/oversized/stale input, a crash before
-acknowledging a press, a stalled child and parent exit without destructors. They
+acknowledging a press, a stalled child, parent exit without destructors and rejected child/parent
+releases that must remain explicitly unconfirmed. They
 exercise real processes/pipes with a fake final emitter. These are source tests,
 not actual input or Legion acceptance; #19 stays open for runtime/receiving work.
 

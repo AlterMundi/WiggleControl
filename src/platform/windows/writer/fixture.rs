@@ -10,13 +10,17 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{INPUT, INPUT_KEYBOARD, INPUT_MOUSE};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    INPUT, INPUT_KEYBOARD, INPUT_MOUSE, KEYEVENTF_KEYUP, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEUP,
+    MOUSEEVENTF_RIGHTUP,
+};
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Fault {
     None,
     CrashAfterPress,
     StallAfterPress,
+    RejectRelease,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -31,11 +35,13 @@ pub struct Trace {
     pub kind: u32,
     pub flags: u32,
     pub data: u32,
+    pub accepted: bool,
 }
 struct Fake {
     file: File,
     role: &'static str,
     events: u32,
+    reject_release: bool,
 }
 impl input::Sender for Fake {
     fn send(&mut self, event: &INPUT) -> io::Result<()> {
@@ -55,14 +61,26 @@ impl input::Sender for Fake {
             }
             _ => return Err(invalid("unexpected fixture event tag")),
         };
+        let accepted = !self.reject_release
+            || if event.r#type == INPUT_MOUSE {
+                flags & (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_RIGHTUP | MOUSEEVENTF_MIDDLEUP) == 0
+            } else {
+                flags & KEYEVENTF_KEYUP == 0
+            };
         self.file.write_all(&json_line(&Trace {
             role: self.role.into(),
             pid: std::process::id(),
             kind: event.r#type,
             flags,
             data,
+            accepted,
         })?)?;
-        self.file.flush()
+        self.file.flush()?;
+        if accepted {
+            Ok(())
+        } else {
+            Err(invalid("fixture release rejected"))
+        }
     }
 }
 pub fn stream(config: WriterConfig, fixture: Config) -> io::Result<()> {
@@ -76,6 +94,7 @@ pub fn stream(config: WriterConfig, fixture: Config) -> io::Result<()> {
             file,
             role: "child",
             events: 0,
+            reject_release: matches!(fixture.fault, Fault::RejectRelease),
         }),
         false,
         fixture.fault,
@@ -87,6 +106,7 @@ pub(super) fn recover(fixture: &Config, mask: u8) -> io::Result<()> {
         file,
         role: "fallback",
         events: 0,
+        reject_release: matches!(fixture.fault, Fault::RejectRelease),
     })
     .release_possible(mask)
 }

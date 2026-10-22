@@ -13,6 +13,7 @@ pub mod output;
 pub mod platform;
 pub mod pointer_buttons;
 pub mod scroll;
+pub mod session_config;
 pub mod tracking;
 
 pub mod controller;
@@ -56,13 +57,13 @@ mod intent;
 #[cfg(feature = "native-vision")]
 pub mod vision;
 
-#[cfg(feature = "native-vision")]
+#[cfg(feature = "provider-runtime")]
 pub mod pose_classifier;
 
 #[cfg(feature = "native-vision")]
 pub mod sequence;
 
-#[cfg(feature = "native-vision")]
+#[cfg(feature = "provider-runtime")]
 pub mod provider;
 
 #[cfg(feature = "native-vision")]

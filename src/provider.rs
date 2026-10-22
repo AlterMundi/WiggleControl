@@ -2,7 +2,7 @@
 //! Camera/device-free JSONL connection. Array order never supplies an owner ID.
 use crate::{
     controller::{self, Controller},
-    session::SessionConfig,
+    session_config::SessionConfig,
     touch_gestures,
 };
 use serde::Deserialize;
@@ -52,7 +52,7 @@ pub(crate) fn configured(
     if config.pointer_drag_grace_ms > 0 {
         tracker = tracker.with_absence_retention(config.gestures().drag_grace_us)?;
     }
-    let controller: Controller = crate::session::controller_config(&config, settings)?;
+    let controller: Controller = crate::session_config::controller_config(&config, settings)?;
     if controller.visual_policy().is_some() && config.runtime.is_empty() {
         return Err("provider visual macros require an explicit native runtime path".into());
     }
@@ -184,7 +184,7 @@ pub fn replay(session: &Path, settings: &Path, presence_floor: f64) -> Result<()
                 value["visual_macros"] = visual_classifier.is_some().into();
                 value["classifier_ms"] =
                     (classifier_started.elapsed().as_secs_f64() * 1000.0).into();
-                crate::session::observe_controller(
+                crate::session_config::observe_controller(
                     &config,
                     &mut controller,
                     frame.now_us,
@@ -224,7 +224,7 @@ mod tests {
             std::fs::write(
                 &session,
                 serde_json::json!({
-                    "camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded",
+                    "camera":root.join("not-acquired"),"models":root.join("not-loaded"),"runtime":root.join("not-loaded"),
                     "fps":10,"gain":2000,"gesture_min_confidence":floor
                 })
                 .to_string(),
@@ -235,7 +235,7 @@ mod tests {
                 "gestures":config.gestures(),
                 "macros":{"hold_us":400000,"neutral_us":200000,"cooldown_us":500000,
                     "stale_us":300000,"bindings":[{"pose":"victory","action":"toggle_precision"}]},
-                "visual_macros":{"model":"/not-loaded","neutral_pose":"open_palm","min_confidence":0.8}
+                "visual_macros":{"model":root.join("not-loaded"),"neutral_pose":"open_palm","min_confidence":0.8}
             }).to_string()).unwrap();
             let result = configured(&session, &settings, None);
             if floor < 0.8 {
@@ -275,7 +275,7 @@ mod tests {
             .unwrap()
             .to_string()
             .contains("visual macros require an explicit native runtime path"));
-        value["runtime"] = "/not-loaded".into();
+        value["runtime"] = serde_json::to_value(root.join("not-loaded")).unwrap();
         std::fs::write(&session, value.to_string()).unwrap();
         assert!(configured(&session, &settings, None).is_ok());
         std::fs::remove_dir_all(root).unwrap();

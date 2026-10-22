@@ -9,6 +9,7 @@ are preserved through reexports and narrow compatibility shims.
 
 | Module | Responsibility |
 | --- | --- |
+| `session_config` | Shared receiving configuration, gesture/interpretation policy and controller-authority validation; native `session` reexports preserve callers |
 | `acquisition` | Independent optional recorder/input setup, including the #17 video-off input-startup correction |
 | `landmarks` | Raw geometry, shared pinch metric/posture interpretation, selected-hand evidence and the controller bridge, including the #16 detail-drag correction |
 | `tracking` | Provider frame validation, source age/order, measured presence and bounded spatial hand correspondence; detector array order is never an owner ID |
@@ -28,8 +29,22 @@ The native/provider/sequence paths delegate through the same `landmarks` bridge.
 `vision` retains model/image inference and reexports the extracted geometry types;
 `session` retains Linux capture/process orchestration and delegates interpretation.
 `provider` keeps native configured/replay integration and reexports `tracking`.
-The current `native-vision` feature is still the Linux acquisition/backend path;
-Windows core tests do not enable V4L or ORT to exercise gestures/calibration.
+The `provider-runtime` feature now exposes the actual configured raw-provider
+replay and configuration-check CLI on Windows and Linux without V4L, image capture,
+signal hooks or a browser. It reuses `session_config` admission, `tracking`,
+`landmarks` and `controller`, including the same mismatched-authority rejection.
+Optional ONNX visual classification retains its existing implementation through
+`native-ort`; disabled profiles return before ORT initialization and require no
+runtime/model files. The one-hand absolute configuration still rejects visual
+macros, as before. This feature does not open camera, input or a web listener.
+
+The `native-vision` feature remains the Linux acquisition/backend path and includes
+`provider-runtime`. Native perception stays in `session`/`vision`; the common
+configuration no longer imports the Linux camera session. Preview HTTP/worker
+transport, actual Windows capture, browser launch and app integration are still
+pending. Core-only Windows tests still need neither V4L nor ORT; the additional
+configured-provider suite compiles the locked optional ORT adapter without loading
+its DLL or running model inference.
 
 ## Platform implementation
 

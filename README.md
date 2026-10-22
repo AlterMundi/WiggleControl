@@ -6,20 +6,23 @@ they do not need a WiggleControl integration.
 
 **Status: experimental one-hand Linux mouse in human use; no packaged release yet.**
 The selected beta uses headless Chromium GPU hand inference, Rust gesture interpretation
-and Linux virtual input; a native CPU backend also exists. The next delivery is
-the [standalone Linux screen/detail preview](docs/LINUX-PREVIEW.md).
+and Linux virtual input; a native CPU backend also exists. The human-selected next development target is the
+[Windows 11 x64 preview](docs/WINDOWS-PREVIEW.md) on Legion, extracting a shared
+Rust core and platform adapters. Windows is not yet implemented or qualified;
+the [standalone Linux preview](docs/LINUX-PREVIEW.md) remains unfinished.
 Left/right gestures have [first positive human feedback](docs/ACCEPTANCE.md);
 [held absolute detail](docs/DETAIL.md) has positive first-use feedback with clicking in a real menu;
 precision/rest/drawing and longer comfort qualification remain. Gesture
 [scroll](docs/SCROLL.md) and [Escape](docs/ESCAPE.md) also have positive first-use
 feedback, with integrated task/comfort qualification still open;
-multitouch and other operating systems remain later qualification/ports.
+multitouch, macOS and other Windows versions remain later work.
 The initial receiving target is Raspberry Pi 5, a USB RGB camera and a 1080p
 labwc/Wayland desktop. Rust is the first implementation choice. Exceptions need
 a specific technical justification; low resource use must be measured.
 
 Start here:
 
+- [Windows 11 x64 milestone](https://github.com/AlterMundi/WiggleControl/milestone/2): shared-core extraction, Windows adapters, packaging and Legion acceptance.
 - [Linux public preview milestone](https://github.com/AlterMundi/WiggleControl/milestone/1): scoped features, packaging and acceptance.
 - [Current roadmap](docs/ROADMAP.md): iteration goal, realistic mode/model expansion and evidence gates.
 - [Observation/replay contract](docs/OBSERVATIONS.md) and fictional fixtures.

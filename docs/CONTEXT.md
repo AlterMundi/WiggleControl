@@ -1,4 +1,29 @@
-# Project context — 2026-10-21
+# Project context — 2026-10-22
+
+Nicolás selected Windows 11 x64 on Legion and explicitly requested issues, a
+milestone and an active implementation goal. Current scope and boundaries:
+[WINDOWS-PREVIEW.md](WINDOWS-PREVIEW.md), [WINDOWS-GOAL.md](WINDOWS-GOAL.md),
+[milestone 2](https://github.com/AlterMundi/WiggleControl/milestone/2), issues #18–#22.
+The port must extract one shared Rust controller/calibration/filter/delivery core;
+OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
+Windows is planned, not yet implemented, installed or physically qualified.
+
+The previous Linux native goal was cleared on2026-10-21. Milestone1 remains open;
+its unfinished acceptance/release work is not erased and does not block Windows.
+Source #16 and #17 are merged; #17's final93ae0d4 passes all four push CI jobs
+39598504529 and is merged as8127986. The final source contains both detail-drag
+and default-off recording/input-startup corrections. Neither was physically
+validated in the successful Legion Linux trial. No new camera/input session or
+Windows remote access has been established. The human now reports Windows11x64;
+older Linux SSH failures and pending availability questions below are superseded.
+
+Nicolás's final Linux feedback: operation on Legion was very good, with detail
+drag identified as the remaining observed defect. Accepted C920e/other profiles
+and Linux receiving state remain preserved. Source/CI/package results, receiving
+installation and physical acceptance remain separate. Current execution status
+is native harness state, not historical statements that a prior goal is active.
+
+## Dated prior context — 2026-10-21
 
 No-recording startup follow-up — 2026-10-21: the default-off change left virtual
 writer creation nested inside recorder creation in the standalone camera source.

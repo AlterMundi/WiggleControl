@@ -1,9 +1,14 @@
 # One-hand Linux public preview — screen and detail
 
-Agreed with Nicolás on 2026-10-18. This is the next delivery scope, not a claim
+Agreed with Nicolás on 2026-10-18. This remains the Linux delivery scope, not a claim
 that the listed features are implemented, installed or physically accepted.
 [GitHub milestone 1](https://github.com/AlterMundi/WiggleControl/milestone/1)
 owns this delivery; the broader [roadmap](ROADMAP.md) remains preserved.
+
+Current priority —2026-10-22: the human cleared the prior Linux native goal and
+selected [Windows 11 x64](WINDOWS-PREVIEW.md) as the next implementation. This
+Linux milestone remains open with its actual completed and unfinished work;
+it is neither cancelled nor a prerequisite for the Windows release.
 
 ## Product and platform scope
 
@@ -36,7 +41,8 @@ pinned dependencies; a pure-native replacement is not a prerequisite. The curren
 installer still prepares the older native path and reads camera settings from
 daimon-integrators: it is not a complete installer for the selected beta.
 
-Windows and macOS are later ports. Perception/gesture/filtering concepts can be
+Windows 11 x64 is now separately planned in [milestone 2](WINDOWS-PREVIEW.md);
+macOS remains later work. Perception/gesture/filtering concepts can be
 reused, but Linux evdev/uinput output, device permissions, V4L camera paths and
 systemd/labwc operation are platform-specific. Each port requires its own input,
 capture/lifecycle integration, permissions and physical qualification. An x86

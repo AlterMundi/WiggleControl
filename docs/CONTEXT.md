@@ -9,6 +9,16 @@ OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
 The Windows camera/input application is not yet implemented, installed or
 physically qualified; the shared core and basic OS primitives are described below.
 
+Windows output adapter candidate —2026-10-22: platform/windows now contains
+physical monitor discovery/DPI/virtual-desktop mapping, native absolute/button/
+two-axis wheel conversion and a checked SendInput emitter. API-accepted held
+ownership survives failed release until confirmed cleanup; fake-sender fixtures
+cover partial failure, Escape, duplicate cleanup and shared watchdog output.
+No native events or camera are executed by these tests. Source qualification
+is pending; independent process-death supervision, writer/session integration,
+actual camera/GPU, packaging and Legion application acceptance remain open.
+See [WINDOWS-INPUT.md](WINDOWS-INPUT.md); #19 is not complete.
+
 Shared-core source increment —2026-10-22: controller/calibration, logical
 contacts, landmark interpretation, raw provider identity and the delivery
 publisher/freshness/Hold/watchdog state now compile independently of Linux

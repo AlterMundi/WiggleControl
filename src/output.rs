@@ -402,6 +402,14 @@ fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
 impl<M: MouseBackend, T: TouchBackend> State<M, T> {
+    /// Bind configured platform converters without arming or emitting input.
+    pub fn with_backends(mouse: M, touch: T) -> Self {
+        Self {
+            mouse,
+            touch,
+            ..Self::default()
+        }
+    }
     pub fn release(&mut self) -> Batch<M, T> {
         self.ready = false;
         self.hold_until = None;

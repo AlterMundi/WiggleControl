@@ -69,10 +69,8 @@ pub struct Spec {
 impl Spec {
     pub fn validate(&self) -> io::Result<()> {
         self.format.validate()?;
-        if self.camera.is_empty()
-            || self.camera.len() > 16_000
-            || self.camera.contains('\0')
-            || self.run_id.is_empty()
+        super::validate_camera_identity(&self.camera)?;
+        if self.run_id.is_empty()
             || self.run_id.len() > 64
             || !self
                 .run_id

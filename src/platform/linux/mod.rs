@@ -5,6 +5,12 @@ pub mod keyboard;
 pub mod mouse;
 pub(crate) mod profile_files;
 pub mod touch;
+pub(crate) fn validate_camera_identity(camera: &str) -> io::Result<()> {
+    if !std::path::Path::new(camera).is_absolute() {
+        return Err(io::Error::other("camera path must be absolute"));
+    }
+    Ok(())
+}
 /// Shared Linux monotonic time for same-host producer/device age checks.
 pub fn monotonic_us() -> io::Result<u64> {
     let mut ts = libc::timespec {

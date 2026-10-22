@@ -26,6 +26,9 @@ input paths are compatibility reexports of platform/linux. `session_config` owns
 shared configuration/controller admission; `provider-runtime` exposes camera-free
 configured raw-provider replay on both platforms. `native-vision` still includes
 Linux capture. Do not enable V4L/Unix session code to make Windows use the provider.
+`windows-camera` is the optional native-MJPEG/QPC capture adapter and supervised
+latest-frame receiver, with camera-free process fixtures. App/worker wiring and
+actual Legion camera/GPU qualification remain open; see docs/WINDOWS-CAPTURE.md.
 
 Use real monotonic timestamps. Bound messages/queues, validate observations and
 release held buttons/contacts on loss, stale data, stop or process failure.

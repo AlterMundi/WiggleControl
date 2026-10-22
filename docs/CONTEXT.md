@@ -9,6 +9,16 @@ OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
 The Windows camera/input application is not yet implemented, installed or
 physically qualified; the shared core and basic OS primitives are described below.
 
+Windows capture source increment —2026-10-22: `windows-camera` adds native
+Media Foundation MJPEG device selection, exact format/rate verification,
+driver/QPC timestamps and a supervised bounded latest-frame pipe. Source05e14f6
+passes all five CI39728792920 jobs, including device-free Windows adapter/process
+fixtures and existing Linux native/package compatibility. Follow-up includes an
+orphan-child EOF watchdog and separate received/fresh counters. No camera or
+input was activated; the Windows app/provider/worker connection, visible-camera
+calibration, launch/package and actual Legion acceptance remain pending.
+See [WINDOWS-CAPTURE.md](WINDOWS-CAPTURE.md) for current APIs, bounds and evidence.
+
 Configured provider portability —2026-10-22: `session_config` now owns the
 existing configuration/gesture/controller admission independently of the Linux
 camera session. Native paths keep compatibility reexports; `provider-runtime`
@@ -17,8 +27,8 @@ a browser or model initialization for disabled visual profiles. Native camera,
 worker transport and normal-user Windows app/packaging are still pending (#20–#22).
 Source checks and qualification are retained in [PR27](https://github.com/AlterMundi/WiggleControl/pull/27); no receiving
 session or camera has been started. [WINDOWS-CAPTURE.md](WINDOWS-CAPTURE.md) records
-the native-MJPEG/source-reader route and driver/QPC timestamp contract; that adapter
-and Windows camera/worker lifecycle are not implemented yet.
+the native-MJPEG/source-reader adapter and driver/QPC timestamp contract. App/worker
+integration and receiving qualification remain open.
 
 Windows writer source work —2026-10-22: an independent JSONL/QPC writer and
 parent supervision now reuse the common output watchdog, with acknowledged plus

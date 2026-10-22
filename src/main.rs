@@ -35,11 +35,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use wigglecontrol::platform::windows::writer::fixture;
             let config = serde_json::from_str(&args[1])?;
             let fixture = serde_json::from_str(&args[2])?;
-            return Ok(if args[0] == "windows-writer-fixture" {
-                fixture::stream(config, fixture)?
+            if args[0] == "windows-writer-fixture" {
+                fixture::stream(config, fixture)?;
             } else {
-                fixture::parent_exit(&std::env::current_exe()?, config, fixture)?
-            });
+                fixture::parent_exit(&std::env::current_exe()?, config, fixture)?;
+            }
+            return Ok(());
+        }
+        _ => (),
+    }
+    #[cfg(all(target_os = "windows", feature = "windows-camera"))]
+    match args.first().map(String::as_str) {
+        Some("windows-camera-list") if args.len() == 1 => {
+            println!(
+                "{}",
+                serde_json::to_string(&wigglecontrol::platform::windows::camera::devices()?)?
+            );
+            return Ok(());
+        }
+        Some("windows-camera-stream") if args.len() == 2 => {
+            return Ok(wigglecontrol::platform::windows::camera::stream(
+                serde_json::from_str(&args[1])?,
+            )?);
+        }
+        Some("windows-camera-parent-fixture") if args.len() == 2 => {
+            return Ok(
+                wigglecontrol::platform::windows::camera::fixture::parent_exit(
+                    &std::env::current_exe()?,
+                    serde_json::from_str(&args[1])?,
+                )?,
+            );
+        }
+        Some("windows-camera-fixture") if args.len() == 3 => {
+            return Ok(wigglecontrol::platform::windows::camera::fixture::stream(
+                serde_json::from_str(&args[1])?,
+                serde_json::from_str(&args[2])?,
+            )?);
         }
         _ => (),
     }

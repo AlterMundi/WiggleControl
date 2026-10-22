@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod acquisition;
+pub mod camera_frame;
 pub mod contacts;
 pub mod cursor;
 pub mod detail;

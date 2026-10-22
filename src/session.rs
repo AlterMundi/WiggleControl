@@ -87,11 +87,7 @@ impl PreviewClock {
             .map(|_| self.deadline().saturating_duration_since(now).as_millis() as u64)
     }
 }
-pub(crate) struct Frame {
-    pub bytes: Vec<u8>,
-    pub source_us: u64,
-    pub sequence: u32,
-}
+pub(crate) use crate::camera_frame::Frame;
 #[derive(Default)]
 pub(crate) struct Mailbox {
     pub frame: Option<Frame>,

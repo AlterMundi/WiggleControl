@@ -131,7 +131,7 @@ pub fn parent_exit(executable: &Path, config: WriterConfig, fixture: Config) -> 
         contacts: vec![],
     })?;
     let start = Instant::now();
-    while !writer.receipt().is_some_and(|r| r.held_mask == 1) {
+    while writer.receipt().is_none_or(|r| r.held_mask != 1) {
         if start.elapsed() > Duration::from_secs(3) || writer.outcome().is_some() {
             return Err(invalid("fixture parent did not observe its press"));
         }

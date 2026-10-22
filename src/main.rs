@@ -24,6 +24,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => (),
     }
+    #[cfg(target_os = "windows")]
+    match args.first().map(String::as_str) {
+        Some("windows-writer") if args.len() == 2 => {
+            return Ok(wigglecontrol::platform::windows::writer::stream(
+                serde_json::from_str(&args[1])?,
+            )?);
+        }
+        Some("windows-writer-fixture" | "windows-writer-parent-fixture") if args.len() == 3 => {
+            use wigglecontrol::platform::windows::writer::fixture;
+            let config = serde_json::from_str(&args[1])?;
+            let fixture = serde_json::from_str(&args[2])?;
+            return Ok(if args[0] == "windows-writer-fixture" {
+                fixture::stream(config, fixture)?
+            } else {
+                fixture::parent_exit(&std::env::current_exe()?, config, fixture)?
+            });
+        }
+        _ => (),
+    }
     #[cfg(feature = "native-vision")]
     match args.first().map(String::as_str) {
         Some("provider-calibrate" | "provider-calibrate-preflight") if args.len() == 7 => {

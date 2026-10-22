@@ -410,6 +410,10 @@ impl<M: MouseBackend, T: TouchBackend> State<M, T> {
             ..Self::default()
         }
     }
+    /// Delivery readiness, not evidence of application input receipt.
+    pub fn is_armed(&self) -> bool {
+        self.ready
+    }
     pub fn release(&mut self) -> Batch<M, T> {
         self.ready = false;
         self.hold_until = None;

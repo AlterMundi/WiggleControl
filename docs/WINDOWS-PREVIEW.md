@@ -2,7 +2,10 @@
 
 Human-selected on 2026-10-22. [Milestone 2](https://github.com/AlterMundi/WiggleControl/milestone/2)
 owns this delivery; [WINDOWS-GOAL.md](WINDOWS-GOAL.md) is the native-goal specification.
-This is an implementation plan, not a claim that a Windows build exists or has been tested.
+This is the delivery plan. Shared-core and adapter Windows CI builds now exist;
+the user-facing preview and actual Legion acceptance remain pending. Current
+source boundaries and qualification evidence: [PLATFORM-LAYER.md](PLATFORM-LAYER.md)
+and [WINDOWS-INPUT.md](WINDOWS-INPUT.md).
 
 ## Scope and starting evidence
 
@@ -39,13 +42,14 @@ Rust controller, not a separate Windows implementation of gesture mathematics.
 | Logical output packets, source freshness, sequencing, held-state/rearm and watchdog policy | Monotonic clock access, writer/process lifecycle and platform cleanup |
 | Camera-free fixtures, replay and useful portable controls | Launch/browser discovery, optional integration and packaging |
 
-Existing `controller`, calibration and touch-gesture modules are Linux-gated even
-where their logic is portable. `controller` imports `touch::Contact`; delivery mixes
-packet publishing and freshness/hold state with evdev events; raw interpretation is
-inside native-feature vision/session modules; profile persistence uses Unix APIs.
-Extract these implementations and keep compatible Linux entry points where useful.
-OS event codes, `/dev` paths, libc/Unix file semantics, V4L, systemd and compositor
-commands must not enter the reusable gesture/calibration/delivery core.
+The #18 extraction is merged: shared observation, controller, calibration,
+profile-store policy and generic delivery state compile on Windows and Linux.
+Linux evdev/uinput implementations remain behind compatible imports. Windows
+provides QPC, profile-file primitives, physical display mapping, SendInput conversion
+and independent writer supervision. Camera/session/worker launch integration
+still belongs to #20; output receiving acceptance remains part of #19/#22.
+OS event codes, `/dev` paths, Unix file semantics, V4L, systemd and compositor
+commands stay out of the reusable gesture/calibration/delivery core.
 
 Interfaces should express actual needs, with small modules/traits where useful.
 Do not build a generic plugin framework or replace a proven algorithm for symmetry.

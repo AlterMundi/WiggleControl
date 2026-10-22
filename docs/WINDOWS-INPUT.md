@@ -33,9 +33,9 @@ API failure, failed key-up, held ownership, duplicate cleanup, both wheel axes a
 the common writer watchdog through this actual conversion layer. CI fixtures use
 the fake sender exclusively and never invoke `SendInput` or camera capture.
 
-Independent process lifecycle, parent/child supervision and process-death cleanup,
-actual writer launch/transport, camera/runtime integration and application receipts
-remain implementation/qualification work in #19–#22. Win32 injected button state
+The independent writer/supervisor source is described below. Camera/runtime
+integration and application receipts remain implementation/qualification work
+in #19–#22. Win32 injected button state
 must not be assumed to disappear like a Linux uinput device. In particular, a
 Rust destructor is not a hard-process-death cleanup mechanism. Do not advertise a
 ready Windows controller based on codec tests or this library.
@@ -61,3 +61,59 @@ and existing Linux native/package checks. Mapping/cleanup tests use fictional
 geometry and fake API emission; the code is not physically qualified on Legion.
 The follow-up monitor-info pointer passes the entire extended SDK buffer before
 casting to its base type; live display/DPI and actual input remain receiving checks.
+
+## Independent writer and failure recovery
+
+`platform/windows/writer` consumes the existing bounded JSONL `output::Packet`
+stream in a separate process. It runs the common watchdog every20ms, including
+under a busy producer, emits accepted held ownership/readiness receipts, and
+cleans up before reporting terminal status. Stop, EOF, rejected packets, broken
+receipt pipes and native failures all take the explicit release path. Native
+operation checks the selected physical desktop snapshot at Start and every250ms;
+a layout change terminates input rather than silently remapping it. No constructor,
+spawn or calibration command arms input; fresh explicit transitions remain required.
+
+The owning application uses `Writer::spawn` on manual Start, then `send` and
+`stop`. Its separate monitor checks child exit and receipt silence independently
+of the producer thread. A blocked writer is terminated and reaped before recovery
+can emit any button-up. The parent retains both acknowledged ownership and possible
+presses registered before pipe writes: a child can die after an API press but
+before acknowledging it. At most64 packets may await acknowledgement. Recovery
+emits only releases for that session's acknowledged/pending button or Escape bits,
+never a new press, automatic restart or blanket release. A failed cleanup remains
+unconfirmed in the outcome, with the possible-held mask and observed process-exit
+state retained. A runtime must not treat an unconfirmed process exit as permission
+to start another writer or attempt concurrent recovery. Normal EOF/Stop returns
+a separate terminal outcome.
+
+The hidden-console child uses Rust's maintained Windows `CommandExt` process
+creation flags and ordinary bounded pipes, with a five-second startup allowance.
+The active receipt watchdog uses the configured50–1000ms delivery budget; preview
+runtime integration will select its normal150ms value. App hard exit closes the
+pipe and the surviving writer releases. Writer crash/hang is handled by the
+surviving parent. Simultaneously killing the entire process tree, OS termination
+or failure of both recovery paths is not covered by a Rust destructor or this
+protocol. Win32 injection shares desktop button state: recovery of an uncertain
+press can also end a coincident physical hold of that same button. There is no
+claim of independently classified Linux-style devices on Windows.
+
+`windows-writer CONFIG_JSON` is an internal native input command, not the preview
+launcher. `windows-writer-fixture` and `windows-writer-parent-fixture` route all
+emission to fictional traces; they never call SendInput or display discovery.
+Native-Windows process tests cover neutral startup, explicit Stop, EOF cleanup,
+source-watchdog disarm/no re-press, malformed/oversized/stale input, a crash before
+acknowledging a press, a stalled child, parent exit without destructors and rejected child/parent
+releases that must remain explicitly unconfirmed. They
+exercise real processes/pipes with a fake final emitter. These are source tests,
+not actual input or Legion acceptance; #19 stays open for runtime/receiving work.
+
+Process references: [Rust CommandExt](https://doc.rust-lang.org/std/os/windows/process/trait.CommandExt.html#tymethod.creation_flags)
+and [Win32 process flags](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags).
+
+
+Writer sourceaa63593 passes the native-Windows library, shared controller,
+portable delivery and all eight process tests, default binary checks and Clippy
+in [CI39725142474](https://github.com/AlterMundi/WiggleControl/actions/runs/39725142474).
+This is fake-emitter source evidence; no real desktop input, display discovery or
+camera was used. [PR26](https://github.com/AlterMundi/WiggleControl/pull/26) retains
+the exact subsequent source/check outcomes and integration record.

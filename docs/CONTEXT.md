@@ -9,6 +9,18 @@ OS-specific capture/input/display/storage/lifecycle belong in platform adapters.
 The Windows camera/input application is not yet implemented, installed or
 physically qualified; the shared core and basic OS primitives are described below.
 
+Windows writer source work —2026-10-22: an independent JSONL/QPC writer and
+parent supervision now reuse the common output watchdog, with acknowledged plus
+pending-press ownership and recovery only after confirmed child exit. Native
+output remains manual/unarmed at spawn. New native-Windows process fixtures use
+fake emitters for child crash/stall, parent hard exit, EOF/Stop and malformed or
+stale input. Sourceaa63593 passes native-Windows tests and Clippy in
+[CI39725142474](https://github.com/AlterMundi/WiggleControl/actions/runs/39725142474),
+including all eight process cases and unconfirmed-cleanup reporting. Exact later
+source/CI outcomes are retained in [PR26](https://github.com/AlterMundi/WiggleControl/pull/26). No camera or real input
+has been started. Runtime integration, camera/GPU, package and actual Legion
+acceptance remain open; see [WINDOWS-INPUT.md](WINDOWS-INPUT.md).
+
 Windows output adapter candidate —2026-10-22: platform/windows now contains
 physical monitor discovery/DPI/virtual-desktop mapping, native absolute/button/
 two-axis wheel conversion and a checked SendInput emitter. API-accepted held

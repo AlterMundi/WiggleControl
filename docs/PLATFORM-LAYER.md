@@ -9,6 +9,7 @@ are preserved through reexports and narrow compatibility shims.
 
 | Module | Responsibility |
 | --- | --- |
+| `camera_frame` | Owned encoded acquisition bytes and monotonic source/sequence shared by Linux capture and the Windows receiver |
 | `session_config` | Shared receiving configuration, gesture/interpretation policy and controller-authority validation; native `session` reexports preserve callers |
 | `acquisition` | Independent optional recorder/input setup, including the #17 video-off input-startup correction |
 | `landmarks` | Raw geometry, shared pinch metric/posture interpretation, selected-hand evidence and the controller bridge, including the #16 detail-drag correction |
@@ -40,9 +41,8 @@ macros, as before. This feature does not open camera, input or a web listener.
 
 The `native-vision` feature remains the Linux acquisition/backend path and includes
 `provider-runtime`. Native perception stays in `session`/`vision`; the common
-configuration no longer imports the Linux camera session. Preview HTTP/worker
-transport, actual Windows capture, browser launch and app integration are still
-pending. Core-only Windows tests still need neither V4L nor ORT; the additional
+configuration no longer imports the Linux camera session. Windows native capture is now a separate optional adapter; preview HTTP/worker
+portability, browser launch and app integration are still pending. Core-only Windows tests still need neither V4L nor ORT; the additional
 configured-provider suite compiles the locked optional ORT adapter without loading
 its DLL or running model inference.
 
@@ -75,8 +75,15 @@ acknowledged/pending presses for process-death cleanup. Device-free process
 fixtures do not establish native API or receiving acceptance; runtime integration
 and Legion qualification remain open.
 
-Camera negotiation/acquisition, remaining runtime input/display integration, actual process lifecycle and
-launch/distribution must remain platform responsibilities as #19–#21 are implemented.
+The optional `platform/windows/camera` adapter owns native Media Foundation
+selection, exact MJPEG format/rate, driver/QPC timestamps and its capture child.
+Its framed pipe/receiver keeps one latest payload with explicit source-age checks;
+`platform/windows/process` shares bounded owned-child termination with the input
+writer. [WINDOWS-CAPTURE.md](WINDOWS-CAPTURE.md) records the actual API/limits and
+camera-free evidence. It is not connected to the Windows app/worker yet.
+
+Remaining runtime input/display integration, browser launch and distribution
+stay platform responsibilities as #19–#21 are implemented.
 A platform trait is useful when consumed by actual code; it is not a requirement
 to wrap every standard-library call or build a general plugin framework.
 

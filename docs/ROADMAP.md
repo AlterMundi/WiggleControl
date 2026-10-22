@@ -14,7 +14,9 @@ Windows source progress: #18's common-core extraction is merged. #19 now has
 physical display/SendInput conversion and independent writer/supervisor source;
 its native-Windows fixtures use fake emitters, including process-death recovery.
 See [PLATFORM-LAYER.md](PLATFORM-LAYER.md) and [WINDOWS-INPUT.md](WINDOWS-INPUT.md).
-#19 stays open for runtime and actual output acceptance. Next adapt camera,
+#19 stays open for runtime and actual output acceptance. #20 now has the optional
+native-MJPEG/QPC capture library and supervised transport, validated with fake
+processes; its app/worker/calibration connection is still pending. Next integrate
 worker launch and visible/fullscreen calibration (#20), package ordinary-user
 launch (#21), then qualify Legion (#22). No user-facing Windows preview is ready.
 

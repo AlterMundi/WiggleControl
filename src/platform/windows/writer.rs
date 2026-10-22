@@ -147,9 +147,8 @@ fn json_line<T: Serialize>(value: &T) -> io::Result<Vec<u8>> {
 }
 fn read_receipt(reader: &mut impl BufRead) -> io::Result<Option<Receipt>> {
     let mut bytes = Vec::new();
-    let count = reader
-        .take(MAX_MESSAGE_BYTES as u64 + 1)
-        .read_until(b'\n', &mut bytes)?;
+    let count =
+        std::io::Read::take(reader, MAX_MESSAGE_BYTES as u64 + 1).read_until(b'\n', &mut bytes)?;
     if count == 0 {
         return Ok(None);
     }

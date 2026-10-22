@@ -45,6 +45,7 @@ pub(crate) fn camera(
                     return Err(error);
                 }
             };
+            let mut forwarded_drops = 0u64;
             let result = (|| -> io::Result<()> {
                 while !stop.load(Ordering::Relaxed)
                     && deadline.is_none_or(|end| Instant::now() < end)
@@ -54,7 +55,7 @@ pub(crate) fn camera(
                         let mut slot = mailbox.lock().unwrap();
                         slot.opened |= status.negotiated.is_some();
                         slot.frames = status.fresh_frames;
-                        slot.dropped = status.dropped;
+                        slot.dropped = status.dropped.saturating_add(forwarded_drops);
                         slot.source_kind = Some("driver_qpc_timestamp");
                     }
                     if let Some(frame) = capture.take_frame()? {
@@ -63,7 +64,8 @@ pub(crate) fn camera(
                         }
                         let mut slot = mailbox.lock().unwrap();
                         if slot.frame.replace(frame).is_some() {
-                            slot.dropped += 1;
+                            forwarded_drops = forwarded_drops.saturating_add(1);
+                            slot.dropped = slot.dropped.saturating_add(1);
                         }
                     }
                     if status.process_exited {

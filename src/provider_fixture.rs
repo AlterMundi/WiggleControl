@@ -687,9 +687,12 @@ fn assets(root: &Path) -> Result<BTreeMap<String, PathBuf>, Box<dyn Error>> {
             return Err("invalid provider asset".into());
         }
         use sha2::{Digest, Sha256};
-        let mut file = fs::File::open(&path)?;
+        let file = fs::File::open(&path)?;
         let mut digest = Sha256::new();
-        io::copy(&mut file, &mut digest)?;
+        let read = io::copy(&mut io::Read::take(file, 64 * 1024 * 1024 + 1), &mut digest)?;
+        if read > 64 * 1024 * 1024 {
+            return Err("provider asset exceeds bounded input".into());
+        }
         if format!("{:x}", digest.finalize()) != sha.to_ascii_lowercase() {
             return Err("provider asset digest differs".into());
         }

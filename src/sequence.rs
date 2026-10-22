@@ -5,7 +5,6 @@ use crate::{
 };
 use std::{
     error::Error,
-    fs,
     io::{self, Write},
     path::Path,
     time::Instant,

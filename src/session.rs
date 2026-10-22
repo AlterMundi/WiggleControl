@@ -15,10 +15,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub(crate) use crate::session_config::observe_controller;
 pub use crate::session_config::{
     controller_config, PalmDeduplication, Pinch2dReference, SecondaryLandmarkModel, SessionConfig,
 };
-pub(crate) use crate::session_config::{observe_controller, validate_camera_resolution};
 impl SessionConfig {
     pub fn perception(&self) -> Result<Perception, Box<dyn Error>> {
         self.replay_perception(5, None)
@@ -82,7 +82,7 @@ impl PreviewClock {
     }
 }
 pub(crate) use crate::platform::linux::camera::camera;
-pub(crate) use crate::{camera_frame::Frame, session_io::Mailbox};
+pub(crate) use crate::session_io::Mailbox;
 #[derive(Serialize, Default)]
 struct Summary {
     captured: u64,

@@ -14,11 +14,17 @@ Windows source progress: #18's common-core extraction is merged. #19 now has
 physical display/SendInput conversion and independent writer/supervisor source;
 its native-Windows fixtures use fake emitters, including process-death recovery.
 See [PLATFORM-LAYER.md](PLATFORM-LAYER.md) and [WINDOWS-INPUT.md](WINDOWS-INPUT.md).
-#19 stays open for runtime and actual output acceptance. #20 now has the optional
-native-MJPEG/QPC capture library and supervised transport, validated with fake
-processes; its app/worker/calibration connection is still pending. Next integrate
-worker launch and visible/fullscreen calibration (#20), package ordinary-user
-launch (#21), then qualify Legion (#22). No user-facing Windows preview is ready.
+The browser-provider service now connects #19 output and #20 native MJPEG/QPC
+capture to the existing worker/HTTP/controller/calibration engine. Its developer
+commands require explicit monitor selection and manual Start, retain recording-off
+startup and report unconfirmed native closure as unknown. The shared fullscreen
+camera-visible diagonal/all-four-corner UI and worker/meaning/Stop fixtures are
+portable; see [WINDOWS-SESSION.md](WINDOWS-SESSION.md) and
+[PR29](https://github.com/AlterMundi/WiggleControl/pull/29). #19 and #20 remain open
+for normal-user integration and actual receiving behavior. Next deliver managed
+browser lifetime and camera/output/configuration UI (#20/#21), the independently
+usable portable package (#21), then Legion camera/GPU/desktop qualification (#22).
+No user-facing Windows preview is ready.
 
 The Linux Legion trial received very positive human feedback. The merged #16
 detail-drag and #17 video-off startup corrections have source/CI evidence but

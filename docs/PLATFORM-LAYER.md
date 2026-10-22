@@ -54,7 +54,11 @@ Windows primitives use the already lock-resolved `windows-sys`0.59.0 bindings.
 and [MoveFileEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
 are the official platform references. Linux clock/profile semantics stay unchanged.
 
-Camera negotiation/acquisition, input/display APIs, actual process lifecycle and
+The initial Windows event/display library is described in [WINDOWS-INPUT.md](WINDOWS-INPUT.md);
+its native sender is replaced by a fake in CI. Writer process-death cleanup and
+receiving acceptance remain open.
+
+Camera negotiation/acquisition, remaining runtime input/display integration, actual process lifecycle and
 launch/distribution must remain platform responsibilities as #19–#21 are implemented.
 A platform trait is useful when consumed by actual code; it is not a requirement
 to wrap every standard-library call or build a general plugin framework.

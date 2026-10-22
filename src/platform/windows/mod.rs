@@ -1,4 +1,6 @@
-//! Windows 11 x64 primitives; these functions never acquire a sensor or inject input.
+//! Windows 11 x64 primitives and adapters; construction never starts a session.
+pub mod display;
+pub mod input;
 pub(crate) mod profile_files;
 use std::io;
 use windows_sys::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};

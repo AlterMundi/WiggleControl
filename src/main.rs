@@ -35,11 +35,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use wigglecontrol::platform::windows::writer::fixture;
             let config = serde_json::from_str(&args[1])?;
             let fixture = serde_json::from_str(&args[2])?;
-            return Ok(if args[0] == "windows-writer-fixture" {
-                fixture::stream(config, fixture)?
+            if args[0] == "windows-writer-fixture" {
+                fixture::stream(config, fixture)?;
             } else {
-                fixture::parent_exit(&std::env::current_exe()?, config, fixture)?
-            });
+                fixture::parent_exit(&std::env::current_exe()?, config, fixture)?;
+            }
+            return Ok(());
         }
         _ => (),
     }

@@ -1,11 +1,12 @@
 //! Shared finite worker transport; explicit synthetic and manually enabled camera sources.
 use crate::acquisition::prepare_acquisition;
 use crate::{
+    camera_frame::Frame,
     controller,
-    intent::monotonic_us,
+    platform::monotonic_us,
     preview::{Extension, ExtensionResponse, Preview},
     provider::{self, Landmarks},
-    session::{Frame, SessionConfig},
+    session_config::SessionConfig,
     touch_gestures,
 };
 use serde::Deserialize;
@@ -16,7 +17,6 @@ use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
-    process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Condvar, Mutex,
@@ -50,6 +50,7 @@ struct State {
     finishing: bool,
     terminal_visible: bool,
     camera_opened: bool,
+    camera_closure_unconfirmed: bool,
     recording_active: bool,
     input_started: bool,
     writer_reaped: bool,
@@ -74,6 +75,9 @@ struct State {
     scroll_feedback: Option<crate::scroll::Feedback>,
 }
 impl State {
+    fn camera_active(&self) -> Option<bool> {
+        (!self.camera_closure_unconfirmed).then_some(self.camera_opened)
+    }
     fn remaining_ms(&self, seconds: Option<u64>, now: Instant) -> Option<u64> {
         let (seconds, started) = (seconds?, self.acquisition_started?);
         Some(if self.eof {
@@ -200,7 +204,7 @@ impl Bridge {
             .checked_add(1)
             .ok_or_else(|| io::Error::other("frame sequence exhausted"))?;
         let sequence = s.captured;
-        let camera_opened = s.camera_opened;
+        let camera_opened = s.camera_active();
         let system_input = s.system_input();
         s.captures
             .push(json!({"event":"capture","sequence":sequence,
@@ -336,7 +340,7 @@ impl Extension for Bridge {
                     "200 OK",
                     json!({"model_sha256":MODEL,"delegate":"GPU",
                 "run_id":self.run_id,"max_hands":self.max_hands,"presence_floor":self.presence_floor,"presence_scores":self.presence_scores,"absolute_pointer":self.absolute_pointer,"manual_start":self.manual_start,"trial_seconds":self.trial_seconds,"package_version":"1.1.1",
-                "width":self.dimensions[0],"height":self.dimensions[1],"camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_opened,"recording_active":state.recording_active,
+                "width":self.dimensions[0],"height":self.dimensions[1],"camera_source":self.camera_source,"recorded_source":self.recorded_source,"camera_opened":state.camera_active(),"recording_active":state.recording_active,
                 "input_requested":self.input_requested,"system_input":state.system_input(),"cursor_output":self.cursor_output,
                 "prepared":state.preparing.is_some(),"worker_ready":state.ready,"active":!state.eof,"error":state.error,
                 "terminal_ready":state.finishing,
@@ -682,9 +686,11 @@ fn assets(root: &Path) -> Result<BTreeMap<String, PathBuf>, Box<dyn Error>> {
         if !fs::metadata(&path)?.is_file() || fs::metadata(&path)?.len() > 64 * 1024 * 1024 {
             return Err("invalid provider asset".into());
         }
-        let output = Command::new("sha256sum").arg("--").arg(&path).output()?;
-        let actual = String::from_utf8(output.stdout)?;
-        if !output.status.success() || actual.split_whitespace().next() != Some(sha.as_str()) {
+        use sha2::{Digest, Sha256};
+        let mut file = fs::File::open(&path)?;
+        let mut digest = Sha256::new();
+        io::copy(&mut file, &mut digest)?;
+        if format!("{:x}", digest.finalize()) != sha.to_ascii_lowercase() {
             return Err("provider asset digest differs".into());
         }
         files.insert(format!("/{name}"), path);
@@ -729,7 +735,7 @@ pub fn run(
     if !(1..=2).contains(&max_hands) {
         return Err("provider max hands must be1 or2".into());
     }
-    let sequence = crate::sequence::Sequence::load(manifest)?;
+    let sequence = crate::image_sequence::Sequence::load(manifest)?;
     let first = sequence.frames.first().unwrap().source_us;
     let duration = sequence.frames.last().unwrap().source_us - first;
     if duration > 90_000_000 {
@@ -760,6 +766,7 @@ pub fn run(
         .ok_or("fixture has no images")?;
     let initial_jpeg = jpeg(initial)?;
     run_engine(RunOptions {
+        output_target: None,
         calibration_profile: None,
         session,
         settings,
@@ -793,6 +800,7 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
         return Err("camera trial duration must be0(until-stop)..90 seconds".into());
     }
     run_engine(RunOptions {
+        output_target: None,
         calibration_profile: None,
         session: options.session,
         settings: options.settings,
@@ -804,6 +812,42 @@ pub fn run_camera(options: CameraOptions<'_>) -> Result<(), Box<dyn Error>> {
             seconds: options.seconds,
             inject: options.inject,
             manual_start: options.manual_start || options.seconds == 0,
+        },
+        preflight: options.preflight,
+    })
+}
+
+/// Windows uses the same service, worker, calibration and gesture loop. Selection
+/// is explicit and checked before preflight; construction does not acquire IO.
+#[cfg(target_os = "windows")]
+pub fn run_windows(
+    options: CameraOptions<'_>,
+    output_target: &str,
+    calibration_profile: Option<&Path>,
+) -> Result<(), Box<dyn Error>> {
+    if options.seconds > 90 || options.max_hands != 1 {
+        return Err("Windows preview requires one hand and 0(until-Stop)..90 seconds".into());
+    }
+    if calibration_profile.is_some() && options.inject {
+        return Err("calibration is camera-only".into());
+    }
+    run_engine(RunOptions {
+        output_target: Some(output_target),
+        calibration_profile,
+        session: options.session,
+        settings: options.settings,
+        asset_root: options.asset_root,
+        port: options.port,
+        max_hands: 1,
+        initial_jpeg: jpeg(options.synthetic_warmup)?,
+        source: Source::Camera {
+            seconds: if calibration_profile.is_some() {
+                150
+            } else {
+                options.seconds
+            },
+            inject: options.inject,
+            manual_start: true,
         },
         preflight: options.preflight,
     })
@@ -821,6 +865,7 @@ pub fn calibrate(
     preflight: bool,
 ) -> Result<(), Box<dyn Error>> {
     run_engine(RunOptions {
+        output_target: None,
         calibration_profile: Some(profile),
         session,
         settings,
@@ -862,7 +907,7 @@ pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>
     }
     let dimensions: [u32; 2] =
         serde_json::from_value(json!([metadata["width"], metadata["height"]]))?;
-    crate::session::validate_camera_resolution(dimensions)?;
+    crate::session_config::validate_camera_resolution(dimensions)?;
     let reader = crate::recording::Reader::open(options.recording)?;
     let epoch = reader.rows()[0].source_us;
     let start = options
@@ -885,6 +930,7 @@ pub fn run_recording(options: RecordingOptions<'_>) -> Result<(), Box<dyn Error>
     let last = *indices.last().unwrap();
     let duration = reader.rows()[last].source_us - reader.rows()[first].source_us;
     run_engine(RunOptions {
+        output_target: None,
         calibration_profile: None,
         session: options.session,
         settings: options.settings,
@@ -929,10 +975,12 @@ struct RunOptions<'a> {
     initial_jpeg: Vec<u8>,
     source: Source,
     preflight: bool,
+    output_target: Option<&'a str>,
 }
 /// Keep startup factories camera-free in tests; the returned writer is owned by
 /// the normal runtime cleanup, independently of an optional dataset recorder.
 struct Journal<'a> {
+    verbose: bool,
     stdout: std::io::StdoutLock<'a>,
     recording: Option<crate::recording::Output>,
 }
@@ -942,13 +990,29 @@ impl Journal<'_> {
         if let Some(file) = &mut self.recording {
             file.write_all(&line)?;
         }
-        self.stdout.write_all(&line)?;
-        self.stdout.flush()
+        if self.verbose
+            || matches!(
+                value["event"].as_str(),
+                Some("listening" | "stop" | "calibration_capture_closed")
+            )
+        {
+            self.stdout.write_all(&line)?;
+            self.stdout.flush()?;
+        }
+        Ok(())
     }
 }
 
 fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
+    run_engine_with_assets(options, assets)
+}
+
+fn run_engine_with_assets(
+    options: RunOptions<'_>,
+    verify_assets: impl FnOnce(&Path) -> Result<BTreeMap<String, PathBuf>, Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
     let RunOptions {
+        output_target,
         calibration_profile,
         session,
         settings,
@@ -1016,8 +1080,29 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     if camera_source {
         config.validate_recording((!until_stop).then_some(duration / 1_000_000))?;
     }
+    #[cfg(target_os = "windows")]
+    if matches!(&source, Source::Camera { .. }) {
+        crate::session_io::validate_output(
+            &config,
+            output_target.ok_or("select an explicit Windows output monitor")?,
+        )?;
+        if !matches!(
+            &source,
+            Source::Camera {
+                manual_start: true,
+                ..
+            }
+        ) {
+            return Err("Windows camera sessions require manual Start".into());
+        }
+        if config.recording_enabled {
+            return Err(
+                "Windows preview calibration/mouse use must have recording disabled".into(),
+            );
+        }
+    }
     let mut bridge = Bridge::new(
-        assets(asset_root)?,
+        verify_assets(asset_root)?,
         config.gestures().stale_us,
         format!("{}-{}", std::process::id(), monotonic_us()?),
         max_hands,
@@ -1051,20 +1136,23 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         crate::pose_classifier::VisualClassifier::with_runtime(&controller, &config.runtime)?;
     let bridge = Arc::new(bridge);
     let stop = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
-    signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
+    #[cfg(target_os = "linux")]
+    {
+        signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+        signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
+    }
     let preview = Preview::start(port, stop.clone())?;
     preview.enable_extension(bridge.clone());
     preview.enable_controller_controls();
     let mut journal = Journal {
+        verbose: cfg!(target_os = "linux"),
         stdout: io::stdout().lock(),
         recording: None,
     };
     let capture_stop = Arc::new(AtomicBool::new(false));
-    let camera_mailbox = Arc::new(Mutex::new(crate::session::Mailbox::default()));
-    let mut writer: Option<std::process::Child> = None;
-    let mut writer_output = None;
-    let mut publisher = crate::delivery::Publisher::with_cursor_output(
+    let camera_mailbox = Arc::new(Mutex::new(crate::session_io::Mailbox::default()));
+    let mut writer = None;
+    let mut publisher = crate::output::Publisher::with_cursor_output(
         config.pointer_cursor_output,
         config.gestures().stale_us,
     )?;
@@ -1142,6 +1230,9 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     if let Some(error) = &camera_mailbox.lock().unwrap().error {
                         return Err(error.clone().into());
                     }
+                    if camera_mailbox.lock().unwrap().unclosed {
+                        return Err("camera closure unconfirmed".into());
+                    }
                     bridge.close_calibration_capture();
                     calibration.lock().unwrap().confirm_camera_closed();
                     calibration_closed_at = Some(Instant::now());
@@ -1189,15 +1280,15 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                         Ok(frames)
                     },
                     || {
-                        Ok(crate::session::controller_writer(
+                        Ok(crate::session_io::Writer::start(
                             &config,
                             (!until_stop).then_some(duration / 1_000_000 + 3),
+                            output_target,
                         )?)
                     },
                 )?;
                 writer = input_writer;
-                if let Some(child) = &mut writer {
-                    writer_output = child.stdin.take();
+                if writer.is_some() {
                     bridge.state.lock().unwrap().input_started = true;
                 }
                 started = Some(Instant::now());
@@ -1207,15 +1298,15 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     state.recording_active = journal.recording.is_some();
                 }
                 let initial = controller.start_at(monotonic_us()?);
-                crate::session::write_controller_mapped(
-                    &mut writer_output,
+                crate::session_io::publish(
+                    &mut writer,
                     &mut publisher,
                     &initial,
                     None,
                     absolute_workspace,
                 )?;
                 if camera_source {
-                    producer = Some(crate::session::camera(
+                    producer = Some(crate::platform::camera(
                         &config,
                         capture_stop.clone(),
                         camera_mailbox.clone(),
@@ -1290,18 +1381,18 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             {
                 break;
             }
-            if let Some(child) = &mut writer {
-                if let Some(status) = child.try_wait()? {
-                    return Err(
-                        format!("controller writer exited during camera trial: {status}").into(),
-                    );
-                }
+            if let Some(writer) = &mut writer {
+                writer.check()?;
             }
             let camera_opened = if calibration_closed_at.is_some() {
                 false
             } else {
                 let mut mailbox = camera_mailbox.lock().unwrap();
-                bridge.state.lock().unwrap().camera_opened = mailbox.opened;
+                {
+                    let mut state = bridge.state.lock().unwrap();
+                    state.camera_opened = mailbox.opened && mailbox.unclosed;
+                    state.camera_closure_unconfirmed = mailbox.unclosed && !mailbox.opened;
+                }
                 if let Some(error) = &mailbox.error {
                     return Err(error.clone().into());
                 }
@@ -1426,7 +1517,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                 feedback.visual_pose = visual_pose;
                 // Classification is part of meaning latency and cannot extend freshness.
                 now = monotonic_us()?;
-                let state = crate::session::observe_controller(
+                let state = crate::session_config::observe_controller(
                     &config,
                     &mut controller,
                     now,
@@ -1462,8 +1553,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
             let handoff_us = monotonic_us()?;
             let (output, discarded) =
                 controller.guard_delivery(output, handoff_us, delivery_source);
-            crate::session::write_controller_mapped_at(
-                &mut writer_output,
+            crate::session_io::publish_at(
+                &mut writer,
                 &mut publisher,
                 &output,
                 delivery_source,
@@ -1562,8 +1653,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
                     crate::preview::ControllerControl::Pause => controller.stop(),
                     crate::preview::ControllerControl::Resume => controller.start_at(control_time),
                 };
-                crate::session::write_controller_mapped(
-                    &mut writer_output,
+                crate::session_io::publish(
+                    &mut writer,
                     &mut publisher,
                     &result,
                     None,
@@ -1579,28 +1670,41 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     })();
     capture_stop.store(true, Ordering::Relaxed);
     let final_state = controller.stop();
-    let release = crate::session::write_controller_mapped(
-        &mut writer_output,
+    let release = crate::session_io::publish(
+        &mut writer,
         &mut publisher,
         &final_state,
         None,
         absolute_workspace,
     );
-    drop(writer_output);
-    let writer_exit = writer.map(|mut child| child.wait()).transpose();
-    let writer_reaped = writer_exit.is_ok();
+    let writer_exit = writer.map(|writer| writer.stop(stop.load(Ordering::Relaxed)));
+    let writer_reaped = writer_exit
+        .as_ref()
+        .is_none_or(|status| status.exited && status.neutral);
     let joined = producer
         .map(|p| p.join())
         .transpose()
         .map_err(|_| "frame producer panicked");
-    if let Some(calibration) = &calibration {
-        // join returned even on panic: the producer no longer owns a camera fd.
-        calibration.lock().unwrap().confirm_camera_closed();
+    let camera_closed = !camera_mailbox.lock().unwrap().unclosed;
+    if camera_closed {
+        if let Some(calibration) = &calibration {
+            calibration.lock().unwrap().confirm_camera_closed();
+        }
     }
     let outcome = outcome.and_then(|_| {
         joined?;
+        if !camera_closed {
+            return Err("camera closure unconfirmed".into());
+        }
         release?;
-        crate::session::check_writer_exit(writer_exit?, stop.load(Ordering::Relaxed))?;
+        if let Some(status) = writer_exit {
+            if let Some(error) = status.error {
+                return Err(error.into());
+            }
+            if !status.exited || !status.neutral {
+                return Err("input cleanup unconfirmed".into());
+            }
+        }
         Ok(())
     });
     {
@@ -1614,9 +1718,8 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
         s.latest = None;
         s.skipped += s.captured.saturating_sub(s.last_issued);
         s.last_issued = s.captured;
-        // join has returned, including on panic: the producer's camera fd is gone.
-        // Mailbox.opened is retained acquisition history, not current activity.
         s.camera_opened = false;
+        s.camera_closure_unconfirmed = !camera_closed;
         s.recording_active = false;
         s.writer_reaped = writer_reaped;
     }
@@ -1631,7 +1734,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     terminal["camera_source"] = camera_source.into();
     terminal["recorded_source"] = recorded_source.into();
     terminal["recorded_time_ms"] = feedback.recorded_time_ms.into();
-    terminal["camera_opened"] = false.into();
+    terminal["camera_opened"] = bridge.state.lock().unwrap().camera_active().into();
     terminal["test_phase"] = if outcome.is_ok() { "complete" } else { "error" }.into();
     terminal["input_available"] = false.into();
     terminal["recording"] = false.into();
@@ -1661,7 +1764,7 @@ fn run_engine(options: RunOptions<'_>) -> Result<(), Box<dyn Error>> {
     journal.emit(
         json!({"event":"stop","controller":final_state,"captured":s.captured,
         "issued":s.issued,"skipped":s.skipped,"expired":s.expired,"worker_closed":s.closed,"terminal_visible":s.terminal_visible,
-        "error":outcome.as_ref().err().map(ToString::to_string),"stop_requested":s.stop_requested,"camera_opened":s.camera_opened,
+        "error":outcome.as_ref().err().map(ToString::to_string),"stop_requested":s.stop_requested,"camera_opened":s.camera_active(),
         "camera_captured":camera.frames,"camera_mailbox_dropped":camera.dropped,
         "source_kind":camera.source_kind,"system_input":s.system_input(),
         "camera_was_opened":camera.opened,"input_was_started":s.input_started,
@@ -1733,6 +1836,208 @@ fn metadata(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn unconfirmed_native_camera_closure_is_unknown_in_http_status() {
+        let b = bridge();
+        {
+            let mut state = b.state.lock().unwrap();
+            state.eof = true;
+            state.camera_closure_unconfirmed = true;
+        }
+        let status: Value =
+            serde_json::from_slice(&b.respond("GET", "/provider/config", b"").unwrap().body)
+                .unwrap();
+        assert!(status["camera_opened"].is_null());
+        assert_eq!(status["system_input"], false);
+    }
+
+    /// Actual HTTP + session + source republication + tracking/meaning + Stop.
+    /// The worker is emulated; this exercises no browser, model, camera or input.
+    #[test]
+    fn full_service_consumes_worker_leases_and_closes_without_recording_or_devices() {
+        use std::{
+            io::{Read, Write},
+            net::{TcpListener, TcpStream},
+        };
+        fn http(
+            port: u16,
+            method: &str,
+            path: &str,
+            body: &Value,
+        ) -> io::Result<(String, String, Vec<u8>)> {
+            let mut connection = TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port))?;
+            connection.set_read_timeout(Some(Duration::from_secs(3)))?;
+            let body = if method == "POST" {
+                serde_json::to_vec(body)?
+            } else {
+                Vec::new()
+            };
+            write!(connection,"{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",body.len())?;
+            connection.write_all(&body)?;
+            let mut reply = Vec::new();
+            connection.read_to_end(&mut reply)?;
+            let boundary = reply
+                .windows(4)
+                .position(|v| v == b"\r\n\r\n")
+                .ok_or_else(|| io::Error::other("HTTP headers missing"))?;
+            let headers =
+                String::from_utf8(reply[..boundary].to_vec()).map_err(io::Error::other)?;
+            Ok((
+                headers.lines().next().unwrap().to_owned(),
+                headers,
+                reply[boundary + 4..].to_vec(),
+            ))
+        }
+        let root = std::env::temp_dir().join(format!("wiggle-full-service-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let session = root.join("session.json");
+        let settings = root.join("settings.json");
+        fs::write(&session,json!({"camera":root.join("never-opened"),"fps":10,"gain":2000,"gesture_min_confidence":0.5}).to_string()).unwrap();
+        let config = SessionConfig::load_provider(&session).unwrap();
+        fs::write(
+            &settings,
+            json!({"version":1,"gestures":config.gestures()}).to_string(),
+        )
+        .unwrap();
+        let mut jpeg = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new(&mut jpeg)
+            .encode_image(&image::RgbImage::new(640, 480))
+            .unwrap();
+        let image = root.join("fixture.jpg");
+        fs::write(&image, &jpeg).unwrap();
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let worker = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let config = loop {
+                if let Ok((status, _, body)) = http(port, "GET", "/provider/config", &Value::Null) {
+                    assert!(status.contains("200"));
+                    break serde_json::from_slice::<Value>(&body).unwrap();
+                }
+                assert!(Instant::now() < deadline, "service did not listen");
+                thread::sleep(Duration::from_millis(10));
+            };
+            let run_id = &config["run_id"];
+            assert_eq!(config["camera_opened"], false);
+            assert_eq!(config["system_input"], false);
+            assert_eq!(config["recording_active"], false);
+            assert!(http(port, "GET", "/provider/frame", &Value::Null)
+                .unwrap()
+                .0
+                .contains("409"));
+            for path in ["/provider/prepare", "/provider/ready"] {
+                assert!(http(port, "POST", path, &json!({"run_id":run_id}))
+                    .unwrap()
+                    .0
+                    .contains("200"));
+            }
+            let mut receipts = 0;
+            let mut previous = 0;
+            while receipts < 2 {
+                assert!(
+                    Instant::now() < deadline,
+                    "fixture did not return meaning receipts"
+                );
+                let (status, headers, bytes) =
+                    http(port, "GET", "/provider/frame", &Value::Null).unwrap();
+                if status.contains("204") {
+                    thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                assert!(status.contains("200"), "{status}");
+                assert!(bytes.starts_with(&[0xff, 0xd8]));
+                let ticket: Value = serde_json::from_str(
+                    headers
+                        .lines()
+                        .find_map(|line| line.strip_prefix("X-Wiggle-Source: "))
+                        .unwrap(),
+                )
+                .unwrap();
+                let source = ticket["source_us"].as_u64().unwrap();
+                assert!(source > previous);
+                previous = source;
+                let (status, _, body) = http(
+                    port,
+                    "POST",
+                    "/provider/result",
+                    &json!({"run_id":run_id,"sequence":ticket["sequence"],"hands":[]}),
+                )
+                .unwrap();
+                assert!(
+                    status.contains("200"),
+                    "{status}: {}",
+                    String::from_utf8_lossy(&body)
+                );
+                let receipt: Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(receipt["source_us"], source);
+                assert_eq!(receipt["contacts"], json!([]));
+                receipts += 1;
+            }
+            assert!(http(
+                port,
+                "POST",
+                "/provider/stop",
+                &json!({"run_id":run_id,"graceful":true})
+            )
+            .unwrap()
+            .0
+            .contains("200"));
+            loop {
+                let (_, _, body) = http(port, "GET", "/provider/config", &Value::Null).unwrap();
+                let state: Value = serde_json::from_slice(&body).unwrap();
+                if state["terminal_ready"] == true {
+                    assert_eq!(state["camera_opened"], false);
+                    assert_eq!(state["system_input"], false);
+                    assert_eq!(state["recording_active"], false);
+                    break;
+                }
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(5));
+            }
+            for (path, body) in [
+                (
+                    "/provider/closed",
+                    json!({"run_id":run_id,"acknowledged":true}),
+                ),
+                ("/provider/terminal-visible", json!({"run_id":run_id})),
+            ] {
+                assert!(http(port, "POST", path, &body).unwrap().0.contains("200"));
+            }
+        });
+        let result = run_engine_with_assets(
+            RunOptions {
+                output_target: None,
+                calibration_profile: None,
+                session: &session,
+                settings: &settings,
+                asset_root: &root,
+                port,
+                max_hands: 1,
+                initial_jpeg: jpeg,
+                preflight: false,
+                source: Source::Fixture {
+                    frames: vec![
+                        (0, Some(image.clone())),
+                        (400_000, Some(image.clone())),
+                        (900_000, Some(image)),
+                    ],
+                    duration: 900_000,
+                },
+            },
+            |_| Ok(BTreeMap::new()),
+        );
+        let received = worker.join();
+        result.unwrap();
+        received.unwrap();
+        assert_eq!(
+            fs::read_dir(&root).unwrap().count(),
+            3,
+            "ordinary sessions must create no recording files"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn recording_status_reports_the_live_sink_separately_from_camera_and_eof() {
         let bridge = Bridge::new(BTreeMap::new(), 300_000, "record-status".into(), 1);
@@ -2275,7 +2580,7 @@ mod tests {
         fs::create_dir(&root).unwrap();
         let session = root.join("session.json");
         let settings = root.join("settings.json");
-        fs::write(&session, br#"{"camera":"/not-acquired","models":"/not-loaded","runtime":"/not-loaded","fps":10,"gain":2000,"gesture_min_confidence":0.5,"recording_enabled":true}"#).unwrap();
+        fs::write(&session, json!({"camera":root.join("not-acquired"),"models":root.join("not-loaded"),"runtime":root.join("not-loaded"),"fps":10,"gain":2000,"gesture_min_confidence":0.5,"recording_enabled":true}).to_string()).unwrap();
         let config = SessionConfig::load(&session).unwrap();
         fs::write(
             &settings,
@@ -2283,6 +2588,7 @@ mod tests {
         )
         .unwrap();
         let result = run_engine(RunOptions {
+            output_target: None,
             calibration_profile: None,
             session: &session,
             settings: &settings,

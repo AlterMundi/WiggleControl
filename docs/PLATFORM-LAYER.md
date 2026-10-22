@@ -117,3 +117,10 @@ The follow-up extraction also puts the #17 optional-sink factory and its exact
 four-combination/error-propagation regressions in the common library, so Windows
 uses the same input-independent-of-recording setup rule. Physical camera/input
 adapters, user-facing packaging and Legion acceptance remain pending.
+
+## Browser-provider session portability
+
+browser-provider runs the shared worker/HTTP/calibration engine with target OS
+capture/writer adapters. session_io centralizes packet mapping and cleanup status.
+Linux native capture/output compatibility paths are preserved. See
+[WINDOWS-SESSION.md](WINDOWS-SESSION.md) for APIs, tests and pending delivery.

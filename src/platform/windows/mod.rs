@@ -24,3 +24,8 @@ pub fn monotonic_us() -> io::Result<u64> {
     u64::try_from(count as u128 * 1_000_000 / frequency as u128)
         .map_err(|_| io::Error::other("QPC clock overflow"))
 }
+
+#[cfg(feature = "browser-provider")]
+pub(crate) mod provider_camera;
+#[cfg(feature = "browser-provider")]
+pub(crate) mod recording_store;

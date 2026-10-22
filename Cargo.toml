@@ -26,7 +26,8 @@ windows-camera = ["dep:windows", "dep:image"]
 native-probe = ["dep:tract-onnx"]
 native-ort = ["dep:ort"]
 provider-runtime = ["native-ort"]
-native-vision = ["provider-runtime", "dep:image", "dep:v4l", "dep:signal-hook"]
+browser-provider = ["provider-runtime", "windows-camera", "dep:sha2", "dep:v4l", "dep:signal-hook"]
+native-vision = ["browser-provider"]
 
 [[bin]]
 name = "wigglecontrol-simulate"
@@ -58,10 +59,14 @@ optional = true
 default-features = false
 features = ["jpeg", "png"]
 
-[dependencies.v4l]
+[target.'cfg(target_os = "linux")'.dependencies.v4l]
 version = "=0.14.0"
 optional = true
 
-[dependencies.signal-hook]
+[target.'cfg(target_os = "linux")'.dependencies.signal-hook]
 version = "=0.3.18"
+optional = true
+
+[dependencies.sha2]
+version = "=0.10.9"
 optional = true

@@ -16,3 +16,9 @@ pub fn monotonic_us() -> io::Result<u64> {
     }
     Ok(ts.tv_sec as u64 * 1_000_000 + ts.tv_nsec as u64 / 1000)
 }
+
+#[cfg(feature = "browser-provider")]
+pub(crate) mod camera;
+#[cfg(feature = "browser-provider")]
+pub(crate) mod provider_output;
+pub(crate) mod recording_store;

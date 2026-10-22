@@ -61,6 +61,9 @@ jobs:
       - run: cargo clippy --locked --features windows-camera --lib --test windows_capture -- -D warnings
       - run: cargo check --locked --features provider-runtime,windows-camera --bin wigglecontrol --bin wigglecontrol-simulate
       - run: cargo clippy --locked --features provider-runtime,windows-camera --lib --bin wigglecontrol --bin wigglecontrol-simulate -- -D warnings
+      - run: cargo test --locked --features browser-provider --lib --test provider_runtime --test provider_calibration --test windows_writer --test windows_capture
+      - run: cargo check --locked --features browser-provider --bin wigglecontrol
+      - run: cargo clippy --locked --features browser-provider --lib --bin wigglecontrol --test provider_runtime --test provider_calibration --test windows_writer --test windows_capture -- -D warnings
 
   native-vision:
     runs-on: ubuntu-latest
